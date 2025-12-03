@@ -36,17 +36,34 @@ export function scoreIssue(issue, settings = null) {
   const reactions = JSON.parse(issue.reactions || '{}');
 
   // 1. Priority/severity labels
-  if (rules.priorityLabels.enabled) {
-    const priorityLabels = [
-      'critical', 'high priority', 'urgent', 'severity: high',
-      'p0', 'p1', 'blocker', 'showstopper'
-    ];
+  if (rules.priorityLabels.enabled && rules.priorityLabels.labels) {
+    const priorityLabels = rules.priorityLabels.labels
+      .split(',')
+      .map(label => label.trim().toLowerCase())
+      .filter(label => label.length > 0);
+
     const hasPriorityLabel = labels.some(label =>
       priorityLabels.some(priority => label.toLowerCase().includes(priority))
     );
     if (hasPriorityLabel) {
       score += rules.priorityLabels.points;
       metadata.priorityLabels = rules.priorityLabels.points;
+    }
+  }
+
+  // 1b. Low priority labels (negative scoring)
+  if (rules.lowPriorityLabels && rules.lowPriorityLabels.enabled && rules.lowPriorityLabels.labels) {
+    const lowPriorityLabels = rules.lowPriorityLabels.labels
+      .split(',')
+      .map(label => label.trim().toLowerCase())
+      .filter(label => label.length > 0);
+
+    const hasLowPriorityLabel = labels.some(label =>
+      lowPriorityLabels.some(priority => label.toLowerCase().includes(priority))
+    );
+    if (hasLowPriorityLabel) {
+      score += rules.lowPriorityLabels.points;
+      metadata.lowPriorityLabels = rules.lowPriorityLabels.points;
     }
   }
 

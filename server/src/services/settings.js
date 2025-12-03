@@ -7,7 +7,16 @@ export function getDefaultSettings() {
   return {
     importantBugs: {
       scoringRules: {
-        priorityLabels: { enabled: true, points: 30 },
+        priorityLabels: {
+          enabled: true,
+          points: 30,
+          labels: 'critical, high priority, urgent, severity: high, p0, p1, blocker, showstopper, priority high, priority: high, [priority] high'
+        },
+        lowPriorityLabels: {
+          enabled: true,
+          points: -20,
+          labels: 'priority low, priority: low, [priority] low, low priority'
+        },
         recentActivity: { enabled: true, points: 20, daysThreshold: 7 },
         highReactions: { enabled: true, points: 15, reactionThreshold: 5 },
         assigned: { enabled: true, points: 10 },
@@ -85,18 +94,38 @@ export function getDefaultSettings() {
 function migrateSettings(settings) {
   const defaults = getDefaultSettings();
 
+  let importantBugs;
+  let staleIssues;
+
   // If already in new format, ensure both sections exist
   if (settings.importantBugs || settings.staleIssues) {
-    return {
-      importantBugs: settings.importantBugs || defaults.importantBugs,
-      staleIssues: settings.staleIssues || defaults.staleIssues,
-    };
+    importantBugs = settings.importantBugs || defaults.importantBugs;
+    staleIssues = settings.staleIssues || defaults.staleIssues;
+  } else {
+    // Old format: wrap in importantBugs, add staleIssues defaults
+    importantBugs = settings;
+    staleIssues = defaults.staleIssues;
   }
 
-  // Old format: wrap in importantBugs, add staleIssues defaults
+  // Migrate priorityLabels and lowPriorityLabels to include labels field if missing
+  if (importantBugs.scoringRules) {
+    if (importantBugs.scoringRules.priorityLabels && !importantBugs.scoringRules.priorityLabels.labels) {
+      importantBugs.scoringRules.priorityLabels.labels = defaults.importantBugs.scoringRules.priorityLabels.labels;
+    }
+
+    if (importantBugs.scoringRules.lowPriorityLabels && !importantBugs.scoringRules.lowPriorityLabels.labels) {
+      importantBugs.scoringRules.lowPriorityLabels.labels = defaults.importantBugs.scoringRules.lowPriorityLabels.labels;
+    }
+
+    // Add lowPriorityLabels rule if it doesn't exist (for very old settings)
+    if (!importantBugs.scoringRules.lowPriorityLabels) {
+      importantBugs.scoringRules.lowPriorityLabels = defaults.importantBugs.scoringRules.lowPriorityLabels;
+    }
+  }
+
   return {
-    importantBugs: settings,
-    staleIssues: defaults.staleIssues,
+    importantBugs,
+    staleIssues,
   };
 }
 
@@ -116,6 +145,7 @@ function validateImportantBugsSettings(bugSettings) {
   // Validate simple rules (0-200 points)
   const simpleRules = [
     'priorityLabels',
+    'lowPriorityLabels',
     'recentActivity',
     'highReactions',
     'assigned',
@@ -130,12 +160,25 @@ function validateImportantBugsSettings(bugSettings) {
     }
 
     const points = rules[rule].points;
-    if (typeof points !== 'number' || points < 0 || points > 200) {
-      errors.push(`importantBugs: ${rule}.points must be a number between 0 and 200`);
+    if (typeof points !== 'number' || points < -200 || points > 200) {
+      errors.push(`importantBugs: ${rule}.points must be a number between -200 and 200`);
     }
 
     if (typeof rules[rule].enabled !== 'boolean') {
       errors.push(`importantBugs: ${rule}.enabled must be a boolean`);
+    }
+  }
+
+  // Validate priorityLabels and lowPriorityLabels have labels field
+  if (rules.priorityLabels) {
+    if (typeof rules.priorityLabels.labels !== 'string' || rules.priorityLabels.labels.trim() === '') {
+      errors.push('importantBugs: priorityLabels.labels must be a non-empty string');
+    }
+  }
+
+  if (rules.lowPriorityLabels) {
+    if (typeof rules.lowPriorityLabels.labels !== 'string' || rules.lowPriorityLabels.labels.trim() === '') {
+      errors.push('importantBugs: lowPriorityLabels.labels must be a non-empty string');
     }
   }
 

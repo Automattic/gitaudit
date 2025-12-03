@@ -8,6 +8,12 @@ export function flattenImportantBugsSettings(settings) {
     // Priority Labels
     priorityLabels_enabled: rules.priorityLabels.enabled,
     priorityLabels_points: rules.priorityLabels.points,
+    priorityLabels_labels: rules.priorityLabels.labels,
+
+    // Low Priority Labels
+    lowPriorityLabels_enabled: rules.lowPriorityLabels.enabled,
+    lowPriorityLabels_points: rules.lowPriorityLabels.points,
+    lowPriorityLabels_labels: rules.lowPriorityLabels.labels,
 
     // Recent Activity
     recentActivity_enabled: rules.recentActivity.enabled,

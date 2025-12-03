@@ -179,7 +179,7 @@ function ImportantBugs() {
               selectedTabId={activeTab}
               onSelect={(tabId) => handleTabClick(tabId)}
             >
-              <Tabs.TabList style={{ marginBottom: "1.5rem" }}>
+              <Tabs.TabList>
                 <Tabs.Tab tabId="all">All ({stats?.all || 0})</Tabs.Tab>
                 <Tabs.Tab tabId="critical">Critical ({stats?.critical || 0})</Tabs.Tab>
                 <Tabs.Tab tabId="high">High ({stats?.high || 0})</Tabs.Tab>

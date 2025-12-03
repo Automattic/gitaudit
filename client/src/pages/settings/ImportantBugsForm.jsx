@@ -3,6 +3,7 @@ import { DataForm } from '@wordpress/dataviews';
 import {
   CheckboxControl,
   __experimentalNumberControl as NumberControl,
+  TextControl,
 } from '@wordpress/components';
 import {
   flattenImportantBugsSettings,
@@ -35,7 +36,7 @@ function ImportantBugsForm({ settings, onChange }) {
         label: 'Enable',
         Edit: ({ data, field, onChange }) => (
           <CheckboxControl
-            label="Issues with priority labels (critical, urgent, p0, etc.)"
+            label="Issues with priority labels (critical, urgent, high, p0, etc.)"
             checked={data[field.id]}
             onChange={(value) => onChange({ [field.id]: value })}
           />
@@ -53,6 +54,63 @@ function ImportantBugsForm({ settings, onChange }) {
             min={0}
             max={200}
             disabled={!data.priorityLabels_enabled}
+          />
+        ),
+      },
+      {
+        id: 'priorityLabels_labels',
+        type: 'text',
+        label: 'Labels (comma-separated)',
+        Edit: ({ data, field, onChange }) => (
+          <TextControl
+            label={field.label}
+            value={data[field.id]}
+            onChange={(value) => onChange({ [field.id]: value })}
+            disabled={!data.priorityLabels_enabled}
+            help="Enter label patterns to match, separated by commas"
+          />
+        ),
+      },
+
+      // Low Priority Labels
+      {
+        id: 'lowPriorityLabels_enabled',
+        type: 'text',
+        label: 'Enable',
+        Edit: ({ data, field, onChange }) => (
+          <CheckboxControl
+            label="Issues with low priority labels (negative scoring)"
+            checked={data[field.id]}
+            onChange={(value) => onChange({ [field.id]: value })}
+          />
+        ),
+      },
+      {
+        id: 'lowPriorityLabels_points',
+        type: 'integer',
+        label: 'Points',
+        Edit: ({ data, field, onChange }) => (
+          <NumberControl
+            label={field.label}
+            value={data[field.id]}
+            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            min={-200}
+            max={200}
+            disabled={!data.lowPriorityLabels_enabled}
+          />
+        ),
+      },
+      {
+        id: 'lowPriorityLabels_labels',
+        type: 'text',
+        label: 'Labels (comma-separated)',
+        Edit: ({ data, field, onChange }) => (
+          <TextControl
+            label={field.label}
+            value={data[field.id]}
+            onChange={(value) => onChange({ [field.id]: value })}
+            disabled={!data.lowPriorityLabels_enabled}
+            help="Enter label patterns to match, separated by commas"
           />
         ),
       },
@@ -436,6 +494,20 @@ function ImportantBugsForm({ settings, onChange }) {
                   layout: { type: 'row' },
                   children: ['priorityLabels_points'],
                 },
+                'priorityLabels_labels',
+              ],
+            },
+            {
+              id: 'low-priority-labels',
+              label: 'Low Priority Labels',
+              children: [
+                'lowPriorityLabels_enabled',
+                {
+                  id: 'low-priority-labels-fields',
+                  layout: { type: 'row' },
+                  children: ['lowPriorityLabels_points'],
+                },
+                'lowPriorityLabels_labels',
               ],
             },
             {

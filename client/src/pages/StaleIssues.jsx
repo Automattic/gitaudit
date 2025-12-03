@@ -197,7 +197,7 @@ function StaleIssues() {
               selectedTabId={activeTab}
               onSelect={(tabId) => handleTabClick(tabId)}
             >
-              <Tabs.TabList style={{ marginBottom: "1.5rem" }}>
+              <Tabs.TabList>
                 <Tabs.Tab tabId="all">All ({stats?.all || 0})</Tabs.Tab>
                 <Tabs.Tab tabId="veryStale">Very Stale ({stats?.veryStale || 0})</Tabs.Tab>
                 <Tabs.Tab tabId="moderatelyStale">Moderately Stale ({stats?.moderatelyStale || 0})</Tabs.Tab>
