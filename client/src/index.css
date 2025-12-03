@@ -1,0 +1,46 @@
+/* Import WordPress components styles */
+@import '@wordpress/components/build-style/style.css';
+@import '@wordpress/dataviews/build-style/style.css';
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f0f0f0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+code {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Refreshing indicator animation */
+@keyframes dots {
+  0%, 20% {
+    content: '.  ';
+  }
+  40% {
+    content: '.. ';
+  }
+  60%, 100% {
+    content: '...';
+  }
+}
+
+.refreshing-indicator::after {
+  content: '';
+  animation: dots 1.5s steps(1, end) infinite;
+  display: inline-block;
+  width: 1.5ch;
+  text-align: left;
+}

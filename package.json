@@ -1,0 +1,24 @@
+{
+  "name": "gitaudit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub repository audit tool for issues and PRs",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "client": "npm run start --workspace=client",
+    "server": "npm run start --workspace=server",
+    "dev": "npm run server & npm run client",
+    "install:all": "npm install && npm install --workspaces"
+  },
+  "keywords": [
+    "github",
+    "audit",
+    "issues",
+    "analytics"
+  ],
+  "author": "",
+  "license": "MIT"
+}
