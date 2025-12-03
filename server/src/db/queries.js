@@ -146,6 +146,14 @@ export const issueQueries = {
   get findByGithubId() {
     return db.prepare('SELECT * FROM issues WHERE github_id = ?');
   },
+
+  get getMostRecentUpdatedAt() {
+    return db.prepare(`
+      SELECT MAX(updated_at) as most_recent_updated_at
+      FROM issues
+      WHERE repo_id = ?
+    `);
+  },
 };
 
 // Analysis queries

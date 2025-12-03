@@ -104,7 +104,7 @@ async function processQueue() {
 
 /**
  * Process issue fetch job
- * MOVED from fetchIssuesInBackground in issues.js
+ * RESUMABLE: Uses ASC ordering + since filter for interrupted fetches
  */
 async function processIssueFetchJob(job) {
   const { repoId, owner, repoName, accessToken } = job;
@@ -112,45 +112,46 @@ async function processIssueFetchJob(job) {
   let hasNextPage = true;
   let after = null;
   let fetchedCount = 0;
+  let newCount = 0;
   let updatedCount = 0;
   let pageCount = 0;
   const startTime = Date.now();
 
-  // Get last fetch time for incremental updates
+  // Get most recent issue's updated_at for incremental updates
   const repo = repoQueries.getById.get(repoId);
-  const lastFetched = repo?.last_fetched ? new Date(repo.last_fetched) : null;
+  const mostRecentResult = issueQueries.getMostRecentUpdatedAt.get(repoId);
+  const mostRecentIssueUpdatedAt = mostRecentResult?.most_recent_updated_at;
+
+  // Calculate 'since' timestamp for GitHub API filter
+  // Subtract 1 minute for clock skew protection
+  let since = null;
+  if (mostRecentIssueUpdatedAt) {
+    const mostRecentDate = new Date(mostRecentIssueUpdatedAt);
+    const sinceDate = new Date(mostRecentDate.getTime() - 60 * 1000); // 1 minute buffer
+    since = sinceDate.toISOString();
+  }
 
   console.log(`[${owner}/${repoName}] Starting issue fetch...`);
-  if (lastFetched) {
-    console.log(`[${owner}/${repoName}] Last fetched: ${lastFetched.toISOString()} (incremental mode)`);
+  if (since) {
+    console.log(
+      `[${owner}/${repoName}] Incremental mode: fetching issues updated after ${since} ` +
+      `(most recent in DB: ${mostRecentIssueUpdatedAt})`
+    );
   } else {
-    console.log(`[${owner}/${repoName}] First fetch (full sync mode)`);
+    console.log(`[${owner}/${repoName}] Full sync mode (first fetch)`);
   }
 
   while (hasNextPage) {
     const pageStartTime = Date.now();
     pageCount++;
 
-    const result = await fetchRepositoryIssues(accessToken, owner, repoName, 100, after);
+    // Fetch with ASC ordering and optional 'since' filter
+    const result = await fetchRepositoryIssues(accessToken, owner, repoName, 100, after, since);
     const fetchTime = Date.now() - pageStartTime;
-
-    // Check for early stopping: if all issues on this page are older than last fetch
-    let shouldStop = false;
-    if (lastFetched && result.nodes.length > 0) {
-      const allOlderThanLastFetch = result.nodes.every(issue =>
-        new Date(issue.updatedAt) <= lastFetched
-      );
-
-      if (allOlderThanLastFetch) {
-        shouldStop = true;
-        console.log(
-          `[${owner}/${repoName}] Early stop: All issues on page ${pageCount} haven't changed since last fetch`
-        );
-      }
-    }
 
     // Store issues in database
     const dbStartTime = Date.now();
+    let pageNewCount = 0;
     let pageUpdatedCount = 0;
 
     const saveIssues = transaction(() => {
@@ -160,10 +161,14 @@ async function processIssueFetchJob(job) {
         const comments = issue.comments.nodes;
         const lastComment = comments.length > 0 ? comments[comments.length - 1] : null;
 
-        const issueUpdatedAt = new Date(issue.updatedAt);
-        const isUpdated = !lastFetched || issueUpdatedAt > lastFetched;
+        // Track if this is a new or updated issue
+        const existingIssue = issueQueries.findByGithubId.get(issue.databaseId);
+        const isNew = !existingIssue;
+        const isUpdated = existingIssue && new Date(issue.updatedAt) > new Date(existingIssue.updated_at);
 
-        if (isUpdated) {
+        if (isNew) {
+          pageNewCount++;
+        } else if (isUpdated) {
           pageUpdatedCount++;
         }
 
@@ -193,21 +198,17 @@ async function processIssueFetchJob(job) {
     const dbTime = Date.now() - dbStartTime;
 
     fetchedCount += result.nodes.length;
+    newCount += pageNewCount;
     updatedCount += pageUpdatedCount;
-    hasNextPage = result.pageInfo.hasNextPage && !shouldStop;
+    hasNextPage = result.pageInfo.hasNextPage;
     after = result.pageInfo.endCursor;
 
     console.log(
       `[${owner}/${repoName}] Page ${pageCount}: ` +
-      `fetched ${result.nodes.length} issues (${pageUpdatedCount} updated, ${fetchedCount} total) | ` +
+      `fetched ${result.nodes.length} issues (${pageNewCount} new, ${pageUpdatedCount} updated, ${fetchedCount} total) | ` +
       `API: ${fetchTime}ms, DB: ${dbTime}ms, Total: ${fetchTime + dbTime}ms` +
-      `${hasNextPage ? ' | More pages...' : shouldStop ? ' | Stopped early' : ''}`
+      `${hasNextPage ? ' | More pages...' : ''}`
     );
-
-    // Stop if we should
-    if (shouldStop) {
-      break;
-    }
   }
 
   const totalTime = Date.now() - startTime;
@@ -217,9 +218,9 @@ async function processIssueFetchJob(job) {
   repoQueries.updateFetchStatus.run('completed', repoId);
   console.log(
     `[${owner}/${repoName}] ✓ Issue fetch completed: ` +
-    `${fetchedCount} issues fetched, ${updatedCount} updated, ${pageCount} pages, ${Math.round(totalTime / 1000)}s total ` +
+    `${fetchedCount} issues fetched (${newCount} new, ${updatedCount} updated), ${pageCount} pages, ${Math.round(totalTime / 1000)}s total ` +
     `(avg ${avgTimePerPage}ms/page)` +
-    `${lastFetched ? ' | Incremental update' : ' | Full sync'}`
+    `${since ? ' | Incremental update' : ' | Full sync'}`
   );
 }
 

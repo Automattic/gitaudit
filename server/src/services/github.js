@@ -98,15 +98,20 @@ export async function fetchUserRepositories(accessToken, first = 100, after = nu
 }
 
 // Fetch issues for a repository
-export async function fetchRepositoryIssues(accessToken, owner, repo, first = 100, after = null) {
+// Supports incremental fetching via 'since' parameter (ISO 8601 timestamp)
+export async function fetchRepositoryIssues(accessToken, owner, repo, first = 100, after = null, since = null) {
   const client = createGitHubClient(accessToken);
 
+  // Build query with optional since filter
+  const filterByClause = since ? ', filterBy: {since: $since}' : '';
+  const sinceVariable = since ? ', $since: DateTime!' : '';
+
   const query = `
-    query($owner: String!, $repo: String!, $first: Int!, $after: String) {
+    query($owner: String!, $repo: String!, $first: Int!, $after: String${sinceVariable}) {
       repository(owner: $owner, name: $repo) {
         id
         databaseId
-        issues(first: $first, after: $after, states: [OPEN], orderBy: {field: UPDATED_AT, direction: DESC}) {
+        issues(first: $first, after: $after, states: [OPEN], orderBy: {field: UPDATED_AT, direction: ASC}${filterByClause}) {
           pageInfo {
             hasNextPage
             endCursor
@@ -157,7 +162,12 @@ export async function fetchRepositoryIssues(accessToken, owner, repo, first = 10
     }
   `;
 
-  const result = await client(query, { owner, repo, first, after });
+  const variables = { owner, repo, first, after };
+  if (since) {
+    variables.since = since;
+  }
+
+  const result = await client(query, variables);
   return result.repository.issues;
 }
 

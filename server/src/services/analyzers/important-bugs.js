@@ -161,19 +161,17 @@ export function analyzeImportantBugs(issues, settings = null, options = {}) {
   // Sort by score descending
   scoredBugs.sort((a, b) => b.score - a.score);
 
-  // Filter by priority level (only for bugs scoring above minimum threshold)
-  const bugsAboveThreshold = scoredBugs.filter(b => b.score >= thresholds.medium);
-
-  let filteredBugs = bugsAboveThreshold;
+  // Filter by priority level
+  let filteredBugs = scoredBugs;
   if (priorityLevel !== 'all') {
     if (priorityLevel === 'critical') {
-      filteredBugs = bugsAboveThreshold.filter(b => b.score >= thresholds.critical);
+      filteredBugs = scoredBugs.filter(b => b.score >= thresholds.critical);
     } else if (priorityLevel === 'high') {
-      filteredBugs = bugsAboveThreshold.filter(
+      filteredBugs = scoredBugs.filter(
         b => b.score >= thresholds.high && b.score < thresholds.critical
       );
     } else if (priorityLevel === 'medium') {
-      filteredBugs = bugsAboveThreshold.filter(
+      filteredBugs = scoredBugs.filter(
         b => b.score >= thresholds.medium && b.score < thresholds.high
       );
     }
@@ -216,14 +214,14 @@ export function analyzeImportantBugs(issues, settings = null, options = {}) {
   const startIndex = (page - 1) * perPage;
   const paginatedBugs = filteredBugs.slice(startIndex, startIndex + perPage);
 
-  // Calculate stats for ALL bugs above threshold (not just current page)
+  // Calculate stats for ALL bugs (not just current page)
   const stats = {
-    all: bugsAboveThreshold.length,
-    critical: bugsAboveThreshold.filter(b => b.score >= thresholds.critical).length,
-    high: bugsAboveThreshold.filter(
+    all: scoredBugs.length,
+    critical: scoredBugs.filter(b => b.score >= thresholds.critical).length,
+    high: scoredBugs.filter(
       b => b.score >= thresholds.high && b.score < thresholds.critical
     ).length,
-    medium: bugsAboveThreshold.filter(
+    medium: scoredBugs.filter(
       b => b.score >= thresholds.medium && b.score < thresholds.high
     ).length,
   };
