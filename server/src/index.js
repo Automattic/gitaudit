@@ -16,6 +16,10 @@ initializeDatabase();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy - required for Railway and other hosting platforms
+// This allows Express to correctly detect HTTPS from X-Forwarded-Proto header
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
