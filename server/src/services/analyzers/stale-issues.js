@@ -37,7 +37,8 @@ export function scoreStaleIssue(issue, settings = null) {
   for (const range of sortedRanges) {
     if (daysSinceUpdated > range.days) {
       score += range.points;
-      metadata[range.name] = true;
+      metadata.activityTimeRange = range.points;
+      metadata.activityTimeRangeName = range.name;
       break; // Only apply one time range
     }
   }
@@ -50,7 +51,7 @@ export function scoreStaleIssue(issue, settings = null) {
     );
     if (hasWaitingLabel) {
       score += waitingRule.points;
-      metadata.waitingForResponse = true;
+      metadata.waitingForResponse = waitingRule.points;
     }
   }
 
@@ -59,7 +60,7 @@ export function scoreStaleIssue(issue, settings = null) {
   if (abandonedRule.enabled) {
     if (assignees.length > 0 && daysSinceUpdated > abandonedRule.daysThreshold) {
       score += abandonedRule.points;
-      metadata.abandonedByAssignee = true;
+      metadata.abandonedByAssignee = abandonedRule.points;
     }
   }
 
@@ -68,7 +69,7 @@ export function scoreStaleIssue(issue, settings = null) {
   if (neverAddressedRule.enabled) {
     if (daysSinceCreated > neverAddressedRule.ageThreshold && issue.comments_count === 0) {
       score += neverAddressedRule.points;
-      metadata.neverAddressed = true;
+      metadata.neverAddressed = neverAddressedRule.points;
     }
   }
 
@@ -82,7 +83,9 @@ export function scoreStaleIssue(issue, settings = null) {
       daysSinceUpdated > highInterestRule.daysThreshold
     ) {
       score += highInterestRule.points;
-      metadata.highInterestButStale = true;
+      metadata.highInterestButStale = highInterestRule.points;
+      metadata.totalReactions = totalReactions;
+      metadata.commentsCount = issue.comments_count;
     }
   }
 
@@ -91,7 +94,7 @@ export function scoreStaleIssue(issue, settings = null) {
   if (staleMilestoneRule.enabled) {
     if (issue.milestone && daysSinceUpdated > staleMilestoneRule.daysThreshold) {
       score += staleMilestoneRule.points;
-      metadata.staleMilestone = true;
+      metadata.staleMilestone = staleMilestoneRule.points;
     }
   }
 
@@ -103,7 +106,7 @@ export function scoreStaleIssue(issue, settings = null) {
     );
     if (hasDuplicateLabel && issue.state === 'open') {
       score += markedForClosureRule.points;
-      metadata.markedForClosure = true;
+      metadata.markedForClosure = markedForClosureRule.points;
     }
   }
 

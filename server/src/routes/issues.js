@@ -185,15 +185,19 @@ router.get('/sentiment/status', authenticateToken, async (req, res) => {
   }
 });
 
-// Get important bugs
-router.get('/important-bugs', authenticateToken, async (req, res) => {
+// Unified endpoint for all issues with scores
+router.get('/', authenticateToken, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   // Extract query parameters
   const page = parseInt(req.query.page) || 1;
   const perPage = parseInt(req.query.per_page) || 20;
-  const priorityLevel = req.query.priority || 'all';
+  const scoreType = req.query.scoreType || 'all';
+  const sortBy = req.query.sortBy || null;
+  const priority = req.query.priority || 'all';
+  const level = req.query.level || 'all';
   const search = req.query.search || '';
+  const issueType = req.query.issueType || 'all';
 
   try {
     const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
@@ -202,87 +206,21 @@ router.get('/important-bugs', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Repository not found' });
     }
 
-    // Load repo's settings
+    // Load repo's settings (both importantBugs and staleIssues)
     const allSettings = loadRepoSettings(repo.id);
-    const bugSettings = allSettings.importantBugs;
 
     // Get all open issues
     const issues = issueQueries.findOpenByRepo.all(repo.id);
 
-    // Analyze and score bugs with user's settings, pagination, and search
-    const { analyzeImportantBugs } = await import('../services/analyzers/important-bugs.js');
-    const { bugs, totalItems, totalPages, stats } = analyzeImportantBugs(
-      issues,
-      bugSettings,
-      { page, perPage, priorityLevel, search }
-    );
+    // Analyze with unified analyzer
+    const { analyzeIssuesWithAllScores } = await import('../services/analyzers/unified.js');
+    const { issues: analyzedIssues, totalItems, totalPages, stats, thresholds } =
+      analyzeIssuesWithAllScores(issues, allSettings, {
+        page, perPage, scoreType, sortBy, priority, level, search, issueType
+      });
 
     // Format response
-    const formattedBugs = bugs.map(bug => ({
-      id: bug.id,
-      githubId: bug.github_id,
-      number: bug.number,
-      title: bug.title,
-      body: bug.body,
-      state: bug.state,
-      labels: JSON.parse(bug.labels || '[]'),
-      createdAt: bug.created_at,
-      updatedAt: bug.updated_at,
-      commentsCount: bug.comments_count,
-      assignees: JSON.parse(bug.assignees || '[]'),
-      milestone: bug.milestone,
-      score: bug.score,
-      scoreMetadata: bug.scoreMetadata,
-      url: `https://github.com/${owner}/${repoName}/issues/${bug.number}`,
-    }));
-
-    res.json({
-      bugs: formattedBugs,
-      totalItems,
-      totalPages,
-      stats,
-      thresholds: bugSettings.thresholds, // Include for UI display
-    });
-  } catch (error) {
-    console.error('Error analyzing important bugs:', error);
-    res.status(500).json({ error: 'Failed to analyze important bugs' });
-  }
-});
-
-// Get stale issues
-router.get('/stale-issues', authenticateToken, async (req, res) => {
-  const { owner, repo: repoName } = req.params;
-
-  // Extract query parameters
-  const page = parseInt(req.query.page) || 1;
-  const perPage = parseInt(req.query.per_page) || 20;
-  const staleLevel = req.query.level || 'all';
-  const search = req.query.search || '';
-
-  try {
-    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
-
-    if (!repo) {
-      return res.status(404).json({ error: 'Repository not found' });
-    }
-
-    // Load repo's settings
-    const allSettings = loadRepoSettings(repo.id);
-    const staleSettings = allSettings.staleIssues;
-
-    // Get all open issues
-    const issues = issueQueries.findOpenByRepo.all(repo.id);
-
-    // Analyze and score stale issues with pagination and search
-    const { analyzeStaleIssues } = await import('../services/analyzers/stale-issues.js');
-    const { issues: staleIssues, totalItems, totalPages, stats, thresholds } = analyzeStaleIssues(
-      issues,
-      staleSettings,
-      { page, perPage, staleLevel, search }
-    );
-
-    // Format response
-    const formattedIssues = staleIssues.map(issue => ({
+    const formattedIssues = analyzedIssues.map(issue => ({
       id: issue.id,
       githubId: issue.github_id,
       number: issue.number,
@@ -295,9 +233,8 @@ router.get('/stale-issues', authenticateToken, async (req, res) => {
       commentsCount: issue.comments_count,
       assignees: JSON.parse(issue.assignees || '[]'),
       milestone: issue.milestone,
-      score: issue.score,
-      scoreMetadata: issue.scoreMetadata,
       url: `https://github.com/${owner}/${repoName}/issues/${issue.number}`,
+      scores: issue.scores // Includes all score types with metadata
     }));
 
     res.json({
@@ -306,10 +243,11 @@ router.get('/stale-issues', authenticateToken, async (req, res) => {
       totalPages,
       stats,
       thresholds,
+      fetchStatus: repo.fetch_status || 'not_started'
     });
   } catch (error) {
-    console.error('Error analyzing stale issues:', error);
-    res.status(500).json({ error: 'Failed to analyze stale issues' });
+    console.error('Error analyzing issues:', error);
+    res.status(500).json({ error: 'Failed to analyze issues' });
   }
 });
 

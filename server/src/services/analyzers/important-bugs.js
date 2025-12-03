@@ -46,7 +46,7 @@ export function scoreIssue(issue, settings = null) {
     );
     if (hasPriorityLabel) {
       score += rules.priorityLabels.points;
-      metadata.hasPriorityLabel = true;
+      metadata.priorityLabels = rules.priorityLabels.points;
     }
   }
 
@@ -56,7 +56,8 @@ export function scoreIssue(issue, settings = null) {
     const daysSinceUpdate = (Date.now() - updatedAt) / (1000 * 60 * 60 * 24);
     if (daysSinceUpdate <= rules.recentActivity.daysThreshold) {
       score += rules.recentActivity.points;
-      metadata.recentActivity = true;
+      metadata.recentActivity = rules.recentActivity.points;
+      metadata.daysSinceUpdate = Math.floor(daysSinceUpdate);
     }
   }
 
@@ -65,20 +66,21 @@ export function scoreIssue(issue, settings = null) {
     const totalReactions = reactions.total || 0;
     if (totalReactions > rules.highReactions.reactionThreshold) {
       score += rules.highReactions.points;
-      metadata.highEngagement = true;
+      metadata.highReactions = rules.highReactions.points;
+      metadata.totalReactions = totalReactions;
     }
   }
 
   // 4. Assigned
   if (rules.assigned.enabled && assignees.length > 0) {
     score += rules.assigned.points;
-    metadata.isAssigned = true;
+    metadata.assigned = rules.assigned.points;
   }
 
   // 5. Milestone
   if (rules.milestone.enabled && issue.milestone) {
     score += rules.milestone.points;
-    metadata.hasMilestone = true;
+    metadata.milestone = rules.milestone.points;
   }
 
   // 6. Active discussion - scaled by comment count
@@ -94,8 +96,8 @@ export function scoreIssue(issue, settings = null) {
 
     if (commentScore > 0) {
       score += commentScore;
-      metadata.activeDiscussion = true;
-      metadata.commentScore = commentScore;
+      metadata.activeDiscussion = commentScore;
+      metadata.commentsCount = issue.comments_count;
     }
   }
 
@@ -109,7 +111,8 @@ export function scoreIssue(issue, settings = null) {
     if (daysSinceCreation > rules.longstandingButActive.ageThreshold &&
         daysSinceUpdate <= rules.longstandingButActive.activityThreshold) {
       score += rules.longstandingButActive.points;
-      metadata.longstandingButActive = true;
+      metadata.longstandingButActive = rules.longstandingButActive.points;
+      metadata.daysSinceCreation = Math.floor(daysSinceCreation);
     }
   }
 
