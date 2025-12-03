@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories } from '../services/github.js';
-import { repoQueries } from '../db/queries.js';
+import { repoQueries, transaction } from '../db/queries.js';
 
 const router = express.Router();
 
@@ -74,18 +74,26 @@ router.post('/save', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: owner, name, githubId' });
     }
 
-    const repo = repoQueries.saveRepo.get(
-      req.user.id,
-      owner,
-      name,
-      githubId,
-      description || null,
-      stars || 0,
-      language || null,
-      languageColor || null,
-      updatedAt || null,
-      isPrivate ? 1 : 0
-    );
+    // Use transaction to save repo and link to user atomically
+    const repo = transaction(() => {
+      // First, insert or update the repository
+      const savedRepo = repoQueries.saveRepo.get(
+        owner,
+        name,
+        githubId,
+        description || null,
+        stars || 0,
+        language || null,
+        languageColor || null,
+        updatedAt || null,
+        isPrivate ? 1 : 0
+      );
+
+      // Then, link the user to the repository
+      repoQueries.addUserRepo.run(req.user.id, savedRepo.id);
+
+      return savedRepo;
+    })();
 
     res.json({ repo });
   } catch (error) {

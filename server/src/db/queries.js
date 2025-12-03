@@ -55,41 +55,50 @@ export const repoQueries = {
   // New queries for saved repos
   get findAllByUser() {
     return db.prepare(`
-      SELECT * FROM repositories
-      WHERE user_id = ?
-      ORDER BY date_added DESC
+      SELECT r.*, ur.date_added
+      FROM repositories r
+      JOIN user_repositories ur ON r.id = ur.repo_id
+      WHERE ur.user_id = ?
+      ORDER BY ur.date_added DESC
     `);
   },
 
   get saveRepo() {
     return db.prepare(`
       INSERT INTO repositories
-        (user_id, owner, name, github_id, description, stars, language, language_color, updated_at, is_private)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (owner, name, github_id, description, stars, language, language_color, updated_at, is_private)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(owner, name) DO UPDATE SET
-        user_id = excluded.user_id,
         description = excluded.description,
         stars = excluded.stars,
         language = excluded.language,
         language_color = excluded.language_color,
         updated_at = excluded.updated_at,
-        is_private = excluded.is_private,
-        date_added = CURRENT_TIMESTAMP
+        is_private = excluded.is_private
       RETURNING *
+    `);
+  },
+
+  get addUserRepo() {
+    return db.prepare(`
+      INSERT OR IGNORE INTO user_repositories (user_id, repo_id)
+      VALUES (?, ?)
     `);
   },
 
   get deleteByUserAndId() {
     return db.prepare(`
-      DELETE FROM repositories
-      WHERE id = ? AND user_id = ?
+      DELETE FROM user_repositories
+      WHERE repo_id = ? AND user_id = ?
     `);
   },
 
   get checkIfSaved() {
     return db.prepare(`
-      SELECT id FROM repositories
-      WHERE user_id = ? AND owner = ? AND name = ?
+      SELECT r.id
+      FROM repositories r
+      JOIN user_repositories ur ON r.id = ur.repo_id
+      WHERE ur.user_id = ? AND r.owner = ? AND r.name = ?
     `);
   },
 };

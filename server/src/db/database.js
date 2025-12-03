@@ -109,6 +109,9 @@ export function initializeDatabase() {
   // Create repo_settings table
   createRepoSettingsTable();
 
+  // Migrate to user_repositories join table
+  migrateToUserRepositoriesTable();
+
   // Clean up any stuck in_progress statuses from server crashes
   cleanupStuckStatuses();
 
@@ -244,6 +247,53 @@ function createRepoSettingsTable() {
   if (!indexNames.includes('idx_repo_settings_repo_id')) {
     db.exec('CREATE INDEX idx_repo_settings_repo_id ON repo_settings(repo_id)');
     console.log('Created idx_repo_settings_repo_id index');
+  }
+}
+
+// Migration function to create user_repositories join table
+function migrateToUserRepositoriesTable() {
+  // Check if user_repositories table already exists
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='user_repositories'").all();
+
+  if (tables.length === 0) {
+    // Create the join table
+    db.exec(`
+      CREATE TABLE user_repositories (
+        user_id INTEGER NOT NULL,
+        repo_id INTEGER NOT NULL,
+        date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, repo_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('Created user_repositories join table');
+
+    // Create indexes for better query performance
+    db.exec('CREATE INDEX idx_user_repositories_user ON user_repositories(user_id)');
+    db.exec('CREATE INDEX idx_user_repositories_repo ON user_repositories(repo_id)');
+    console.log('Created indexes for user_repositories table');
+
+    // Migrate existing data from repositories.user_id to user_repositories
+    const existingRepos = db.prepare(`
+      SELECT id, user_id FROM repositories WHERE user_id IS NOT NULL
+    `).all();
+
+    if (existingRepos.length > 0) {
+      const insertStmt = db.prepare(`
+        INSERT OR IGNORE INTO user_repositories (user_id, repo_id)
+        VALUES (?, ?)
+      `);
+
+      const migrate = db.transaction(() => {
+        for (const repo of existingRepos) {
+          insertStmt.run(repo.user_id, repo.id);
+        }
+      });
+
+      migrate();
+      console.log(`Migrated ${existingRepos.length} repository relationships to user_repositories table`);
+    }
   }
 }
 
