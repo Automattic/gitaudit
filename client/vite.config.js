@@ -21,4 +21,9 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    host: true, // Listen on all addresses including LAN and public
+    allowedHosts: true, // Allow all hosts (Railway, custom domains, etc.)
+    port: process.env.PORT || 4173,
+  },
 });
