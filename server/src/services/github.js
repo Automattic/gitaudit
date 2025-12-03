@@ -1,12 +1,46 @@
 import { graphql } from '@octokit/graphql';
 
+// Rate limiting: delay between requests to avoid secondary rate limits
+const MIN_REQUEST_INTERVAL_MS = 1000; // 1 second between requests
+let lastRequestTime = 0;
+
+/**
+ * Sleep for specified milliseconds
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Rate-limited API call wrapper
+ * Ensures minimum time between requests to avoid secondary rate limits
+ * If rate limit is hit, job will fail and resume on next fetch
+ */
+async function rateLimitedCall(fn) {
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastRequestTime;
+
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL_MS) {
+    const delay = MIN_REQUEST_INTERVAL_MS - timeSinceLastRequest;
+    await sleep(delay);
+  }
+
+  lastRequestTime = Date.now();
+  return await fn();
+}
+
 // Create GitHub GraphQL client with user token
 export function createGitHubClient(accessToken) {
-  return graphql.defaults({
+  const client = graphql.defaults({
     headers: {
       authorization: `token ${accessToken}`,
     },
   });
+
+  // Wrap client to add rate limiting
+  return async (query, variables) => {
+    return rateLimitedCall(() => client(query, variables));
+  };
 }
 
 // Exchange OAuth code for access token
