@@ -17,7 +17,8 @@ function Login() {
 
   const handleLogin = () => {
     // Redirect to GitHub OAuth
-    window.location.href = 'http://localhost:3001/auth/github';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    window.location.href = `${apiUrl}/auth/github`;
   };
 
   const errorMessages = {
