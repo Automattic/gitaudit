@@ -46,7 +46,7 @@ function RepositoryLayout() {
             <Badge>Pending...</Badge>
           )}
           {status === "failed" && <Badge>Failed</Badge>}
-          {(status === "completed" || status === "not_started" || !status) && (
+          {(status === "completed" || status === "not_started" || status === "failed" || !status) && (
             <Button
               icon={updateIcon}
               onClick={refresh}
