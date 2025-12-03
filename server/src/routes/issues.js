@@ -203,7 +203,8 @@ router.get('/important-bugs', authenticateToken, async (req, res) => {
     }
 
     // Load repo's settings
-    const settings = loadRepoSettings(repo.id);
+    const allSettings = loadRepoSettings(repo.id);
+    const bugSettings = allSettings.importantBugs;
 
     // Get all open issues
     const issues = issueQueries.findOpenByRepo.all(repo.id);
@@ -212,7 +213,7 @@ router.get('/important-bugs', authenticateToken, async (req, res) => {
     const { analyzeImportantBugs } = await import('../services/analyzers/important-bugs.js');
     const { bugs, totalItems, totalPages, stats } = analyzeImportantBugs(
       issues,
-      settings,
+      bugSettings,
       { page, perPage, priorityLevel, search }
     );
 
@@ -240,11 +241,75 @@ router.get('/important-bugs', authenticateToken, async (req, res) => {
       totalItems,
       totalPages,
       stats,
-      thresholds: settings.thresholds, // Include for UI display
+      thresholds: bugSettings.thresholds, // Include for UI display
     });
   } catch (error) {
     console.error('Error analyzing important bugs:', error);
     res.status(500).json({ error: 'Failed to analyze important bugs' });
+  }
+});
+
+// Get stale issues
+router.get('/stale-issues', authenticateToken, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+
+  // Extract query parameters
+  const page = parseInt(req.query.page) || 1;
+  const perPage = parseInt(req.query.per_page) || 20;
+  const staleLevel = req.query.level || 'all';
+  const search = req.query.search || '';
+
+  try {
+    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
+
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    // Load repo's settings
+    const allSettings = loadRepoSettings(repo.id);
+    const staleSettings = allSettings.staleIssues;
+
+    // Get all open issues
+    const issues = issueQueries.findOpenByRepo.all(repo.id);
+
+    // Analyze and score stale issues with pagination and search
+    const { analyzeStaleIssues } = await import('../services/analyzers/stale-issues.js');
+    const { issues: staleIssues, totalItems, totalPages, stats, thresholds } = analyzeStaleIssues(
+      issues,
+      staleSettings,
+      { page, perPage, staleLevel, search }
+    );
+
+    // Format response
+    const formattedIssues = staleIssues.map(issue => ({
+      id: issue.id,
+      githubId: issue.github_id,
+      number: issue.number,
+      title: issue.title,
+      body: issue.body,
+      state: issue.state,
+      labels: JSON.parse(issue.labels || '[]'),
+      createdAt: issue.created_at,
+      updatedAt: issue.updated_at,
+      commentsCount: issue.comments_count,
+      assignees: JSON.parse(issue.assignees || '[]'),
+      milestone: issue.milestone,
+      score: issue.score,
+      scoreMetadata: issue.scoreMetadata,
+      url: `https://github.com/${owner}/${repoName}/issues/${issue.number}`,
+    }));
+
+    res.json({
+      issues: formattedIssues,
+      totalItems,
+      totalPages,
+      stats,
+      thresholds,
+    });
+  } catch (error) {
+    console.error('Error analyzing stale issues:', error);
+    res.status(500).json({ error: 'Failed to analyze stale issues' });
   }
 });
 
