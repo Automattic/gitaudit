@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { DataViews } from "@wordpress/dataviews";
 import {
@@ -9,7 +9,7 @@ import {
   Spinner,
 } from "@wordpress/components";
 import { useIssueFetch } from "../hooks/useIssueFetch";
-import api from "../utils/api";
+import { useIssues } from "../hooks/useIssues";
 import Page from "../components/Page";
 import { Tabs } from "../utils/lock-unlock";
 import {
@@ -27,7 +27,7 @@ function ImportantBugs() {
   const { owner, repo } = useParams();
   const { startFetch } = useIssueFetch(owner, repo);
 
-  // DataViews state
+  // UI state (DataViews)
   const [view, setView] = useState({
     type: "table",
     page: 1,
@@ -40,63 +40,54 @@ function ImportantBugs() {
     descriptionField: "labels",
   });
 
-  // Data state
-  const [issues, setIssues] = useState([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [stats, setStats] = useState(null);
-  const [thresholds, setThresholds] = useState({
-    critical: 120,
-    high: 80,
-    medium: 50,
-  });
-  const [fetchStatus, setFetchStatus] = useState('not_started');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // UI state (tabs)
   const [activeTab, setActiveTab] = useState("all");
 
-  const loadIssues = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // Configuration for useIssues hook (memoized to prevent re-renders)
+  const issuesConfig = useMemo(
+    () => ({
+      scoreType: 'importantBugs',
+      defaultThresholds: {
+        critical: 120,
+        high: 80,
+        medium: 50,
+      },
+      buildApiParams: ({ page, perPage, activeTab, search, scoreType }) => {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          per_page: perPage.toString(),
+          scoreType,
+          issueType: 'bugs',
+          priority: activeTab,
+        });
+        if (search) {
+          params.set("search", search);
+        }
+        return params;
+      },
+      extractStats: (data) => data.stats?.importantBugs || null,
+      extractThresholds: (data) =>
+        data.thresholds?.importantBugs || { critical: 120, high: 80, medium: 50 },
+    }),
+    []
+  );
 
-      const params = new URLSearchParams({
-        page: view.page.toString(),
-        per_page: view.perPage.toString(),
-        scoreType: 'importantBugs',
-        issueType: 'bugs',
-        priority: activeTab,
-      });
-
-      // Add search parameter if present
-      if (view.search) {
-        params.set("search", view.search);
-      }
-
-      const data = await api.get(
-        `/api/repos/${owner}/${repo}/issues?${params}`
-      );
-
-      setIssues(data.issues || []);
-      setTotalItems(data.totalItems || 0);
-      setTotalPages(data.totalPages || 0);
-      setStats(data.stats?.importantBugs || null);
-      setThresholds(data.thresholds?.importantBugs || { critical: 120, high: 80, medium: 50 });
-      setFetchStatus(data.fetchStatus || 'not_started');
-      setError(null);
-    } catch (err) {
-      console.error("Error loading issues:", err);
-      setError(err.message || "Failed to load issues");
-      setStats(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [owner, repo, view.page, view.perPage, view.search, activeTab]);
-
-  // Load issues on mount and when dependencies change
-  useEffect(() => {
-    loadIssues();
-  }, [loadIssues]);
+  // Data fetching (hook handles all data state)
+  const {
+    issues,
+    totalItems,
+    totalPages,
+    stats,
+    thresholds,
+    fetchStatus,
+    loading,
+    error,
+  } = useIssues(issuesConfig, {
+    page: view.page,
+    perPage: view.perPage,
+    search: view.search,
+    activeTab,
+  });
 
   // Tab click handler
   const handleTabClick = useCallback((priorityLevel) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { DataViews } from "@wordpress/dataviews";
 import {
@@ -9,7 +9,7 @@ import {
   Spinner,
 } from "@wordpress/components";
 import { useIssueFetch } from "../hooks/useIssueFetch";
-import api from "../utils/api";
+import { useIssues } from "../hooks/useIssues";
 import Page from "../components/Page";
 import { Tabs } from "../utils/lock-unlock";
 import {
@@ -27,7 +27,7 @@ function StaleIssues() {
   const { owner, repo } = useParams();
   const { startFetch } = useIssueFetch(owner, repo);
 
-  // DataViews state
+  // UI state (DataViews)
   const [view, setView] = useState({
     type: "table",
     page: 1,
@@ -40,62 +40,53 @@ function StaleIssues() {
     descriptionField: "labels",
   });
 
-  // Data state
-  const [issues, setIssues] = useState([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [stats, setStats] = useState(null);
-  const [thresholds, setThresholds] = useState({
-    veryStale: 60,
-    moderatelyStale: 40,
-    slightlyStale: 20,
-  });
-  const [fetchStatus, setFetchStatus] = useState('not_started');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // UI state (tabs)
   const [activeTab, setActiveTab] = useState("all");
 
-  const loadIssues = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // Configuration for useIssues hook (memoized to prevent re-renders)
+  const issuesConfig = useMemo(
+    () => ({
+      scoreType: 'staleIssues',
+      defaultThresholds: {
+        veryStale: 60,
+        moderatelyStale: 40,
+        slightlyStale: 20,
+      },
+      buildApiParams: ({ page, perPage, activeTab, search, scoreType }) => {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          per_page: perPage.toString(),
+          scoreType,
+          level: activeTab,
+        });
+        if (search) {
+          params.set("search", search);
+        }
+        return params;
+      },
+      extractStats: (data) => data.stats?.staleIssues || null,
+      extractThresholds: (data) =>
+        data.thresholds?.staleIssues || { veryStale: 60, moderatelyStale: 40, slightlyStale: 20 },
+    }),
+    []
+  );
 
-      const params = new URLSearchParams({
-        page: view.page.toString(),
-        per_page: view.perPage.toString(),
-        scoreType: 'staleIssues',
-        level: activeTab,
-      });
-
-      // Add search parameter if present
-      if (view.search) {
-        params.set("search", view.search);
-      }
-
-      const data = await api.get(
-        `/api/repos/${owner}/${repo}/issues?${params}`
-      );
-
-      setIssues(data.issues || []);
-      setTotalItems(data.totalItems || 0);
-      setTotalPages(data.totalPages || 0);
-      setStats(data.stats?.staleIssues || null);
-      setThresholds(data.thresholds?.staleIssues || { veryStale: 60, moderatelyStale: 40, slightlyStale: 20 });
-      setFetchStatus(data.fetchStatus || 'not_started');
-      setError(null);
-    } catch (err) {
-      console.error("Error loading stale issues:", err);
-      setError(err.message || "Failed to load stale issues");
-      setStats(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [owner, repo, view.page, view.perPage, view.search, activeTab]);
-
-  // Load issues on mount and when dependencies change
-  useEffect(() => {
-    loadIssues();
-  }, [loadIssues]);
+  // Data fetching (hook handles all data state)
+  const {
+    issues,
+    totalItems,
+    totalPages,
+    stats,
+    thresholds,
+    fetchStatus,
+    loading,
+    error,
+  } = useIssues(issuesConfig, {
+    page: view.page,
+    perPage: view.perPage,
+    search: view.search,
+    activeTab,
+  });
 
   // Tab click handler
   const handleTabClick = useCallback((staleLevel) => {

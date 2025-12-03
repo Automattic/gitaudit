@@ -11,7 +11,6 @@ function RepositoryLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { status, currentJob, refresh } = useRepoStatus(owner, repo);
-  console.log("Repo status:", status, currentJob);
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f0f0f0" }}>
       {/* Header */}
