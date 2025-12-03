@@ -9,7 +9,9 @@ import { isBugIssue } from './analyzers/important-bugs.js';
 
 // In-memory job queue
 const queue = [];
-let isProcessing = false;
+const MAX_CONCURRENT_REPOS = 5;
+// Map of repoId -> current job being processed for that repo
+const processingRepos = new Map();
 
 /**
  * Queue issue fetch for a repository
@@ -19,7 +21,7 @@ export async function queueIssueFetch(jobData) {
   const { repoId, owner, repoName, accessToken } = jobData;
 
   console.log(`[JobQueue] Queuing issue fetch for ${owner}/${repoName}, repoId=${repoId}`);
-  console.log(`[JobQueue] Current queue length: ${queue.length}, isProcessing: ${isProcessing}`);
+  console.log(`[JobQueue] Current queue length: ${queue.length}, processing repos: ${processingRepos.size}`);
 
   queue.push({
     type: 'issue-fetch',
@@ -31,13 +33,8 @@ export async function queueIssueFetch(jobData) {
 
   console.log(`[JobQueue] Job added to queue. New queue length: ${queue.length}`);
 
-  // Start processing if not already running
-  if (!isProcessing) {
-    console.log(`[JobQueue] Queue not processing, starting processor...`);
-    processQueue();
-  } else {
-    console.log(`[JobQueue] Queue already processing, job will be picked up next`);
-  }
+  // Trigger processing (will check capacity internally)
+  processQueue();
 }
 
 /**
@@ -48,29 +45,60 @@ export async function queueSentimentAnalysis(repoId, accessToken) {
   console.log(`Queuing sentiment analysis for repo ${repoId}`);
   queue.push({ type: 'sentiment', repoId, accessToken });
 
-  // Start processing if not already running
-  if (!isProcessing) {
-    processQueue();
-  }
+  // Trigger processing (will check capacity internally)
+  processQueue();
 }
 
 /**
- * Process jobs from the queue sequentially
+ * Process jobs from the queue, allowing multiple repos in parallel
  */
 async function processQueue() {
-  console.log(`[JobQueue] processQueue called. Queue length: ${queue.length}, isProcessing: ${isProcessing}`);
+  console.log(`[JobQueue] processQueue called. Queue length: ${queue.length}, processing repos: ${processingRepos.size}/${MAX_CONCURRENT_REPOS}`);
 
-  if (queue.length === 0) {
-    console.log(`[JobQueue] Queue empty, stopping processor`);
-    isProcessing = false;
+  // Check if we're at max capacity
+  if (processingRepos.size >= MAX_CONCURRENT_REPOS) {
+    console.log(`[JobQueue] At max capacity (${MAX_CONCURRENT_REPOS} repos), waiting...`);
     return;
   }
 
-  isProcessing = true;
-  const job = queue.shift();
+  // Find next job for a repo that's not currently being processed
+  const availableJobIndex = queue.findIndex(job => !processingRepos.has(job.repoId));
 
-  console.log(`[JobQueue] Processing job: type=${job.type}, repoId=${job.repoId}, owner=${job.owner}/${job.repoName}`);
+  if (availableJobIndex === -1) {
+    if (queue.length > 0) {
+      console.log(`[JobQueue] ${queue.length} jobs queued but all repos currently processing`);
+    } else {
+      console.log(`[JobQueue] Queue empty`);
+    }
+    return;
+  }
 
+  // Remove job from queue
+  const job = queue.splice(availableJobIndex, 1)[0];
+
+  // Mark repo as being processed
+  processingRepos.set(job.repoId, job);
+
+  console.log(`[JobQueue] Starting job: type=${job.type}, repoId=${job.repoId}, owner=${job.owner || 'unknown'}/${job.repoName || 'unknown'}`);
+
+  // Process the job asynchronously
+  processJob(job).finally(() => {
+    // Remove from processing map when done
+    processingRepos.delete(job.repoId);
+    console.log(`[JobQueue] Repo ${job.repoId} finished processing. Processing: ${processingRepos.size}/${MAX_CONCURRENT_REPOS}`);
+
+    // Trigger processing of next jobs
+    processQueue();
+  });
+
+  // Immediately try to start more jobs if capacity available
+  setImmediate(() => processQueue());
+}
+
+/**
+ * Process a single job (issue-fetch or sentiment)
+ */
+async function processJob(job) {
   try {
     if (job.type === 'issue-fetch') {
       await processIssueFetchJob(job);
@@ -83,6 +111,9 @@ async function processQueue() {
         repoId: job.repoId,
         accessToken: job.accessToken
       });
+
+      // Trigger processing for the sentiment job
+      setImmediate(() => processQueue());
     } else if (job.type === 'sentiment') {
       await processSentimentJob(job);
     }
@@ -96,10 +127,6 @@ async function processQueue() {
       repoQueries.updateFetchStatus.run('failed', job.repoId);
     }
   }
-
-  // Process next job
-  console.log(`[JobQueue] Scheduling next job processing...`);
-  setImmediate(() => processQueue());
 }
 
 /**
@@ -333,6 +360,16 @@ async function processSentimentJob(job) {
 export function getQueueStatus() {
   return {
     queueLength: queue.length,
-    isProcessing,
+    processingCount: processingRepos.size,
+    maxConcurrent: MAX_CONCURRENT_REPOS,
   };
+}
+
+/**
+ * Get the current job type being processed for a specific repo
+ * Returns 'issue-fetch', 'sentiment', or null
+ */
+export function getCurrentJobForRepo(repoId) {
+  const job = processingRepos.get(repoId);
+  return job ? job.type : null;
 }

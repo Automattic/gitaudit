@@ -7,27 +7,15 @@ import {
   Button,
   Notice,
   Spinner,
-  privateApis as componentsPrivateApis,
 } from "@wordpress/components";
-import { __dangerousOptInToUnstableAPIsOnlyForCoreModules } from "@wordpress/private-apis";
 import { useIssueFetch } from "../hooks/useIssueFetch";
 import api from "../utils/api";
 import Page from "../components/Page";
-
-const { unlock } = __dangerousOptInToUnstableAPIsOnlyForCoreModules(
-  "I acknowledge private features are not for use in themes or plugins and doing so will break in the next version of WordPress.",
-  "@wordpress/editor"
-);
-const { Tabs } = unlock(componentsPrivateApis);
+import { Tabs } from "../utils/lock-unlock";
 
 function ImportantBugs() {
   const { owner, repo } = useParams();
-  const {
-    status,
-    error: statusError,
-    startFetch,
-    refresh,
-  } = useIssueFetch(owner, repo);
+  const { startFetch } = useIssueFetch(owner, repo);
 
   // DataViews state
   const [view, setView] = useState({
@@ -46,50 +34,17 @@ function ImportantBugs() {
   const [bugs, setBugs] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [stats, setStats] = useState({
-    all: 0,
-    critical: 0,
-    high: 0,
-    medium: 0,
-  });
+  const [stats, setStats] = useState(null);
   const [thresholds, setThresholds] = useState({
     critical: 120,
     high: 80,
     medium: 50,
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
-  const prevStatusRef = useRef();
 
-  // Load bugs when view changes or data becomes available
-  useEffect(() => {
-    const prevStatus = prevStatusRef.current?.status;
-    const currentStatus = status?.status;
-
-    // Load bugs when:
-    // 1. Initial load: data just became available
-    // 2. After refresh: transitioning from in_progress to completed
-    const initialLoad =
-      status?.hasCachedData && !prevStatusRef.current?.hasCachedData;
-    const refreshCompleted =
-      prevStatus === "in_progress" && currentStatus === "completed";
-
-    if (initialLoad || refreshCompleted) {
-      loadBugs();
-    }
-
-    prevStatusRef.current = status;
-  }, [status?.hasCachedData, status?.status]);
-
-  // Load bugs when pagination, filter, or search changes
-  useEffect(() => {
-    if (status?.hasCachedData) {
-      loadBugs();
-    }
-  }, [view.page, view.search, activeTab]);
-
-  async function loadBugs() {
+  const loadBugs = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -112,15 +67,22 @@ function ImportantBugs() {
       setBugs(data.bugs || []);
       setTotalItems(data.totalItems || 0);
       setTotalPages(data.totalPages || 0);
-      setStats(data.stats || { all: 0, critical: 0, high: 0, medium: 0 });
+      setStats(data.stats);
       setThresholds(data.thresholds || { critical: 120, high: 80, medium: 50 });
+      setError(null);
     } catch (err) {
       console.error("Error loading bugs:", err);
       setError(err.message || "Failed to load bugs");
+      setStats(null);
     } finally {
       setLoading(false);
     }
-  }
+  }, [owner, repo, view.page, view.perPage, view.search, activeTab]);
+
+  // Load bugs on mount and when dependencies change
+  useEffect(() => {
+    loadBugs();
+  }, [loadBugs]);
 
   // Tab click handler
   const handleTabClick = useCallback((priorityLevel) => {
@@ -312,76 +274,36 @@ function ImportantBugs() {
     []
   );
 
-  // Render loading state
-  if (!status) {
+  // Show initial loading state
+  if (loading && stats === null) {
     return (
       <Page title="Important Bugs">
         <div style={{ textAlign: "center", padding: "3rem" }}>
           <Spinner />
           <p style={{ marginTop: "1rem", color: "#666" }}>
-            Checking repository status...
+            Loading bugs...
           </p>
         </div>
       </Page>
     );
   }
 
-  const hasNoData = !status?.hasCachedData && status?.status !== "in_progress";
-
-  // Render failed state
-  if (status?.status === "failed") {
-    return (
-      <Page title="Important Bugs">
-        <Notice status="error" isDismissible={false}>
-          Failed to fetch issues. Please try again.
-        </Notice>
-        <div style={{ marginTop: "1rem" }}>
-          <Button variant="primary" onClick={() => startFetch()}>
-            Retry Fetch
-          </Button>
-        </div>
-      </Page>
-    );
-  }
+  // No data fetched yet (stats will be null on 404 or error)
+  const hasNoData = stats === null || stats.all === 0;
 
   // Main view
   return (
     <Page
       title="Important Bugs"
-      description={
-        status?.hasCachedData
-          ? `${status?.issueCount} total issues • Last updated ${formatDate(
-              status?.lastFetched
-            )}`
-          : undefined
-      }
-      actions={
-        <Button
-          variant="secondary"
-          onClick={refresh}
-          disabled={status?.status === "in_progress"}
-        >
-          {status?.status === "in_progress" ? "Refreshing..." : "Refresh Data"}
-        </Button>
-      }
+      description="Bugs scored by activity, labels, and sentiment."
     >
-      {statusError && (
-        <Notice
-          status="error"
-          isDismissible={false}
-          style={{ marginBottom: "1rem" }}
-        >
-          {statusError}
-        </Notice>
-      )}
-
       {hasNoData ? (
         <Card>
           <CardBody>
             <div style={{ textAlign: "center", padding: "2rem" }}>
-              <h3 style={{ marginBottom: "1rem" }}>No Data Yet</h3>
+              <h3 style={{ marginBottom: "1rem" }}>No Issues Yet</h3>
               <p style={{ marginBottom: "2rem", color: "#666" }}>
-                We need to fetch issues from GitHub before we can analyze them.
+                Fetch issues from GitHub to start analyzing bugs.
                 This may take a few minutes depending on the repository size.
               </p>
               <Button variant="primary" onClick={startFetch}>
@@ -399,10 +321,10 @@ function ImportantBugs() {
               onSelect={(tabId) => handleTabClick(tabId)}
             >
               <Tabs.TabList style={{ marginBottom: "1.5rem" }}>
-                <Tabs.Tab tabId="all">All ({stats.all})</Tabs.Tab>
-                <Tabs.Tab tabId="critical">Critical ({stats.critical})</Tabs.Tab>
-                <Tabs.Tab tabId="high">High ({stats.high})</Tabs.Tab>
-                <Tabs.Tab tabId="medium">Medium ({stats.medium})</Tabs.Tab>
+                <Tabs.Tab tabId="all">All ({stats?.all || 0})</Tabs.Tab>
+                <Tabs.Tab tabId="critical">Critical ({stats?.critical || 0})</Tabs.Tab>
+                <Tabs.Tab tabId="high">High ({stats?.high || 0})</Tabs.Tab>
+                <Tabs.Tab tabId="medium">Medium ({stats?.medium || 0})</Tabs.Tab>
               </Tabs.TabList>
             </Tabs>
 
