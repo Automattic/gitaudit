@@ -155,6 +155,40 @@ router.post('/refresh', authenticateToken, async (req, res) => {
   }
 });
 
+// Refresh single issue
+router.post('/:issueNumber/refresh', authenticateToken, async (req, res) => {
+  const { owner, repo: repoName, issueNumber } = req.params;
+
+  console.log(`[API] Single issue refresh request for ${owner}/${repoName}#${issueNumber}`);
+
+  try {
+    // Get or create repository
+    const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
+
+    // Import job queue
+    const { queueSingleIssueRefresh } = await import('../services/jobQueue.js');
+
+    // Queue the refresh job
+    await queueSingleIssueRefresh({
+      repoId: repo.id,
+      issueNumber: parseInt(issueNumber, 10),
+      accessToken: req.user.accessToken,
+    });
+
+    res.json({
+      message: 'Issue refresh queued successfully',
+      repoId: repo.id,
+      issueNumber: parseInt(issueNumber, 10),
+    });
+  } catch (error) {
+    console.error('[API] Failed to queue single issue refresh:', error);
+    res.status(500).json({
+      error: 'Failed to queue issue refresh',
+      details: error.message
+    });
+  }
+});
+
 // Get sentiment analysis status
 router.get('/sentiment/status', authenticateToken, async (req, res) => {
   const { owner, repo: repoName } = req.params;

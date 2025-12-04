@@ -104,5 +104,6 @@ export function useIssues(config, dependencies) {
     fetchStatus,
     loading,
     error,
+    reloadIssues: loadIssues,
   };
 }

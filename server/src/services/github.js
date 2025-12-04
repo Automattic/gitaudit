@@ -213,6 +213,60 @@ export async function fetchRepositoryIssues(accessToken, owner, repo, first = 10
   return result.repository.issues;
 }
 
+/**
+ * Fetch a single issue with all details
+ */
+export async function fetchSingleIssue(accessToken, owner, repo, issueNumber) {
+  const client = createGitHubClient(accessToken);
+
+  const query = `
+    query($owner: String!, $repo: String!, $issueNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        issue(number: $issueNumber) {
+          id
+          databaseId
+          number
+          title
+          body
+          state
+          createdAt
+          updatedAt
+          closedAt
+          author { login }
+          authorAssociation
+          issueType { name }
+          labels(first: 20) {
+            nodes { name color }
+          }
+          comments(first: 2, orderBy: {field: UPDATED_AT, direction: DESC}) {
+            totalCount
+            nodes {
+              createdAt
+              author { login }
+            }
+          }
+          reactions { totalCount }
+          assignees(first: 10) {
+            nodes { login }
+          }
+          milestone {
+            title
+            dueOn
+          }
+        }
+      }
+    }
+  `;
+
+  const result = await client(query, { owner, repo, issueNumber });
+
+  if (!result.repository?.issue) {
+    throw new Error(`Issue #${issueNumber} not found in ${owner}/${repo}`);
+  }
+
+  return result.repository.issue;
+}
+
 // Search GitHub repositories
 export async function searchGitHubRepositories(accessToken, query, first = 20) {
   const client = createGitHubClient(accessToken);

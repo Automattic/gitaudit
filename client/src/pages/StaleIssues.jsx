@@ -22,6 +22,7 @@ import {
   assigneesField,
   milestoneField,
 } from "../utils/issueFields.jsx";
+import { createRefreshIssueAction } from "../utils/issueActions.jsx";
 
 function StaleIssues() {
   const { owner, repo } = useParams();
@@ -81,6 +82,7 @@ function StaleIssues() {
     fetchStatus,
     loading,
     error,
+    reloadIssues,
   } = useIssues(issuesConfig, {
     page: view.page,
     perPage: view.perPage,
@@ -135,6 +137,12 @@ function StaleIssues() {
       milestoneField,
     ],
     [thresholds]
+  );
+
+  // Actions for DataViews
+  const actions = useMemo(
+    () => [createRefreshIssueAction(owner, repo, reloadIssues)],
+    [owner, repo, reloadIssues]
   );
 
   // Pagination info for DataViews
@@ -234,6 +242,7 @@ function StaleIssues() {
               <DataViews
                 data={issues}
                 fields={fields}
+                actions={actions}
                 view={view}
                 onChangeView={setView}
                 renderItemLink={renderItemLink}

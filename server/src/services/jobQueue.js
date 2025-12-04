@@ -52,6 +52,24 @@ export async function queueSentimentAnalysis(repoId, accessToken) {
 }
 
 /**
+ * Queue a single issue refresh job
+ */
+export async function queueSingleIssueRefresh(jobData) {
+  const { repoId, issueNumber, accessToken } = jobData;
+
+  console.log(`[JobQueue] Queuing single issue refresh: repo ${repoId}, issue #${issueNumber}`);
+
+  queue.push({
+    type: 'single-issue-refresh',
+    repoId,
+    issueNumber,
+    accessToken,
+  });
+
+  processQueue();
+}
+
+/**
  * Process jobs from the queue, allowing multiple repos in parallel
  */
 async function processQueue() {
@@ -123,6 +141,8 @@ async function processJob(job) {
       }
     } else if (job.type === 'sentiment') {
       await processSentimentJob(job);
+    } else if (job.type === 'single-issue-refresh') {
+      await processSingleIssueRefreshJob(job);
     }
 
     console.log(`[JobQueue] ✓ Completed job: ${job.type} for repo ${job.repoId}`);
@@ -130,7 +150,7 @@ async function processJob(job) {
     console.error(`[JobQueue] ✗ Job failed: ${job.type} for repo ${job.repoId}`, error);
 
     // Update repo status on failure
-    if (job.type === 'issue-fetch') {
+    if (job.type === 'issue-fetch' || job.type === 'single-issue-refresh') {
       repoQueries.updateFetchStatus.run('failed', job.repoId);
     }
   }
@@ -460,6 +480,113 @@ async function processSentimentJob(job) {
     `${analyzedCount} bugs analyzed, ${totalCommentsFetched} comments processed | ` +
     `${Math.round(totalTime / 1000)}s total (avg ${avgTimePerIssue}ms/issue)`
   );
+}
+
+/**
+ * Process single issue refresh job
+ * Fetches one issue from GitHub, updates DB, and optionally triggers analysis
+ */
+async function processSingleIssueRefreshJob(job) {
+  const { repoId, issueNumber, accessToken } = job;
+  const repo = repoQueries.getById.get(repoId);
+  const { owner, name: repoName } = repo;
+
+  console.log(`[${owner}/${repoName}] Refreshing issue #${issueNumber}...`);
+
+  try {
+    // 1. Fetch single issue from GitHub
+    const { fetchSingleIssue, fetchIssueComments } = await import('./github.js');
+    const issue = await fetchSingleIssue(accessToken, owner, repoName, issueNumber);
+
+    // 2. Upsert to database
+    const labels = issue.labels.nodes.map(l => l.name);
+    const assignees = issue.assignees.nodes.map(a => a.login);
+    const comments = issue.comments.nodes;
+    const lastComment = comments.length > 0 ? comments[comments.length - 1] : null;
+
+    issueQueries.upsert.run(
+      repoId,
+      issue.databaseId,
+      issue.number,
+      issue.title,
+      issue.body,
+      issue.state.toLowerCase(),
+      JSON.stringify(labels),
+      issue.createdAt,
+      issue.updatedAt,
+      issue.closedAt,
+      issue.comments.totalCount,
+      lastComment?.createdAt || null,
+      lastComment?.author?.login || null,
+      JSON.stringify({ total: issue.reactions.totalCount }),
+      JSON.stringify(assignees),
+      issue.milestone?.title || null,
+      issue.issueType?.name || null,
+      issue.author?.login || null,
+      issue.authorAssociation || null
+    );
+
+    // 3. Fetch and update all comments
+    const allComments = await fetchIssueComments(accessToken, owner, repoName, issue.number);
+    const dbIssue = issueQueries.findByGithubId.get(issue.databaseId);
+
+    // Clear old comments and insert new ones
+    const updateComments = transaction(() => {
+      commentQueries.deleteByIssueId.run(dbIssue.id);
+      for (const comment of allComments) {
+        commentQueries.insertOrUpdate.run(
+          dbIssue.id,
+          comment.databaseId,
+          comment.author?.login || null,
+          comment.body,
+          comment.createdAt
+        );
+      }
+    });
+    updateComments();
+
+    // Mark comments as fetched
+    issueQueries.updateCommentsFetched.run(dbIssue.id);
+
+    console.log(`[${owner}/${repoName}] ✓ Issue #${issueNumber} refreshed`);
+
+    // 4. Optionally trigger sentiment analysis if it's a bug
+    // The updated issue.updated_at will cause incremental analyzer to pick it up automatically
+    // But we can also trigger immediate analysis for this specific issue
+    if (isSentimentAnalysisAvailable()) {
+      const isBug = labels.some(label =>
+        label.toLowerCase().includes('bug') ||
+        label.toLowerCase().includes('[type] bug')
+      );
+
+      if (isBug) {
+        console.log(`[${owner}/${repoName}] Triggering sentiment analysis for issue #${issueNumber}...`);
+
+        const { analyzeIssueSentiment, analyzeCommentsSentiment, calculateSentimentScore } =
+          await import('./analyzers/sentiment.js');
+
+        const issueSentiment = await analyzeIssueSentiment(issue);
+        const commentsSentiment = await analyzeCommentsSentiment(dbIssue.id);
+        const result = calculateSentimentScore(issueSentiment, commentsSentiment, allComments.length);
+
+        // Store analysis
+        analysisQueries.upsert.run(
+          dbIssue.id,
+          'sentiment',
+          result.score,
+          JSON.stringify(result.metadata)
+        );
+
+        console.log(`[${owner}/${repoName}] ✓ Sentiment analysis completed for #${issueNumber} (score: ${result.score})`);
+      }
+    }
+
+    console.log(`[${owner}/${repoName}] ✓ Issue #${issueNumber} fully refreshed`);
+
+  } catch (error) {
+    console.error(`[${owner}/${repoName}] ✗ Failed to refresh issue #${issueNumber}:`, error.message);
+    throw error;
+  }
 }
 
 /**

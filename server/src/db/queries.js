@@ -256,6 +256,13 @@ export const analysisQueries = {
       WHERE i.repo_id = ? AND ia.analysis_type = ?
     `);
   },
+
+  get deleteByIssue() {
+    return db.prepare(`
+      DELETE FROM issue_analysis
+      WHERE issue_id = ?
+    `);
+  },
 };
 
 // Settings queries
