@@ -8,6 +8,7 @@ import {
 } from './analyzers/sentiment.js';
 import { isBugIssue } from './analyzers/important-bugs.js';
 import { loadRepoSettings } from './settings.js';
+import { toSqliteDateTime, now } from '../utils/dates.js';
 
 // In-memory job queue
 const queue = [];
@@ -173,7 +174,7 @@ async function processIssueFetchJob(job) {
 
   // Record the job start time - this will be stored in last_fetched at the end
   // to ensure no gaps in incremental syncs
-  const jobStartTime = new Date().toISOString();
+  const jobStartTime = now();
 
   // Get repo info for incremental sync
   const repo = repoQueries.getById.get(repoId);
@@ -243,11 +244,11 @@ async function processIssueFetchJob(job) {
           issue.body,
           issue.state.toLowerCase(),
           JSON.stringify(labels),
-          issue.createdAt,
-          issue.updatedAt,
-          issue.closedAt,
+          toSqliteDateTime(issue.createdAt),
+          toSqliteDateTime(issue.updatedAt),
+          toSqliteDateTime(issue.closedAt),
           issue.comments.totalCount,
-          lastComment?.createdAt || null,
+          toSqliteDateTime(lastComment?.createdAt) || null,
           lastComment?.author?.login || null,
           JSON.stringify({ total: issue.reactions.totalCount }),
           JSON.stringify(assignees),
@@ -302,7 +303,7 @@ async function processIssueFetchJob(job) {
                 comment.databaseId || comment.id, // GitHub comment ID
                 comment.author.login,
                 comment.body,
-                comment.createdAt
+                toSqliteDateTime(comment.createdAt)
               );
             }
           }
@@ -512,11 +513,11 @@ async function processSingleIssueRefreshJob(job) {
       issue.body,
       issue.state.toLowerCase(),
       JSON.stringify(labels),
-      issue.createdAt,
-      issue.updatedAt,
-      issue.closedAt,
+      toSqliteDateTime(issue.createdAt),
+      toSqliteDateTime(issue.updatedAt),
+      toSqliteDateTime(issue.closedAt),
       issue.comments.totalCount,
-      lastComment?.createdAt || null,
+      toSqliteDateTime(lastComment?.createdAt) || null,
       lastComment?.author?.login || null,
       JSON.stringify({ total: issue.reactions.totalCount }),
       JSON.stringify(assignees),
@@ -539,7 +540,7 @@ async function processSingleIssueRefreshJob(job) {
           comment.databaseId,
           comment.author?.login || null,
           comment.body,
-          comment.createdAt
+          toSqliteDateTime(comment.createdAt)
         );
       }
     });

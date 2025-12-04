@@ -115,10 +115,69 @@ export function initializeDatabase() {
   // Create issue_comments table for community health analyzer
   createIssueCommentsTable();
 
+  // Migrate timestamps from ISO 8601 to SQLite format
+  migrateTimestampFormats();
+
   // Clean up any stuck in_progress statuses from server crashes
   cleanupStuckStatuses();
 
   console.log('Database initialized successfully');
+}
+
+// Migrate timestamps from ISO 8601 format to SQLite format
+// This ensures consistent timestamp comparisons for incremental analysis
+function migrateTimestampFormats() {
+  try {
+    // Check if migration is needed (check for ISO format timestamps)
+    const needsMigration = db.prepare(`
+      SELECT COUNT(*) as count FROM issues WHERE created_at LIKE '%T%'
+    `).get();
+
+    if (needsMigration.count === 0) {
+      // Migration already completed
+      return;
+    }
+
+    console.log(`Migrating ${needsMigration.count} issue timestamps from ISO 8601 to SQLite format...`);
+
+    // Migrate issues table
+    const issuesResult = db.prepare(`
+      UPDATE issues SET
+        created_at = REPLACE(REPLACE(created_at, 'T', ' '), 'Z', ''),
+        updated_at = REPLACE(REPLACE(updated_at, 'T', ' '), 'Z', ''),
+        closed_at = CASE
+          WHEN closed_at IS NOT NULL
+          THEN REPLACE(REPLACE(closed_at, 'T', ' '), 'Z', '')
+          ELSE NULL
+        END,
+        last_comment_at = CASE
+          WHEN last_comment_at IS NOT NULL
+          THEN REPLACE(REPLACE(last_comment_at, 'T', ' '), 'Z', '')
+          ELSE NULL
+        END
+      WHERE created_at LIKE '%T%'
+    `).run();
+
+    // Migrate comments table
+    const commentsResult = db.prepare(`
+      UPDATE issue_comments SET
+        created_at = REPLACE(REPLACE(created_at, 'T', ' '), 'Z', '')
+      WHERE created_at LIKE '%T%'
+    `).run();
+
+    // Migrate repositories table
+    const reposResult = db.prepare(`
+      UPDATE repositories SET
+        last_fetched = REPLACE(REPLACE(last_fetched, 'T', ' '), 'Z', '')
+      WHERE last_fetched LIKE '%T%' AND last_fetched IS NOT NULL
+    `).run();
+
+    const totalMigrated = issuesResult.changes + commentsResult.changes + reposResult.changes;
+    console.log(`✓ Migrated ${totalMigrated} timestamps to SQLite format (${issuesResult.changes} issues, ${commentsResult.changes} comments, ${reposResult.changes} repos)`);
+  } catch (error) {
+    console.error('Failed to migrate timestamp formats:', error);
+    // Don't throw - allow server to start even if migration fails
+  }
 }
 
 // Clean up any repositories stuck in 'in_progress' status
