@@ -140,12 +140,16 @@ export async function fetchRepositoryIssues(accessToken, owner, repo, first = 10
   const filterByClause = since ? ', filterBy: {since: $since}' : '';
   const sinceVariable = since ? ', $since: DateTime!' : '';
 
+  // Full sync: only fetch OPEN issues
+  // Incremental sync: fetch both OPEN and CLOSED to catch state changes
+  const states = since ? '[OPEN, CLOSED]' : '[OPEN]';
+
   const query = `
     query($owner: String!, $repo: String!, $first: Int!, $after: String${sinceVariable}) {
       repository(owner: $owner, name: $repo) {
         id
         databaseId
-        issues(first: $first, after: $after, states: [OPEN], orderBy: {field: UPDATED_AT, direction: ASC}${filterByClause}) {
+        issues(first: $first, after: $after, states: ${states}, orderBy: {field: UPDATED_AT, direction: ASC}${filterByClause}) {
           pageInfo {
             hasNextPage
             endCursor

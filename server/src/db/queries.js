@@ -48,6 +48,14 @@ export const repoQueries = {
     `);
   },
 
+  get updateFetchStatusWithTime() {
+    return db.prepare(`
+      UPDATE repositories
+      SET last_fetched = ?, fetch_status = ?
+      WHERE id = ?
+    `);
+  },
+
   get getById() {
     return db.prepare('SELECT * FROM repositories WHERE id = ?');
   },

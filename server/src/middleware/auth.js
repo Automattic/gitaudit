@@ -16,6 +16,7 @@ export function authenticateToken(req, res, next) {
     const user = userQueries.findByGithubId.get(decoded.githubId);
 
     if (!user) {
+      console.error('[Auth] User not found in database for githubId:', decoded.githubId);
       return res.status(401).json({ error: 'User not found' });
     }
 
@@ -29,7 +30,13 @@ export function authenticateToken(req, res, next) {
 
     next();
   } catch (error) {
-    console.error('Token verification error:', error);
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    if (error.name === 'TokenExpiredError') {
+      console.error('[Auth] JWT token expired at:', error.expiredAt);
+    } else if (error.name === 'JsonWebTokenError') {
+      console.error('[Auth] JWT verification failed:', error.message);
+    } else {
+      console.error('[Auth] Token verification error:', error.message);
+    }
+    return res.status(403).json({ error: 'Invalid or expired token', details: error.message });
   }
 }

@@ -151,28 +151,32 @@ async function processIssueFetchJob(job) {
   let pageCount = 0;
   const startTime = Date.now();
 
-  // Get most recent issue's updated_at for incremental updates
+  // Record the job start time - this will be stored in last_fetched at the end
+  // to ensure no gaps in incremental syncs
+  const jobStartTime = new Date().toISOString();
+
+  // Get repo info for incremental sync
   const repo = repoQueries.getById.get(repoId);
-  const mostRecentResult = issueQueries.getMostRecentUpdatedAt.get(repoId);
-  const mostRecentIssueUpdatedAt = mostRecentResult?.most_recent_updated_at;
 
   // Calculate 'since' timestamp for GitHub API filter
-  // Check if full refetch is needed (to populate author data)
+  // - Full sync (since = null): fetches only OPEN issues
+  // - Incremental sync (since = timestamp): fetches OPEN + CLOSED to catch state changes
   let since = null;
   if (repo.needs_full_refetch) {
     console.log(`[${owner}/${repoName}] Starting issue fetch...`);
     console.log(`[${owner}/${repoName}] Full refetch mode (populating author data)`);
     since = null; // Force full sync
-  } else if (mostRecentIssueUpdatedAt) {
-    // Normal incremental mode - subtract 1 minute for clock skew protection
-    const mostRecentDate = new Date(mostRecentIssueUpdatedAt);
-    const sinceDate = new Date(mostRecentDate.getTime() - 60 * 1000); // 1 minute buffer
+  } else if (repo.last_fetched) {
+    // Use last successful fetch start time for incremental mode
+    // This ensures we catch ALL issues updated since last sync started
+    const lastFetchDate = new Date(repo.last_fetched);
+    const sinceDate = new Date(lastFetchDate.getTime() - 60 * 1000); // 1 minute buffer for clock skew
     since = sinceDate.toISOString();
 
     console.log(`[${owner}/${repoName}] Starting issue fetch...`);
     console.log(
       `[${owner}/${repoName}] Incremental mode: fetching issues updated after ${since} ` +
-      `(most recent in DB: ${mostRecentIssueUpdatedAt})`
+      `(last fetch: ${repo.last_fetched})`
     );
   } else {
     console.log(`[${owner}/${repoName}] Starting issue fetch...`);
@@ -325,8 +329,8 @@ async function processIssueFetchJob(job) {
   const totalTime = Date.now() - startTime;
   const avgTimePerPage = pageCount > 0 ? Math.round(totalTime / pageCount) : 0;
 
-  // Update status to completed
-  repoQueries.updateFetchStatus.run('completed', repoId);
+  // Update status to completed and store job start time
+  repoQueries.updateFetchStatusWithTime.run(jobStartTime, 'completed', repoId);
 
   // Clear full refetch flag if it was set
   if (repo.needs_full_refetch) {

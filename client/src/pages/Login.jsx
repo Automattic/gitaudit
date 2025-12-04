@@ -24,6 +24,7 @@ function Login() {
   const errorMessages = {
     no_code: 'No authorization code received from GitHub',
     auth_failed: 'Authentication failed. Please try again.',
+    session_expired: 'Your session has expired. Please sign in again.',
   };
 
   return (

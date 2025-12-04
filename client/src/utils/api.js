@@ -20,6 +20,14 @@ async function request(endpoint, options = {}) {
   });
 
   if (!response.ok) {
+    // Handle authentication errors specifically
+    if (response.status === 401 || response.status === 403) {
+      // Clear token and redirect to login with error message
+      localStorage.removeItem('token');
+      window.location.href = '/login?error=session_expired';
+      throw new Error('Session expired. Please login again.');
+    }
+
     const error = await response.json().catch(() => ({ error: 'Request failed' }));
     throw new Error(error.error || `HTTP ${response.status}`);
   }
