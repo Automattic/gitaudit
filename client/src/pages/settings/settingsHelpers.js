@@ -154,3 +154,61 @@ export function unflattenStaleIssuesSettings(edits, currentSettings) {
 
   return updated;
 }
+
+// ============================================================================
+// COMMUNITY HEALTH HELPERS
+// ============================================================================
+
+export function flattenCommunityHealthSettings(settings) {
+  const rules = settings.scoringRules;
+  return {
+    // First-Time Contributor
+    firstTimeContributor_enabled: rules.firstTimeContributor.enabled,
+    firstTimeContributor_points: rules.firstTimeContributor.points,
+
+    // Me Too Comments
+    meTooComments_enabled: rules.meTooComments.enabled,
+    meTooComments_points: rules.meTooComments.points,
+    meTooComments_minimumCount: rules.meTooComments.minimumCount,
+
+    // Sentiment Analysis
+    sentimentAnalysis_enabled: rules.sentimentAnalysis.enabled,
+    sentimentAnalysis_maxPoints: rules.sentimentAnalysis.maxPoints,
+
+    // Maintainer Team
+    maintainerTeam_org: settings.maintainerTeam.org,
+    maintainerTeam_teamSlug: settings.maintainerTeam.teamSlug,
+
+    // Thresholds
+    thresholds_critical: settings.thresholds.critical,
+    thresholds_high: settings.thresholds.high,
+    thresholds_medium: settings.thresholds.medium,
+  };
+}
+
+export function unflattenCommunityHealthSettings(edits, currentSettings) {
+  // Deep clone to avoid mutation
+  const updated = JSON.parse(JSON.stringify(currentSettings));
+
+  // Apply all edits
+  Object.entries(edits).forEach(([key, value]) => {
+    if (key.startsWith('thresholds_')) {
+      const thresholdKey = key.replace('thresholds_', '');
+      updated.thresholds[thresholdKey] = value;
+    } else if (key.startsWith('maintainerTeam_')) {
+      const teamKey = key.replace('maintainerTeam_', '');
+      updated.maintainerTeam[teamKey] = value;
+    } else {
+      // Parse rule name and property from key like 'firstTimeContributor_enabled'
+      const firstUnderscore = key.indexOf('_');
+      const ruleName = key.substring(0, firstUnderscore);
+      const propName = key.substring(firstUnderscore + 1);
+
+      if (updated.scoringRules[ruleName]) {
+        updated.scoringRules[ruleName][propName] = value;
+      }
+    }
+  });
+
+  return updated;
+}

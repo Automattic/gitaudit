@@ -107,6 +107,22 @@ function RepositoryLayout() {
               Stale Issues
             </NavLink>
             <NavLink
+              to={`/repos/${owner}/${repo}/community`}
+              style={({ isActive }) => ({
+                display: "block",
+                padding: "0.75rem 1.5rem",
+                color: isActive ? "#2271b1" : "#50575e",
+                backgroundColor: isActive ? "#f0f6fc" : "transparent",
+                textDecoration: "none",
+                fontWeight: isActive ? 600 : 400,
+                borderLeft: isActive
+                  ? "3px solid #2271b1"
+                  : "3px solid transparent",
+              })}
+            >
+              Community Health
+            </NavLink>
+            <NavLink
               to={`/repos/${owner}/${repo}/settings`}
               style={({ isActive }) => ({
                 display: "block",

@@ -101,6 +101,22 @@ export const repoQueries = {
       WHERE ur.user_id = ? AND r.owner = ? AND r.name = ?
     `);
   },
+
+  get clearFullRefetchFlag() {
+    return db.prepare(`
+      UPDATE repositories
+      SET needs_full_refetch = 0
+      WHERE id = ?
+    `);
+  },
+
+  get updateMaintainerLogins() {
+    return db.prepare(`
+      UPDATE repositories
+      SET maintainer_logins = ?, maintainer_logins_updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+  },
 };
 
 // Issue queries
@@ -110,8 +126,9 @@ export const issueQueries = {
       INSERT INTO issues (
         repo_id, github_id, number, title, body, state, labels,
         created_at, updated_at, closed_at, comments_count,
-        last_comment_at, last_comment_author, reactions, assignees, milestone, issue_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        last_comment_at, last_comment_author, reactions, assignees, milestone, issue_type,
+        author_login, author_association
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(github_id) DO UPDATE SET
         title = excluded.title,
         body = excluded.body,
@@ -125,7 +142,9 @@ export const issueQueries = {
         reactions = excluded.reactions,
         assignees = excluded.assignees,
         milestone = excluded.milestone,
-        issue_type = excluded.issue_type
+        issue_type = excluded.issue_type,
+        author_login = excluded.author_login,
+        author_association = excluded.author_association
       RETURNING *
     `);
   },
@@ -161,6 +180,14 @@ export const issueQueries = {
       SELECT MAX(updated_at) as most_recent_updated_at
       FROM issues
       WHERE repo_id = ?
+    `);
+  },
+
+  get updateCommentsFetched() {
+    return db.prepare(`
+      UPDATE issues
+      SET comments_fetched = 1
+      WHERE id = ?
     `);
   },
 };
@@ -242,6 +269,43 @@ export const settingsQueries = {
 
   get deleteByRepoId() {
     return db.prepare('DELETE FROM repo_settings WHERE repo_id = ?');
+  },
+};
+
+// Comment queries (for community health analyzer)
+export const commentQueries = {
+  get insertOrUpdate() {
+    return db.prepare(`
+      INSERT INTO issue_comments (issue_id, github_comment_id, author, body, created_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(github_comment_id) DO UPDATE SET
+        author = excluded.author,
+        body = excluded.body,
+        created_at = excluded.created_at
+    `);
+  },
+
+  get findByIssueId() {
+    return db.prepare(`
+      SELECT * FROM issue_comments
+      WHERE issue_id = ?
+      ORDER BY created_at ASC
+    `);
+  },
+
+  get deleteByIssueId() {
+    return db.prepare(`
+      DELETE FROM issue_comments
+      WHERE issue_id = ?
+    `);
+  },
+
+  get countByIssueId() {
+    return db.prepare(`
+      SELECT COUNT(*) as count
+      FROM issue_comments
+      WHERE issue_id = ?
+    `);
   },
 };
 

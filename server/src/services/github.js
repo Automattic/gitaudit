@@ -1,7 +1,7 @@
 import { graphql } from '@octokit/graphql';
 
 // Rate limiting: delay between requests to avoid secondary rate limits
-const MIN_REQUEST_INTERVAL_MS = 1000; // 1 second between requests
+const MIN_REQUEST_INTERVAL_MS = 500; // 500ms between requests
 let lastRequestTime = 0;
 
 /**
@@ -160,6 +160,10 @@ export async function fetchRepositoryIssues(accessToken, owner, repo, first = 10
             createdAt
             updatedAt
             closedAt
+            author {
+              login
+            }
+            authorAssociation
             issueType {
               name
             }
@@ -255,6 +259,7 @@ export async function fetchIssueComments(accessToken, owner, repo, issueNumber) 
               endCursor
             }
             nodes {
+              databaseId
               body
               author {
                 login
@@ -282,4 +287,50 @@ export async function fetchIssueComments(accessToken, owner, repo, issueNumber) 
   }
 
   return allComments;
+}
+
+/**
+ * Fetch team members from a GitHub organization team
+ * Used for identifying maintainers in community health analysis
+ * @param {string} accessToken - GitHub access token
+ * @param {string} org - Organization login (e.g., 'facebook')
+ * @param {string} teamSlug - Team slug (e.g., 'react-core')
+ * @returns {Promise<string[]>} Array of member logins
+ */
+export async function fetchTeamMembers(accessToken, org, teamSlug) {
+  const client = createGitHubClient(accessToken);
+
+  const query = `
+    query($org: String!, $teamSlug: String!, $first: Int!, $after: String) {
+      organization(login: $org) {
+        team(slug: $teamSlug) {
+          members(first: $first, after: $after) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              login
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  // Fetch all team members with pagination
+  let allMembers = [];
+  let hasNextPage = true;
+  let after = null;
+
+  while (hasNextPage) {
+    const result = await client(query, { org, teamSlug, first: 100, after });
+    const members = result.organization.team.members;
+
+    allMembers = allMembers.concat(members.nodes.map(node => node.login));
+    hasNextPage = members.pageInfo.hasNextPage;
+    after = members.pageInfo.endCursor;
+  }
+
+  return allMembers;
 }

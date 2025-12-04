@@ -206,17 +206,29 @@ router.get('/', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Repository not found' });
     }
 
-    // Load repo's settings (both importantBugs and staleIssues)
+    // Load repo's settings (both importantBugs, staleIssues, and communityHealth)
     const allSettings = loadRepoSettings(repo.id);
 
     // Get all open issues
     const issues = issueQueries.findOpenByRepo.all(repo.id);
 
+    // Get maintainer logins from database for community health scoring
+    let maintainerLogins = [];
+    if (scoreType === 'all' || scoreType === 'communityHealth') {
+      if (repo.maintainer_logins) {
+        try {
+          maintainerLogins = JSON.parse(repo.maintainer_logins);
+        } catch (error) {
+          console.error('[Community Health] Failed to parse maintainer_logins from database:', error.message);
+        }
+      }
+    }
+
     // Analyze with unified analyzer
     const { analyzeIssuesWithAllScores } = await import('../services/analyzers/unified.js');
     const { issues: analyzedIssues, totalItems, totalPages, stats, thresholds } =
       analyzeIssuesWithAllScores(issues, allSettings, {
-        page, perPage, scoreType, sortBy, priority, level, search, issueType
+        page, perPage, scoreType, sortBy, priority, level, search, issueType, maintainerLogins
       });
 
     // Format response

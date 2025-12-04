@@ -1,11 +1,13 @@
-import { issueQueries, repoQueries, analysisQueries, transaction } from '../db/queries.js';
-import { fetchRepositoryIssues } from './github.js';
+import { issueQueries, repoQueries, analysisQueries, commentQueries, transaction } from '../db/queries.js';
+import { fetchRepositoryIssues, fetchIssueComments, fetchTeamMembers } from './github.js';
 import {
   analyzeIssueSentiment,
   analyzeCommentsSentiment,
   calculateSentimentScore,
+  isSentimentAnalysisAvailable,
 } from './analyzers/sentiment.js';
 import { isBugIssue } from './analyzers/important-bugs.js';
+import { loadRepoSettings } from './settings.js';
 
 // In-memory job queue
 const queue = [];
@@ -103,17 +105,22 @@ async function processJob(job) {
     if (job.type === 'issue-fetch') {
       await processIssueFetchJob(job);
 
-      // After issue fetch completes, automatically queue sentiment analysis
-      const repo = repoQueries.getById.get(job.repoId);
-      console.log(`[${repo.owner}/${repo.name}] Issue fetch complete, queuing sentiment analysis...`);
-      queue.push({
-        type: 'sentiment',
-        repoId: job.repoId,
-        accessToken: job.accessToken
-      });
+      // After issue fetch completes, automatically queue sentiment analysis (if AI provider is configured)
+      if (isSentimentAnalysisAvailable()) {
+        const repo = repoQueries.getById.get(job.repoId);
+        console.log(`[${repo.owner}/${repo.name}] Issue fetch complete, queuing sentiment analysis...`);
+        queue.push({
+          type: 'sentiment',
+          repoId: job.repoId,
+          accessToken: job.accessToken
+        });
 
-      // Trigger processing for the sentiment job
-      setImmediate(() => processQueue());
+        // Trigger processing for the sentiment job
+        setImmediate(() => processQueue());
+      } else {
+        const repo = repoQueries.getById.get(job.repoId);
+        console.log(`[${repo.owner}/${repo.name}] Issue fetch complete. Sentiment analysis skipped (no AI provider configured).`);
+      }
     } else if (job.type === 'sentiment') {
       await processSentimentJob(job);
     }
@@ -150,21 +157,25 @@ async function processIssueFetchJob(job) {
   const mostRecentIssueUpdatedAt = mostRecentResult?.most_recent_updated_at;
 
   // Calculate 'since' timestamp for GitHub API filter
-  // Subtract 1 minute for clock skew protection
+  // Check if full refetch is needed (to populate author data)
   let since = null;
-  if (mostRecentIssueUpdatedAt) {
+  if (repo.needs_full_refetch) {
+    console.log(`[${owner}/${repoName}] Starting issue fetch...`);
+    console.log(`[${owner}/${repoName}] Full refetch mode (populating author data)`);
+    since = null; // Force full sync
+  } else if (mostRecentIssueUpdatedAt) {
+    // Normal incremental mode - subtract 1 minute for clock skew protection
     const mostRecentDate = new Date(mostRecentIssueUpdatedAt);
     const sinceDate = new Date(mostRecentDate.getTime() - 60 * 1000); // 1 minute buffer
     since = sinceDate.toISOString();
-  }
 
-  console.log(`[${owner}/${repoName}] Starting issue fetch...`);
-  if (since) {
+    console.log(`[${owner}/${repoName}] Starting issue fetch...`);
     console.log(
       `[${owner}/${repoName}] Incremental mode: fetching issues updated after ${since} ` +
       `(most recent in DB: ${mostRecentIssueUpdatedAt})`
     );
   } else {
+    console.log(`[${owner}/${repoName}] Starting issue fetch...`);
     console.log(`[${owner}/${repoName}] Full sync mode (first fetch)`);
   }
 
@@ -180,6 +191,7 @@ async function processIssueFetchJob(job) {
     const dbStartTime = Date.now();
     let pageNewCount = 0;
     let pageUpdatedCount = 0;
+    const issuesNeedingComments = [];
 
     const saveIssues = transaction(() => {
       for (const issue of result.nodes) {
@@ -216,13 +228,85 @@ async function processIssueFetchJob(job) {
           JSON.stringify({ total: issue.reactions.totalCount }),
           JSON.stringify(assignees),
           issue.milestone?.title || null,
-          issue.issueType?.name || null
+          issue.issueType?.name || null,
+          issue.author?.login || null,
+          issue.authorAssociation || null
         );
+
+        // Determine if this issue needs comment fetching
+        // Fetch if: (1) new issue, (2) updated issue, or (3) comments_fetched = false (migration)
+        const needsComments = isNew || isUpdated || (existingIssue && !existingIssue.comments_fetched);
+
+        if (needsComments) {
+          // Get the DB issue record to access its ID
+          const dbIssue = issueQueries.findByGithubId.get(issue.databaseId);
+          issuesNeedingComments.push({
+            id: dbIssue.id,
+            number: issue.number,
+            commentsCount: issue.comments.totalCount
+          });
+        }
       }
     });
 
     saveIssues();
     const dbTime = Date.now() - dbStartTime;
+
+    // Fetch and store comments for issues that need them
+    const commentsStartTime = Date.now();
+    let commentsFetchedCount = 0;
+    let totalCommentsSaved = 0;
+
+    for (const issueInfo of issuesNeedingComments) {
+      try {
+        // Skip if issue has no comments
+        if (issueInfo.commentsCount === 0) {
+          // Still mark as fetched
+          issueQueries.updateCommentsFetched?.run?.(issueInfo.id);
+          continue;
+        }
+
+        // Fetch comments from GitHub
+        const comments = await fetchIssueComments(accessToken, owner, repoName, issueInfo.number);
+
+        // Store comments in database
+        const storeComments = transaction(() => {
+          for (const comment of comments) {
+            if (comment.author && comment.author.login) {
+              commentQueries.insertOrUpdate.run(
+                issueInfo.id,
+                comment.databaseId || comment.id, // GitHub comment ID
+                comment.author.login,
+                comment.body,
+                comment.createdAt
+              );
+            }
+          }
+
+          // Mark comments as fetched for this issue
+          issueQueries.updateCommentsFetched?.run?.(issueInfo.id);
+        });
+
+        storeComments();
+        commentsFetchedCount++;
+        totalCommentsSaved += comments.length;
+      } catch (error) {
+        console.error(
+          `[${owner}/${repoName}] Failed to fetch comments for issue #${issueInfo.number}:`,
+          error.message
+        );
+        // Don't mark as fetched if it failed - will retry next time
+      }
+    }
+
+    const commentsTime = Date.now() - commentsStartTime;
+
+    if (issuesNeedingComments.length > 0) {
+      console.log(
+        `[${owner}/${repoName}] Comments: ${commentsFetchedCount}/${issuesNeedingComments.length} issues processed, ` +
+        `${totalCommentsSaved} comments saved | ${commentsTime}ms`
+      );
+    }
 
     fetchedCount += result.nodes.length;
     newCount += pageNewCount;
@@ -243,6 +327,31 @@ async function processIssueFetchJob(job) {
 
   // Update status to completed
   repoQueries.updateFetchStatus.run('completed', repoId);
+
+  // Clear full refetch flag if it was set
+  if (repo.needs_full_refetch) {
+    repoQueries.clearFullRefetchFlag.run(repoId);
+    console.log(`[${owner}/${repoName}] Full refetch completed, flag cleared`);
+  }
+
+  // Fetch and store maintainer logins for Community Health scoring
+  try {
+    const settings = loadRepoSettings(repoId);
+    const team = settings.communityHealth?.maintainerTeam;
+
+    if (team && team.org && team.teamSlug) {
+      console.log(`[${owner}/${repoName}] Fetching maintainer logins from ${team.org}/${team.teamSlug}...`);
+      const maintainerLogins = await fetchTeamMembers(accessToken, team.org, team.teamSlug);
+
+      // Store in database
+      repoQueries.updateMaintainerLogins.run(JSON.stringify(maintainerLogins), repoId);
+      console.log(`[${owner}/${repoName}] ✓ Stored ${maintainerLogins.length} maintainer(s)`);
+    }
+  } catch (error) {
+    console.error(`[${owner}/${repoName}] Failed to fetch/store maintainer logins:`, error.message);
+    // Don't fail the entire job - maintainer detection is optional
+  }
+
   console.log(
     `[${owner}/${repoName}] ✓ Issue fetch completed: ` +
     `${fetchedCount} issues fetched (${newCount} new, ${updatedCount} updated), ${pageCount} pages, ${Math.round(totalTime / 1000)}s total ` +
@@ -294,13 +403,8 @@ async function processSentimentJob(job) {
       // 1. Analyze issue sentiment (title + body)
       const issueSentiment = await analyzeIssueSentiment(issue);
 
-      // 2. Lazy-fetch and analyze comment sentiments
-      const commentsSentiments = await analyzeCommentsSentiment(
-        accessToken,
-        repo.owner,
-        repo.name,
-        issue.number
-      );
+      // 2. Analyze comment sentiments (from cached data)
+      const commentsSentiments = await analyzeCommentsSentiment(issue.id);
 
       totalCommentsFetched += commentsSentiments.length;
 

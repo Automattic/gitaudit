@@ -3,6 +3,7 @@ import {
   isBugIssue,
 } from "./important-bugs.js";
 import { scoreStaleIssue } from "./stale-issues.js";
+import { scoreCommunityHealth } from "./community-health.js";
 import { getDefaultSettings } from "../settings.js";
 
 /**
@@ -118,6 +119,48 @@ function calculateUnifiedStats(issues, scoreType, settings) {
     };
   }
 
+  if (scoreType === "all" || scoreType === "communityHealth") {
+    const criticalCount = issues.filter((i) => {
+      const healthScore = i.scores.find((s) => s.type === "communityHealth");
+      return (
+        healthScore && healthScore.score >= settings.communityHealth.thresholds.critical
+      );
+    }).length;
+
+    const highCount = issues.filter((i) => {
+      const healthScore = i.scores.find((s) => s.type === "communityHealth");
+      return (
+        healthScore &&
+        healthScore.score >= settings.communityHealth.thresholds.high &&
+        healthScore.score < settings.communityHealth.thresholds.critical
+      );
+    }).length;
+
+    const mediumCount = issues.filter((i) => {
+      const healthScore = i.scores.find((s) => s.type === "communityHealth");
+      return (
+        healthScore &&
+        healthScore.score >= settings.communityHealth.thresholds.medium &&
+        healthScore.score < settings.communityHealth.thresholds.high
+      );
+    }).length;
+
+    const lowCount = issues.filter((i) => {
+      const healthScore = i.scores.find((s) => s.type === "communityHealth");
+      return (
+        healthScore && healthScore.score < settings.communityHealth.thresholds.medium
+      );
+    }).length;
+
+    stats.communityHealth = {
+      all: criticalCount + highCount + mediumCount + lowCount,
+      critical: criticalCount,
+      high: highCount,
+      medium: mediumCount,
+      low: lowCount,
+    };
+  }
+
   return stats;
 }
 
@@ -128,12 +171,13 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
   const {
     page = 1,
     perPage = 20,
-    scoreType = "all", // 'importantBugs', 'staleIssues', 'all'
-    sortBy = null, // 'importantBugs.score', 'staleIssues.score'
+    scoreType = "all", // 'importantBugs', 'staleIssues', 'communityHealth', 'all'
+    sortBy = null, // 'importantBugs.score', 'staleIssues.score', 'communityHealth.score'
     priority = "all", // critical, high, medium, low, all
     level = "all", // veryStale, moderatelyStale, slightlyStale, all
     search = "",
     issueType = "all", // 'bugs', 'all' (can be extended for 'feature-requests', etc.)
+    maintainerLogins = [], // Array of maintainer usernames for community health
   } = options;
 
   // Filter by issue type if requested
@@ -164,6 +208,20 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
       const { score, metadata } = scoreStaleIssue(issue, settings.staleIssues);
       scores.push({
         type: "staleIssues",
+        score,
+        metadata,
+      });
+    }
+
+    // Run communityHealth analyzer if requested
+    if (scoreType === "all" || scoreType === "communityHealth") {
+      const { score, metadata } = scoreCommunityHealth(
+        issue,
+        settings.communityHealth,
+        maintainerLogins
+      );
+      scores.push({
+        type: "communityHealth",
         score,
         metadata,
       });
@@ -200,6 +258,18 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
           staleScore.score,
           settings.staleIssues.thresholds
         ) === level
+      );
+    });
+  }
+
+  // Filter by priority level (for communityHealth)
+  if (scoreType === "communityHealth" && priority !== "all") {
+    filteredIssues = filteredIssues.filter((issue) => {
+      const healthScore = issue.scores.find((s) => s.type === "communityHealth");
+      if (!healthScore) return false;
+      return (
+        classifyPriority(healthScore.score, settings.communityHealth.thresholds) ===
+        priority
       );
     });
   }
@@ -241,6 +311,7 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
     thresholds: {
       importantBugs: settings.importantBugs.thresholds,
       staleIssues: settings.staleIssues.thresholds,
+      communityHealth: settings.communityHealth.thresholds,
     },
   };
 }

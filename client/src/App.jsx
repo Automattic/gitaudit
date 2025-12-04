@@ -7,6 +7,7 @@ import AuthCallback from './pages/AuthCallback';
 import RepoSelector from './pages/RepoSelector';
 import ImportantBugs from './pages/ImportantBugs';
 import StaleIssues from './pages/StaleIssues';
+import CommunityHealth from './pages/CommunityHealth';
 import Settings from './pages/Settings';
 import RepositoryLayout from './layouts/RepositoryLayout';
 
@@ -55,6 +56,7 @@ function App() {
               {/* Nested routes */}
               <Route path="bugs" element={<ImportantBugs />} />
               <Route path="stale" element={<StaleIssues />} />
+              <Route path="community" element={<CommunityHealth />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             <Route path="/" element={<Navigate to="/repos" replace />} />

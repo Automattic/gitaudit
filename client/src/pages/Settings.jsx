@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { TabPanel, Button, Notice, Spinner } from '@wordpress/components';
 import ImportantBugsForm from './settings/ImportantBugsForm';
 import StaleIssuesForm from './settings/StaleIssuesForm';
+import CommunityHealthForm from './settings/CommunityHealthForm';
 import api from '../utils/api';
 import Page from '../components/Page';
 
@@ -90,6 +91,13 @@ function Settings() {
     }));
   }
 
+  function handleCommunityHealthChange(updatedCommunityHealth) {
+    setSettings((prev) => ({
+      ...prev,
+      communityHealth: updatedCommunityHealth,
+    }));
+  }
+
   if (loading) {
     return (
       <Page title="Scoring Settings">
@@ -144,6 +152,7 @@ function Settings() {
         tabs={[
           { name: 'important-bugs', title: 'Important Bugs' },
           { name: 'stale-issues', title: 'Stale Issues' },
+          { name: 'community-health', title: 'Community Health' },
         ]}
       >
         {(tab) => (
@@ -158,6 +167,12 @@ function Settings() {
               <StaleIssuesForm
                 settings={settings.staleIssues}
                 onChange={handleStaleIssuesChange}
+              />
+            )}
+            {tab.name === 'community-health' && (
+              <CommunityHealthForm
+                settings={settings.communityHealth}
+                onChange={handleCommunityHealthChange}
               />
             )}
           </>

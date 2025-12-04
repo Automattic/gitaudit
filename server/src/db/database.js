@@ -112,6 +112,9 @@ export function initializeDatabase() {
   // Migrate to user_repositories join table
   migrateToUserRepositoriesTable();
 
+  // Create issue_comments table for community health analyzer
+  createIssueCommentsTable();
+
   // Clean up any stuck in_progress statuses from server crashes
   cleanupStuckStatuses();
 
@@ -141,6 +144,24 @@ function migrateIssuesTable() {
   if (!columnNames.includes('issue_type')) {
     db.exec('ALTER TABLE issues ADD COLUMN issue_type TEXT');
     console.log('Added issue_type column to issues table');
+  }
+
+  // Add comments_fetched column if it doesn't exist
+  if (!columnNames.includes('comments_fetched')) {
+    db.exec('ALTER TABLE issues ADD COLUMN comments_fetched BOOLEAN DEFAULT 0');
+    console.log('Added comments_fetched column to issues table');
+  }
+
+  // Add author_login column if it doesn't exist
+  if (!columnNames.includes('author_login')) {
+    db.exec('ALTER TABLE issues ADD COLUMN author_login TEXT');
+    console.log('Added author_login column to issues table');
+  }
+
+  // Add author_association column if it doesn't exist
+  if (!columnNames.includes('author_association')) {
+    db.exec('ALTER TABLE issues ADD COLUMN author_association TEXT');
+    console.log('Added author_association column to issues table');
   }
 }
 
@@ -217,6 +238,26 @@ function migrateRepositoriesTable() {
     console.log('Added date_added column to repositories table');
   }
 
+  // Add needs_full_refetch column if it doesn't exist
+  // Default to 1 (true) for existing repos to populate author data on next sync
+  if (!columnNames.includes('needs_full_refetch')) {
+    db.exec('ALTER TABLE repositories ADD COLUMN needs_full_refetch BOOLEAN DEFAULT 1');
+    console.log('Added needs_full_refetch column to repositories table');
+    console.log('All existing repos will do a full refetch on next sync to populate author data');
+  }
+
+  // Add maintainer_logins column if it doesn't exist (stores JSON array of maintainer logins)
+  if (!columnNames.includes('maintainer_logins')) {
+    db.exec('ALTER TABLE repositories ADD COLUMN maintainer_logins TEXT');
+    console.log('Added maintainer_logins column to repositories table');
+  }
+
+  // Add maintainer_logins_updated_at column if it doesn't exist
+  if (!columnNames.includes('maintainer_logins_updated_at')) {
+    db.exec('ALTER TABLE repositories ADD COLUMN maintainer_logins_updated_at DATETIME');
+    console.log('Added maintainer_logins_updated_at column to repositories table');
+  }
+
   // Create index on user_id if it doesn't exist
   const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='repositories'").all();
   const indexNames = indexes.map(idx => idx.name);
@@ -247,6 +288,35 @@ function createRepoSettingsTable() {
   if (!indexNames.includes('idx_repo_settings_repo_id')) {
     db.exec('CREATE INDEX idx_repo_settings_repo_id ON repo_settings(repo_id)');
     console.log('Created idx_repo_settings_repo_id index');
+  }
+}
+
+// Create issue_comments table for caching comment data
+function createIssueCommentsTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS issue_comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      issue_id INTEGER NOT NULL,
+      github_comment_id INTEGER NOT NULL,
+      author TEXT NOT NULL,
+      body TEXT,
+      created_at DATETIME NOT NULL,
+      FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create indexes for better query performance
+  const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='issue_comments'").all();
+  const indexNames = indexes.map(idx => idx.name);
+
+  if (!indexNames.includes('idx_comments_issue_id')) {
+    db.exec('CREATE INDEX idx_comments_issue_id ON issue_comments(issue_id)');
+    console.log('Created idx_comments_issue_id index');
+  }
+
+  if (!indexNames.includes('idx_comments_github_id')) {
+    db.exec('CREATE UNIQUE INDEX idx_comments_github_id ON issue_comments(github_comment_id)');
+    console.log('Created unique idx_comments_github_id index');
   }
 }
 

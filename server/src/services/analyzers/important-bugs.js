@@ -137,7 +137,9 @@ export function scoreIssue(issue, settings = null) {
   if (rules.sentimentAnalysis.enabled) {
     const sentimentAnalysis = analysisQueries.findByIssueAndType.get(issue.id, 'sentiment');
     if (sentimentAnalysis && sentimentAnalysis.score) {
-      const scaledScore = Math.min(sentimentAnalysis.score, rules.sentimentAnalysis.maxPoints);
+      // Scale score proportionally: (actual score / max possible score) * desired max points
+      // Sentiment score ranges from 0-30
+      const scaledScore = Math.round(sentimentAnalysis.score * (rules.sentimentAnalysis.maxPoints / 30));
       score += scaledScore;
       metadata.sentimentScore = scaledScore;
       metadata.sentimentMetadata = JSON.parse(sentimentAnalysis.metadata);

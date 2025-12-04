@@ -85,6 +85,32 @@ export function getDefaultSettings() {
         slightlyStale: 20,
       },
     },
+    communityHealth: {
+      scoringRules: {
+        firstTimeContributor: {
+          enabled: true,
+          points: 30,
+        },
+        meTooComments: {
+          enabled: true,
+          points: 20,
+          minimumCount: 3, // min "me too" style comments
+        },
+        sentimentAnalysis: {
+          enabled: true,
+          maxPoints: 30,
+        },
+      },
+      maintainerTeam: {
+        org: '', // e.g., 'facebook'
+        teamSlug: '', // e.g., 'react-core'
+      },
+      thresholds: {
+        critical: 60,
+        high: 40,
+        medium: 20,
+      },
+    },
   };
 }
 
@@ -96,15 +122,18 @@ function migrateSettings(settings) {
 
   let importantBugs;
   let staleIssues;
+  let communityHealth;
 
-  // If already in new format, ensure both sections exist
-  if (settings.importantBugs || settings.staleIssues) {
+  // If already in new format, ensure all sections exist
+  if (settings.importantBugs || settings.staleIssues || settings.communityHealth) {
     importantBugs = settings.importantBugs || defaults.importantBugs;
     staleIssues = settings.staleIssues || defaults.staleIssues;
+    communityHealth = settings.communityHealth || defaults.communityHealth;
   } else {
-    // Old format: wrap in importantBugs, add staleIssues defaults
+    // Old format: wrap in importantBugs, add staleIssues and communityHealth defaults
     importantBugs = settings;
     staleIssues = defaults.staleIssues;
+    communityHealth = defaults.communityHealth;
   }
 
   // Migrate priorityLabels and lowPriorityLabels to include labels field if missing
@@ -126,6 +155,7 @@ function migrateSettings(settings) {
   return {
     importantBugs,
     staleIssues,
+    communityHealth,
   };
 }
 
@@ -420,14 +450,112 @@ function validateStaleIssuesSettings(staleSettings) {
 }
 
 /**
- * Validates user-submitted settings for both important bugs and stale issues
+ * Validates community health settings
+ */
+function validateCommunityHealthSettings(healthSettings) {
+  const errors = [];
+
+  if (!healthSettings.scoringRules || !healthSettings.maintainerTeam || !healthSettings.thresholds) {
+    errors.push('communityHealth: Missing required fields: scoringRules, maintainerTeam, or thresholds');
+    return { valid: false, errors };
+  }
+
+  const rules = healthSettings.scoringRules;
+
+  // Validate firstTimeContributor
+  if (!rules.firstTimeContributor) {
+    errors.push('communityHealth: Missing rule: firstTimeContributor');
+  } else {
+    const ftc = rules.firstTimeContributor;
+
+    if (typeof ftc.enabled !== 'boolean') {
+      errors.push('communityHealth: firstTimeContributor.enabled must be boolean');
+    }
+
+    if (typeof ftc.points !== 'number' || ftc.points < 0 || ftc.points > 200) {
+      errors.push('communityHealth: firstTimeContributor.points must be between 0 and 200');
+    }
+  }
+
+  // Validate meTooComments
+  if (!rules.meTooComments) {
+    errors.push('communityHealth: Missing rule: meTooComments');
+  } else {
+    const mtc = rules.meTooComments;
+
+    if (typeof mtc.enabled !== 'boolean') {
+      errors.push('communityHealth: meTooComments.enabled must be boolean');
+    }
+
+    if (typeof mtc.points !== 'number' || mtc.points < 0 || mtc.points > 200) {
+      errors.push('communityHealth: meTooComments.points must be between 0 and 200');
+    }
+
+    if (typeof mtc.minimumCount !== 'number' || mtc.minimumCount < 1 || mtc.minimumCount > 100) {
+      errors.push('communityHealth: meTooComments.minimumCount must be between 1 and 100');
+    }
+  }
+
+  // Validate sentimentAnalysis
+  if (!rules.sentimentAnalysis) {
+    errors.push('communityHealth: Missing rule: sentimentAnalysis');
+  } else {
+    const sa = rules.sentimentAnalysis;
+
+    if (typeof sa.enabled !== 'boolean') {
+      errors.push('communityHealth: sentimentAnalysis.enabled must be boolean');
+    }
+
+    if (typeof sa.maxPoints !== 'number' || sa.maxPoints < 0 || sa.maxPoints > 50) {
+      errors.push('communityHealth: sentimentAnalysis.maxPoints must be between 0 and 50');
+    }
+  }
+
+  // Validate maintainerTeam (org and teamSlug can be empty but must be strings)
+  const team = healthSettings.maintainerTeam;
+  if (typeof team.org !== 'string') {
+    errors.push('communityHealth: maintainerTeam.org must be a string');
+  }
+
+  if (typeof team.teamSlug !== 'string') {
+    errors.push('communityHealth: maintainerTeam.teamSlug must be a string');
+  }
+
+  // Validate thresholds (critical > high > medium >= 0)
+  const { critical, high, medium } = healthSettings.thresholds;
+
+  if (typeof critical !== 'number' || critical < 0 || critical > 500) {
+    errors.push('communityHealth: thresholds.critical must be a number between 0 and 500');
+  }
+
+  if (typeof high !== 'number' || high < 0 || high > 500) {
+    errors.push('communityHealth: thresholds.high must be a number between 0 and 500');
+  }
+
+  if (typeof medium !== 'number' || medium < 0 || medium > 500) {
+    errors.push('communityHealth: thresholds.medium must be a number between 0 and 500');
+  }
+
+  if (typeof critical === 'number' && typeof high === 'number' && critical <= high) {
+    errors.push('communityHealth: thresholds.critical must be greater than thresholds.high');
+  }
+
+  if (typeof high === 'number' && typeof medium === 'number' && high <= medium) {
+    errors.push('communityHealth: thresholds.high must be greater than thresholds.medium');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates user-submitted settings for important bugs, stale issues, and community health
  * Returns { valid: boolean, errors: string[] }
  */
 export function validateSettings(settings) {
   const errors = [];
 
-  if (!settings.importantBugs || !settings.staleIssues) {
-    return { valid: false, errors: ['Missing required sections: importantBugs or staleIssues'] };
+  if (!settings.importantBugs || !settings.staleIssues || !settings.communityHealth) {
+    return { valid: false, errors: ['Missing required sections: importantBugs, staleIssues, or communityHealth'] };
   }
 
   // Validate important bugs
@@ -437,6 +565,10 @@ export function validateSettings(settings) {
   // Validate stale issues
   const staleValidation = validateStaleIssuesSettings(settings.staleIssues);
   errors.push(...staleValidation.errors);
+
+  // Validate community health
+  const healthValidation = validateCommunityHealthSettings(settings.communityHealth);
+  errors.push(...healthValidation.errors);
 
   return { valid: errors.length === 0, errors };
 }

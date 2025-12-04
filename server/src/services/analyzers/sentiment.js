@@ -1,7 +1,14 @@
 import { generateText } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
-import { fetchIssueComments } from '../github.js';
+import { commentQueries } from '../../db/queries.js';
+
+/**
+ * Check if sentiment analysis is available (AI provider configured)
+ */
+export function isSentimentAnalysisAvailable() {
+  return !!process.env.AI_API_KEY;
+}
 
 // Get AI provider from environment
 function getAIProvider() {
@@ -97,12 +104,13 @@ export async function analyzeIssueSentiment(issue) {
 }
 
 /**
- * Fetch and analyze sentiment for all comments of an issue
+ * Analyze sentiment for all comments of an issue (from cached data)
  * Returns array of sentiment results
+ * @param {number} issueId - Database issue ID
  */
-export async function analyzeCommentsSentiment(accessToken, owner, repoName, issueNumber) {
-  // Lazy-fetch comments from GitHub
-  const comments = await fetchIssueComments(accessToken, owner, repoName, issueNumber);
+export async function analyzeCommentsSentiment(issueId) {
+  // Read comments from cached database
+  const comments = commentQueries.findByIssueId.all(issueId);
 
   const results = [];
 

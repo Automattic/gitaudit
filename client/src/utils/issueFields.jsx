@@ -291,6 +291,106 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }) => {
           </div>
         </div>
       );
+    } else if (scoreType === "communityHealth") {
+      const items = [];
+
+      if (metadata.firstTimeContributor) {
+        items.push({
+          label: "First-time contributor",
+          sublabel: `No maintainer response for ${metadata.daysSinceCreation || 0} days`,
+          points: metadata.firstTimeContributor,
+        });
+      }
+
+      if (metadata.meTooComments) {
+        items.push({
+          label: '"Me too" pile-on',
+          sublabel: `${metadata.meTooCount || 0} "me too" style comments`,
+          points: metadata.meTooComments,
+        });
+      }
+
+      if (metadata.sentimentScore) {
+        const sentimentData = metadata.sentimentMetadata || {};
+        const negativeComments = sentimentData.negativeComments || 0;
+        const totalComments = sentimentData.totalComments || 0;
+        items.push({
+          label: "Sentiment analysis",
+          sublabel: `${negativeComments}/${totalComments} negative comments`,
+          points: metadata.sentimentScore,
+        });
+      }
+
+      return (
+        <div style={{ padding: "12px", minWidth: "280px" }}>
+          <div style={{ marginBottom: "12px", fontWeight: "600", fontSize: "0.95rem" }}>
+            Community Health Score
+          </div>
+          <div style={{
+            fontSize: "0.85rem",
+            color: "#666",
+            marginBottom: "12px",
+            paddingBottom: "8px",
+            borderBottom: "1px solid #f0f0f0"
+          }}>
+            {metadata.hasMaintainerResponse
+              ? "Has maintainer response"
+              : "No maintainer response yet"} • {metadata.commentsCount || 0} comments
+          </div>
+          {items.length === 0 ? (
+            <div style={{ fontSize: "0.85rem", color: "#666", fontStyle: "italic" }}>
+              No community health concerns detected
+            </div>
+          ) : (
+            <div>
+              {items.map((item, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    padding: "8px 0",
+                    borderBottom: idx < items.length - 1 ? "1px solid #f0f0f0" : "none"
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "0.85rem", color: "#333", fontWeight: "500" }}>
+                      {item.label}
+                    </div>
+                    {item.sublabel && (
+                      <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "2px" }}>
+                        {item.sublabel}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: "0.85rem",
+                    fontWeight: "600",
+                    color: "#d63638",
+                    marginLeft: "12px",
+                    flexShrink: 0
+                  }}>
+                    +{item.points}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{
+            marginTop: "12px",
+            paddingTop: "12px",
+            borderTop: "2px solid #ddd",
+            fontSize: "0.9rem",
+            fontWeight: "600",
+            display: "flex",
+            justifyContent: "space-between"
+          }}>
+            <span>Total Score:</span>
+            <span style={{ color: "#d63638" }}>{score}</span>
+          </div>
+        </div>
+      );
     }
     return null;
   };
