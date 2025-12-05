@@ -110,6 +110,7 @@ async function rateLimitedCall(fn, context = 'API call') {
 }
 
 // Create GitHub GraphQL client with user token
+// Automatically applies rate limiting and retry logic to all calls
 export function createGitHubClient(accessToken) {
   const client = graphql.defaults({
     headers: {
@@ -117,7 +118,7 @@ export function createGitHubClient(accessToken) {
     },
   });
 
-  // Wrap client to add rate limiting with context
+  // Wrap client to add rate limiting, retry logic, and context logging
   return async (query, variables) => {
     // Extract operation name from query for better logging
     const operationMatch = query.match(/(?:query|mutation)\s+(\w+)/);
@@ -126,7 +127,11 @@ export function createGitHubClient(accessToken) {
       operation +
       (variables?.owner && variables?.repo ? ` (${variables.owner}/${variables.repo})` : '');
 
-    return rateLimitedCall(() => client(query, variables), context);
+    // Apply retry logic around rate-limited call
+    return withRetry(
+      () => rateLimitedCall(() => client(query, variables), context),
+      context
+    );
   };
 }
 
@@ -423,11 +428,7 @@ export async function fetchIssueComments(accessToken, owner, repo, issueNumber) 
   let after = null;
 
   while (hasNextPage && allComments.length < 100) {
-    // Wrap individual page fetch in retry logic
-    const result = await withRetry(
-      () => client(query, { owner, repo, issueNumber, first: 100, after }),
-      `fetchIssueComments(${owner}/${repo}#${issueNumber}, page=${after || 'first'})`
-    );
+    const result = await client(query, { owner, repo, issueNumber, first: 100, after });
     const comments = result.repository.issue.comments;
 
     allComments = allComments.concat(comments.nodes);
@@ -473,11 +474,7 @@ export async function fetchTeamMembers(accessToken, org, teamSlug) {
   let after = null;
 
   while (hasNextPage) {
-    // Wrap individual page fetch in retry logic
-    const result = await withRetry(
-      () => client(query, { org, teamSlug, first: 100, after }),
-      `fetchTeamMembers(${org}/${teamSlug}, page=${after || 'first'})`
-    );
+    const result = await client(query, { org, teamSlug, first: 100, after });
     const members = result.organization.team.members;
 
     allMembers = allMembers.concat(members.nodes.map((node) => node.login));
