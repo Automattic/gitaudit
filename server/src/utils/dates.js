@@ -81,6 +81,42 @@ export function toISOString(sqliteDateTime) {
 }
 
 /**
+ * Parse SQLite datetime string to JavaScript Date object
+ *
+ * CRITICAL: Use this function whenever reading datetime values from the SQLite database.
+ * SQLite stores datetimes in "YYYY-MM-DD HH:MM:SS" format without timezone indicators.
+ * JavaScript's Date() constructor interprets such strings as LOCAL time, not UTC,
+ * causing timezone-dependent bugs.
+ *
+ * @param {string|null} sqliteDateTime - SQLite datetime (YYYY-MM-DD HH:MM:SS)
+ * @returns {Date|null} - Date object (UTC) or null
+ *
+ * @example
+ * parseSqliteDate("2025-12-04 10:26:49") // Date object representing 2025-12-04T10:26:49.000Z
+ * parseSqliteDate(null) // null
+ */
+export function parseSqliteDate(sqliteDateTime) {
+  if (!sqliteDateTime) return null;
+
+  try {
+    // SQLite datetime is stored as UTC but without timezone indicator
+    // Append ' UTC' to tell JavaScript to interpret as UTC, not local time
+    const date = new Date(sqliteDateTime + ' UTC');
+
+    // Validate date
+    if (isNaN(date.getTime())) {
+      console.error(`Invalid SQLite datetime: ${sqliteDateTime}`);
+      return null;
+    }
+
+    return date;
+  } catch (error) {
+    console.error(`Error parsing SQLite datetime:`, error);
+    return null;
+  }
+}
+
+/**
  * Get current timestamp in SQLite format
  * Equivalent to SQLite's CURRENT_TIMESTAMP but as a string parameter
  *

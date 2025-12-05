@@ -4,6 +4,7 @@
 
 import { commentQueries, analysisQueries } from '../../db/queries.js';
 import { getDefaultSettings } from '../settings.js';
+import { parseSqliteDate } from '../../utils/dates.js';
 
 /**
  * Check if a user is a maintainer
@@ -84,11 +85,11 @@ export function scoreCommunityHealth(issue, settings, maintainerLogins) {
   const hasMaintainerComment = hasMaintainerResponse(comments, maintainerLogins);
 
   // Calculate days since last activity
-  const updatedAt = new Date(issue.updated_at);
+  const updatedAt = parseSqliteDate(issue.updated_at);
   const daysSinceUpdate = (Date.now() - updatedAt) / (1000 * 60 * 60 * 24);
 
   // Calculate days since creation
-  const createdAt = new Date(issue.created_at);
+  const createdAt = parseSqliteDate(issue.created_at);
   const daysSinceCreation = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
 
   // Rule 1: First-time contributor without maintainer response

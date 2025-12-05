@@ -2,10 +2,11 @@
 // Higher score = more stale/needs attention
 
 import { getDefaultSettings } from '../settings.js';
+import { parseSqliteDate } from '../../utils/dates.js';
 
 // Helper function to calculate days since date
 function daysSince(dateString) {
-  const date = new Date(dateString);
+  const date = parseSqliteDate(dateString);
   return (Date.now() - date) / (1000 * 60 * 60 * 24);
 }
 

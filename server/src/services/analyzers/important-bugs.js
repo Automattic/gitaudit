@@ -3,6 +3,7 @@
 
 import { analysisQueries } from '../../db/queries.js';
 import { getDefaultSettings } from '../settings.js';
+import { parseSqliteDate } from '../../utils/dates.js';
 
 // Helper function to check if issue is a bug
 export function isBugIssue(issue) {
@@ -69,7 +70,7 @@ export function scoreIssue(issue, settings = null) {
 
   // 2. Recent activity
   if (rules.recentActivity.enabled) {
-    const updatedAt = new Date(issue.updated_at);
+    const updatedAt = parseSqliteDate(issue.updated_at);
     const daysSinceUpdate = (Date.now() - updatedAt) / (1000 * 60 * 60 * 24);
     if (daysSinceUpdate <= rules.recentActivity.daysThreshold) {
       score += rules.recentActivity.points;
@@ -120,8 +121,8 @@ export function scoreIssue(issue, settings = null) {
 
   // 7. Long-standing but active
   if (rules.longstandingButActive.enabled) {
-    const createdAt = new Date(issue.created_at);
-    const updatedAt = new Date(issue.updated_at);
+    const createdAt = parseSqliteDate(issue.created_at);
+    const updatedAt = parseSqliteDate(issue.updated_at);
     const daysSinceCreation = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
     const daysSinceUpdate = (Date.now() - updatedAt) / (1000 * 60 * 60 * 24);
 

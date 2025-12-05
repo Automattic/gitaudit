@@ -8,7 +8,7 @@ import {
 } from './analyzers/sentiment.js';
 import { isBugIssue } from './analyzers/important-bugs.js';
 import { loadRepoSettings } from './settings.js';
-import { toSqliteDateTime, now } from '../utils/dates.js';
+import { toSqliteDateTime, now, parseSqliteDate } from '../utils/dates.js';
 
 // In-memory job queue
 const queue = [];
@@ -190,7 +190,7 @@ async function processIssueFetchJob(job) {
   } else if (repo.last_fetched) {
     // Use last successful fetch start time for incremental mode
     // This ensures we catch ALL issues updated since last sync started
-    const lastFetchDate = new Date(repo.last_fetched);
+    const lastFetchDate = parseSqliteDate(repo.last_fetched);
     const sinceDate = new Date(lastFetchDate.getTime() - 60 * 1000); // 1 minute buffer for clock skew
     since = sinceDate.toISOString();
 
@@ -228,7 +228,7 @@ async function processIssueFetchJob(job) {
         // Track if this is a new or updated issue
         const existingIssue = issueQueries.findByGithubId.get(issue.databaseId);
         const isNew = !existingIssue;
-        const isUpdated = existingIssue && new Date(issue.updatedAt) > new Date(existingIssue.updated_at);
+        const isUpdated = existingIssue && new Date(issue.updatedAt) > parseSqliteDate(existingIssue.updated_at);
 
         if (isNew) {
           pageNewCount++;

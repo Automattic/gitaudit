@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories } from '../services/github.js';
 import { repoQueries, transaction } from '../db/queries.js';
+import { toSqliteDateTime } from '../utils/dates.js';
 
 const router = express.Router();
 
@@ -74,6 +75,9 @@ router.post('/save', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: owner, name, githubId' });
     }
 
+    // Convert GitHub's ISO 8601 date to SQLite format for consistency
+    const sqliteUpdatedAt = updatedAt ? toSqliteDateTime(updatedAt) : null;
+
     // Use transaction to save repo and link to user atomically
     const repo = transaction(() => {
       // First, insert or update the repository
@@ -85,7 +89,7 @@ router.post('/save', authenticateToken, async (req, res) => {
         stars || 0,
         language || null,
         languageColor || null,
-        updatedAt || null,
+        sqliteUpdatedAt,
         isPrivate ? 1 : 0
       );
 

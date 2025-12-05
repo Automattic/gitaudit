@@ -118,6 +118,9 @@ export function initializeDatabase() {
   // Migrate timestamps from ISO 8601 to SQLite format
   migrateTimestampFormats();
 
+  // Trigger full refetch after timezone bug fix (one-time)
+  triggerFullRefetchAfterTimezoneFix();
+
   // Clean up any stuck in_progress statuses from server crashes
   cleanupStuckStatuses();
 
@@ -140,19 +143,17 @@ function migrateTimestampFormats() {
 
     console.log(`Migrating ${needsMigration.count} issue timestamps from ISO 8601 to SQLite format...`);
 
-    // Migrate issues table
+    // Migrate issues table using SQLite's datetime() function for proper normalization
     const issuesResult = db.prepare(`
       UPDATE issues SET
-        created_at = REPLACE(REPLACE(created_at, 'T', ' '), 'Z', ''),
-        updated_at = REPLACE(REPLACE(updated_at, 'T', ' '), 'Z', ''),
+        created_at = datetime(created_at),
+        updated_at = datetime(updated_at),
         closed_at = CASE
-          WHEN closed_at IS NOT NULL
-          THEN REPLACE(REPLACE(closed_at, 'T', ' '), 'Z', '')
+          WHEN closed_at IS NOT NULL THEN datetime(closed_at)
           ELSE NULL
         END,
         last_comment_at = CASE
-          WHEN last_comment_at IS NOT NULL
-          THEN REPLACE(REPLACE(last_comment_at, 'T', ' '), 'Z', '')
+          WHEN last_comment_at IS NOT NULL THEN datetime(last_comment_at)
           ELSE NULL
         END
       WHERE created_at LIKE '%T%'
@@ -161,21 +162,78 @@ function migrateTimestampFormats() {
     // Migrate comments table
     const commentsResult = db.prepare(`
       UPDATE issue_comments SET
-        created_at = REPLACE(REPLACE(created_at, 'T', ' '), 'Z', '')
+        created_at = datetime(created_at)
       WHERE created_at LIKE '%T%'
     `).run();
 
     // Migrate repositories table
     const reposResult = db.prepare(`
       UPDATE repositories SET
-        last_fetched = REPLACE(REPLACE(last_fetched, 'T', ' '), 'Z', '')
-      WHERE last_fetched LIKE '%T%' AND last_fetched IS NOT NULL
+        last_fetched = datetime(last_fetched),
+        updated_at = CASE
+          WHEN updated_at IS NOT NULL AND updated_at LIKE '%T%'
+          THEN datetime(updated_at)
+          ELSE updated_at
+        END
+      WHERE (last_fetched LIKE '%T%' AND last_fetched IS NOT NULL)
+         OR (updated_at LIKE '%T%' AND updated_at IS NOT NULL)
     `).run();
 
     const totalMigrated = issuesResult.changes + commentsResult.changes + reposResult.changes;
     console.log(`✓ Migrated ${totalMigrated} timestamps to SQLite format (${issuesResult.changes} issues, ${commentsResult.changes} comments, ${reposResult.changes} repos)`);
   } catch (error) {
     console.error('Failed to migrate timestamp formats:', error);
+    // Don't throw - allow server to start even if migration fails
+  }
+}
+
+// Trigger full refetch for all repos after timezone bug fix (one-time migration)
+// This ensures data integrity after fixing timezone parsing bugs
+function triggerFullRefetchAfterTimezoneFix() {
+  try {
+    // Check if this migration has already run by looking for a migration marker
+    // We'll use a metadata table to track one-time migrations
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS migration_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        migration_name TEXT UNIQUE NOT NULL,
+        run_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Check if this specific migration has already run
+    const migrationName = 'timezone_bug_fix_refetch_2025_12';
+    const alreadyRun = db.prepare(`
+      SELECT COUNT(*) as count FROM migration_log WHERE migration_name = ?
+    `).get(migrationName);
+
+    if (alreadyRun.count > 0) {
+      // Migration already completed
+      return;
+    }
+
+    // Set needs_full_refetch flag for all repositories that have been fetched
+    const result = db.prepare(`
+      UPDATE repositories
+      SET needs_full_refetch = 1
+      WHERE last_fetched IS NOT NULL
+    `).run();
+
+    if (result.changes > 0) {
+      console.log(`\n${'='.repeat(70)}`);
+      console.log('🔄 TIMEZONE BUG FIX: Triggering full refetch for data integrity');
+      console.log(`   Flagged ${result.changes} repository(ies) for full refresh`);
+      console.log(`   Next refresh will fetch ALL issues to ensure 100% accuracy`);
+      console.log(`${'='.repeat(70)}\n`);
+    }
+
+    // Mark this migration as complete
+    db.prepare(`
+      INSERT INTO migration_log (migration_name) VALUES (?)
+    `).run(migrationName);
+
+  } catch (error) {
+    console.error('Failed to trigger full refetch after timezone fix:', error);
     // Don't throw - allow server to start even if migration fails
   }
 }
