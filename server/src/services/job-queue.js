@@ -240,8 +240,12 @@ async function processIssueFetchJob(job) {
 
     console.log(`[${owner}/${repoName}] Starting issue fetch...`);
     console.log(
-      `[${owner}/${repoName}] Incremental mode: fetching issues updated after ${since} ` +
-      `(last fetch: ${repo.last_fetched})`
+      `[${owner}/${repoName}] 📅 Incremental mode: fetching issues updated after ${since} ` +
+      `(last fetch started: ${repo.last_fetched}, with 1min buffer)`
+    );
+    console.log(
+      `[${owner}/${repoName}] ℹ️  Current time: ${jobStartTime} ` +
+      `(GitHub will return issues with updatedAt > ${since})`
     );
   } else {
     console.log(`[${owner}/${repoName}] Starting issue fetch...`);
@@ -273,6 +277,15 @@ async function processIssueFetchJob(job) {
         const existingIssue = issueQueries.findByGithubId.get(issue.databaseId);
         const isNew = !existingIssue;
         const isUpdated = existingIssue && new Date(issue.updatedAt) > parseSqliteDate(existingIssue.updated_at);
+
+        // Debug: Log state changes
+        if (existingIssue && existingIssue.state !== issue.state.toLowerCase()) {
+          console.log(
+            `[${owner}/${repoName}] 🔄 Issue #${issue.number} state changed: ` +
+            `${existingIssue.state} → ${issue.state.toLowerCase()} ` +
+            `(updatedAt: ${issue.updatedAt})`
+          );
+        }
 
         if (isNew) {
           pageNewCount++;
@@ -406,6 +419,20 @@ async function processIssueFetchJob(job) {
 
   const totalTime = Date.now() - startTime;
   const avgTimePerPage = pageCount > 0 ? Math.round(totalTime / pageCount) : 0;
+
+  // Debug: Summary for incremental fetches
+  if (since) {
+    console.log(
+      `[${owner}/${repoName}] ✅ Incremental fetch complete: ` +
+      `${fetchedCount} issues returned by GitHub (${newCount} new, ${updatedCount} updated)`
+    );
+    if (fetchedCount === 0) {
+      console.log(
+        `[${owner}/${repoName}] ⚠️  No issues returned - this means no issues were updated after ${since}. ` +
+        `If you just closed an issue, check its updatedAt timestamp is after this time.`
+      );
+    }
+  }
 
   // Update status to completed and store job start time
   repoQueries.updateFetchStatusWithTime.run(jobStartTime, 'completed', repoId);
