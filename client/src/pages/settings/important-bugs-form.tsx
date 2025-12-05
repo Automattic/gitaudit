@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { DataForm } from '@wordpress/dataviews';
 import {
   CheckboxControl,
@@ -9,8 +9,23 @@ import {
   flattenImportantBugsSettings,
   unflattenImportantBugsSettings,
 } from './settings-helpers';
+import type { RepoSettings } from '@/data/api/settings/types';
 
-function ImportantBugsForm({ settings, onChange }) {
+type ImportantBugsSettings = RepoSettings['importantBugs'];
+type FlattenedSettings = Record<string, string | number | boolean | string[]>;
+
+interface FieldEditProps {
+  data: FlattenedSettings;
+  field: { id: string; label: string; type: string };
+  onChange: (updates: Partial<FlattenedSettings>) => void;
+}
+
+interface ImportantBugsFormProps {
+  settings: ImportantBugsSettings;
+  onChange: (settings: ImportantBugsSettings) => void;
+}
+
+function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
   // Flatten for DataForm
   const flatData = useMemo(
     () => flattenImportantBugsSettings(settings),
@@ -19,7 +34,7 @@ function ImportantBugsForm({ settings, onChange }) {
 
   // Handle changes from DataForm
   const handleChange = useCallback(
-    (edits) => {
+    (edits: Partial<FlattenedSettings>) => {
       const updated = unflattenImportantBugsSettings(edits, settings);
       onChange(updated);
     },
@@ -32,25 +47,25 @@ function ImportantBugsForm({ settings, onChange }) {
       // Priority Labels
       {
         id: 'priorityLabels_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues with priority labels (critical, urgent, high, p0, etc.)"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'priorityLabels_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.priorityLabels_enabled}
@@ -59,13 +74,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'priorityLabels_labels',
-        type: 'text',
+        type: 'text' as const,
         label: 'Labels (comma-separated)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             disabled={!data.priorityLabels_enabled}
             help="Enter label patterns to match, separated by commas"
           />
@@ -75,25 +90,25 @@ function ImportantBugsForm({ settings, onChange }) {
       // Low Priority Labels
       {
         id: 'lowPriorityLabels_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues with low priority labels (negative scoring)"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'lowPriorityLabels_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={-200}
             max={200}
             disabled={!data.lowPriorityLabels_enabled}
@@ -102,13 +117,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'lowPriorityLabels_labels',
-        type: 'text',
+        type: 'text' as const,
         label: 'Labels (comma-separated)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             disabled={!data.lowPriorityLabels_enabled}
             help="Enter label patterns to match, separated by commas"
           />
@@ -118,25 +133,25 @@ function ImportantBugsForm({ settings, onChange }) {
       // Recent Activity
       {
         id: 'recentActivity_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues updated within a specific number of days"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'recentActivity_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.recentActivity_enabled}
@@ -145,13 +160,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'recentActivity_daysThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Days Threshold',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 7 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 7 })}
             min={1}
             max={365}
             disabled={!data.recentActivity_enabled}
@@ -162,25 +177,25 @@ function ImportantBugsForm({ settings, onChange }) {
       // High Reactions
       {
         id: 'highReactions_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues with more than a certain number of reactions"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'highReactions_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.highReactions_enabled}
@@ -189,13 +204,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'highReactions_reactionThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Reaction Threshold',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 5 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 5 })}
             min={1}
             max={100}
             disabled={!data.highReactions_enabled}
@@ -206,25 +221,25 @@ function ImportantBugsForm({ settings, onChange }) {
       // Assigned
       {
         id: 'assigned_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues that have been assigned to someone"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'assigned_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.assigned_enabled}
@@ -235,25 +250,25 @@ function ImportantBugsForm({ settings, onChange }) {
       // Milestone
       {
         id: 'milestone_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues that are part of a milestone"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'milestone_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.milestone_enabled}
@@ -264,25 +279,25 @@ function ImportantBugsForm({ settings, onChange }) {
       // Active Discussion
       {
         id: 'activeDiscussion_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues with high comment activity (scaled scoring)"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'activeDiscussion_baseThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Base Threshold (comments)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 5 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 5 })}
             min={0}
             max={100}
             disabled={!data.activeDiscussion_enabled}
@@ -291,13 +306,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'activeDiscussion_pointsPer10Comments',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points per 10 comments',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 5 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 5 })}
             min={0}
             max={50}
             disabled={!data.activeDiscussion_enabled}
@@ -306,13 +321,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'activeDiscussion_maxPoints',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Max Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 50 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 50 })}
             min={0}
             max={100}
             disabled={!data.activeDiscussion_enabled}
@@ -323,25 +338,25 @@ function ImportantBugsForm({ settings, onChange }) {
       // Long-standing But Active
       {
         id: 'longstandingButActive_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Old issues that have recent activity"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'longstandingButActive_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.longstandingButActive_enabled}
@@ -350,13 +365,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'longstandingButActive_ageThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Age Threshold (days)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 30 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 30 })}
             min={1}
             max={365}
             disabled={!data.longstandingButActive_enabled}
@@ -365,13 +380,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'longstandingButActive_activityThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Activity Threshold (days)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 14 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 14 })}
             min={1}
             max={365}
             disabled={!data.longstandingButActive_enabled}
@@ -382,25 +397,25 @@ function ImportantBugsForm({ settings, onChange }) {
       // Sentiment Analysis
       {
         id: 'sentimentAnalysis_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="AI-powered sentiment analysis (negative sentiment = higher score)"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'sentimentAnalysis_maxPoints',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Max Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 30 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 30 })}
             min={0}
             max={50}
             disabled={!data.sentimentAnalysis_enabled}
@@ -411,13 +426,13 @@ function ImportantBugsForm({ settings, onChange }) {
       // Thresholds
       {
         id: 'thresholds_critical',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Critical (minimum)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 120 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 120 })}
             min={0}
             max={500}
           />
@@ -425,13 +440,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'thresholds_high',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'High (minimum)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 80 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 80 })}
             min={0}
             max={500}
           />
@@ -439,13 +454,13 @@ function ImportantBugsForm({ settings, onChange }) {
       },
       {
         id: 'thresholds_medium',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Medium (minimum)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 50 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 50 })}
             min={0}
             max={500}
           />
@@ -458,18 +473,18 @@ function ImportantBugsForm({ settings, onChange }) {
   // Form layout
   const form = useMemo(
     () => ({
-      layout: { type: 'card' },
+      layout: { type: 'card' as const },
       fields: [
         {
           id: 'thresholds',
           label: 'Priority Thresholds',
           description:
             'Define the minimum scores required for each priority level.',
-          layout: { type: 'card' },
+          layout: { type: 'card' as const },
           children: [
             {
               id: 'thresholds-fields',
-              layout: { type: 'row' },
+              layout: { type: 'row' as const },
               children: [
                 'thresholds_critical',
                 'thresholds_high',
@@ -491,7 +506,7 @@ function ImportantBugsForm({ settings, onChange }) {
                 'priorityLabels_enabled',
                 {
                   id: 'priority-labels-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: ['priorityLabels_points'],
                 },
                 'priorityLabels_labels',
@@ -504,7 +519,7 @@ function ImportantBugsForm({ settings, onChange }) {
                 'lowPriorityLabels_enabled',
                 {
                   id: 'low-priority-labels-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: ['lowPriorityLabels_points'],
                 },
                 'lowPriorityLabels_labels',
@@ -517,7 +532,7 @@ function ImportantBugsForm({ settings, onChange }) {
                 'recentActivity_enabled',
                 {
                   id: 'recent-activity-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: [
                     'recentActivity_points',
                     'recentActivity_daysThreshold',
@@ -532,7 +547,7 @@ function ImportantBugsForm({ settings, onChange }) {
                 'highReactions_enabled',
                 {
                   id: 'high-reactions-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: [
                     'highReactions_points',
                     'highReactions_reactionThreshold',
@@ -547,7 +562,7 @@ function ImportantBugsForm({ settings, onChange }) {
                 'assigned_enabled',
                 {
                   id: 'assigned-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: ['assigned_points'],
                 },
               ],
@@ -559,7 +574,7 @@ function ImportantBugsForm({ settings, onChange }) {
                 'milestone_enabled',
                 {
                   id: 'milestone-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: ['milestone_points'],
                 },
               ],
@@ -571,7 +586,7 @@ function ImportantBugsForm({ settings, onChange }) {
                 'activeDiscussion_enabled',
                 {
                   id: 'active-discussion-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: [
                     'activeDiscussion_baseThreshold',
                     'activeDiscussion_pointsPer10Comments',
@@ -587,7 +602,7 @@ function ImportantBugsForm({ settings, onChange }) {
                 'longstandingButActive_enabled',
                 {
                   id: 'longstanding-but-active-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: [
                     'longstandingButActive_points',
                     'longstandingButActive_ageThreshold',
@@ -603,7 +618,7 @@ function ImportantBugsForm({ settings, onChange }) {
                 'sentimentAnalysis_enabled',
                 {
                   id: 'sentiment-analysis-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: ['sentimentAnalysis_maxPoints'],
                 },
               ],

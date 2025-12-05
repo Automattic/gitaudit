@@ -1,8 +1,18 @@
+import type { RepoSettings } from '@/data/api/settings/types';
+
+// Type aliases for clarity
+type ImportantBugsSettings = RepoSettings['importantBugs'];
+type StaleIssuesSettings = RepoSettings['staleIssues'];
+type CommunityHealthSettings = RepoSettings['communityHealth'];
+
+// Flattened settings type (for forms)
+type FlattenedSettings = Record<string, string | number | boolean | string[]>;
+
 // ============================================================================
 // IMPORTANT BUGS HELPERS
 // ============================================================================
 
-export function flattenImportantBugsSettings(settings) {
+export function flattenImportantBugsSettings(settings: ImportantBugsSettings): FlattenedSettings {
   const rules = settings.scoringRules;
   return {
     // Priority Labels
@@ -56,7 +66,10 @@ export function flattenImportantBugsSettings(settings) {
   };
 }
 
-export function unflattenImportantBugsSettings(edits, currentSettings) {
+export function unflattenImportantBugsSettings(
+  edits: Record<string, unknown>,
+  currentSettings: ImportantBugsSettings
+): ImportantBugsSettings {
   // Deep clone to avoid mutation
   const updated = JSON.parse(JSON.stringify(currentSettings));
 
@@ -84,8 +97,8 @@ export function unflattenImportantBugsSettings(edits, currentSettings) {
 // STALE ISSUES HELPERS
 // ============================================================================
 
-export function flattenStaleIssuesSettings(settings) {
-  const flat = {};
+export function flattenStaleIssuesSettings(settings: StaleIssuesSettings): FlattenedSettings {
+  const flat: Record<string, any> = {};
 
   // Activity ranges (4 ranges)
   settings.activityTimeRanges.forEach((range, idx) => {
@@ -125,7 +138,10 @@ export function flattenStaleIssuesSettings(settings) {
   return flat;
 }
 
-export function unflattenStaleIssuesSettings(edits, currentSettings) {
+export function unflattenStaleIssuesSettings(
+  edits: Record<string, unknown>,
+  currentSettings: StaleIssuesSettings
+): StaleIssuesSettings {
   // Deep clone to avoid mutation
   const updated = JSON.parse(JSON.stringify(currentSettings));
 
@@ -159,7 +175,7 @@ export function unflattenStaleIssuesSettings(edits, currentSettings) {
 // COMMUNITY HEALTH HELPERS
 // ============================================================================
 
-export function flattenCommunityHealthSettings(settings) {
+export function flattenCommunityHealthSettings(settings: CommunityHealthSettings): FlattenedSettings {
   const rules = settings.scoringRules;
   return {
     // First-Time Contributor
@@ -186,7 +202,10 @@ export function flattenCommunityHealthSettings(settings) {
   };
 }
 
-export function unflattenCommunityHealthSettings(edits, currentSettings) {
+export function unflattenCommunityHealthSettings(
+  edits: Record<string, unknown>,
+  currentSettings: CommunityHealthSettings
+): CommunityHealthSettings {
   // Deep clone to avoid mutation
   const updated = JSON.parse(JSON.stringify(currentSettings));
 

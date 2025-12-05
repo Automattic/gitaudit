@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { DataForm } from '@wordpress/dataviews';
 import {
   CheckboxControl,
@@ -8,15 +8,30 @@ import {
   flattenStaleIssuesSettings,
   unflattenStaleIssuesSettings,
 } from './settings-helpers';
+import type { RepoSettings } from '@/data/api/settings/types';
 
-function StaleIssuesForm({ settings, onChange }) {
+type StaleIssuesSettings = RepoSettings['staleIssues'];
+type FlattenedSettings = Record<string, string | number | boolean | string[]>;
+
+interface FieldEditProps {
+  data: FlattenedSettings;
+  field: { id: string; label: string; type: string };
+  onChange: (updates: Partial<FlattenedSettings>) => void;
+}
+
+interface StaleIssuesFormProps {
+  settings: StaleIssuesSettings;
+  onChange: (settings: StaleIssuesSettings) => void;
+}
+
+function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
   const flatData = useMemo(
     () => flattenStaleIssuesSettings(settings),
     [settings]
   );
 
   const handleChange = useCallback(
-    (edits) => {
+    (edits: Partial<FlattenedSettings>) => {
       const updated = unflattenStaleIssuesSettings(edits, settings);
       onChange(updated);
     },
@@ -29,13 +44,13 @@ function StaleIssuesForm({ settings, onChange }) {
       // Activity Range 0 (365 days, 50 points)
       {
         id: 'activityRange_0_days',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Days',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
           />
@@ -43,13 +58,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'activityRange_0_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
           />
@@ -59,13 +74,13 @@ function StaleIssuesForm({ settings, onChange }) {
       // Activity Range 1 (180 days, 40 points)
       {
         id: 'activityRange_1_days',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Days',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
           />
@@ -73,13 +88,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'activityRange_1_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
           />
@@ -89,13 +104,13 @@ function StaleIssuesForm({ settings, onChange }) {
       // Activity Range 2 (90 days, 30 points)
       {
         id: 'activityRange_2_days',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Days',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
           />
@@ -103,13 +118,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'activityRange_2_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
           />
@@ -119,13 +134,13 @@ function StaleIssuesForm({ settings, onChange }) {
       // Activity Range 3 (60 days, 20 points)
       {
         id: 'activityRange_3_days',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Days',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
           />
@@ -133,13 +148,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'activityRange_3_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
           />
@@ -149,25 +164,25 @@ function StaleIssuesForm({ settings, onChange }) {
       // Bonus Rule: Waiting for Response
       {
         id: 'waitingForResponse_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues with 'waiting for response' or 'needs more info' labels"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'waitingForResponse_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.waitingForResponse_enabled}
@@ -178,25 +193,25 @@ function StaleIssuesForm({ settings, onChange }) {
       // Bonus Rule: Abandoned by Assignee
       {
         id: 'abandonedByAssignee_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues assigned but not updated for a long time"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'abandonedByAssignee_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.abandonedByAssignee_enabled}
@@ -205,13 +220,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'abandonedByAssignee_daysThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Days Threshold',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={365}
             disabled={!data.abandonedByAssignee_enabled}
@@ -222,25 +237,25 @@ function StaleIssuesForm({ settings, onChange }) {
       // Bonus Rule: Never Addressed
       {
         id: 'neverAddressed_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Old issues that have never been commented on"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'neverAddressed_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.neverAddressed_enabled}
@@ -249,13 +264,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'neverAddressed_ageThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Age Threshold (days)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
             disabled={!data.neverAddressed_enabled}
@@ -266,25 +281,25 @@ function StaleIssuesForm({ settings, onChange }) {
       // Bonus Rule: High Interest but Stale
       {
         id: 'highInterestButStale_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues with high community interest that went cold"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'highInterestButStale_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.highInterestButStale_enabled}
@@ -293,13 +308,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'highInterestButStale_reactionThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Reaction Threshold',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={100}
             disabled={!data.highInterestButStale_enabled}
@@ -308,13 +323,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'highInterestButStale_commentsThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Comments Threshold',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={100}
             disabled={!data.highInterestButStale_enabled}
@@ -323,13 +338,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'highInterestButStale_daysThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Days Threshold',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={365}
             disabled={!data.highInterestButStale_enabled}
@@ -340,25 +355,25 @@ function StaleIssuesForm({ settings, onChange }) {
       // Bonus Rule: Stale Milestone (DISABLED by default)
       {
         id: 'staleMilestone_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues in a milestone but not updated recently (disabled by default)"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'staleMilestone_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.staleMilestone_enabled}
@@ -367,13 +382,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'staleMilestone_daysThreshold',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Days Threshold',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={365}
             disabled={!data.staleMilestone_enabled}
@@ -384,25 +399,25 @@ function StaleIssuesForm({ settings, onChange }) {
       // Bonus Rule: Marked for Closure (DISABLED by default)
       {
         id: 'markedForClosure_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Issues with duplicate/wontfix/invalid labels still open (disabled by default)"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'markedForClosure_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.markedForClosure_enabled}
@@ -413,13 +428,13 @@ function StaleIssuesForm({ settings, onChange }) {
       // Thresholds
       {
         id: 'thresholds_veryStale',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Very Stale',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={500}
           />
@@ -427,13 +442,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'thresholds_moderatelyStale',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Moderately Stale',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={500}
           />
@@ -441,13 +456,13 @@ function StaleIssuesForm({ settings, onChange }) {
       },
       {
         id: 'thresholds_slightlyStale',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Slightly Stale',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={500}
           />
@@ -460,7 +475,7 @@ function StaleIssuesForm({ settings, onChange }) {
   // Form layout
   const form = useMemo(
     () => ({
-      layout: { type: 'card' },
+      layout: { type: 'card' as const },
       fields: [
         {
           id: 'activity-time-ranges',
@@ -471,25 +486,25 @@ function StaleIssuesForm({ settings, onChange }) {
             {
               id: 'range-0',
               label: '1st Range (Longest)',
-              layout: { type: 'row' },
+              layout: { type: 'row' as const },
               children: ['activityRange_0_days', 'activityRange_0_points'],
             },
             {
               id: 'range-1',
               label: '2nd Range',
-              layout: { type: 'row' },
+              layout: { type: 'row' as const },
               children: ['activityRange_1_days', 'activityRange_1_points'],
             },
             {
               id: 'range-2',
               label: '3rd Range',
-              layout: { type: 'row' },
+              layout: { type: 'row' as const },
               children: ['activityRange_2_days', 'activityRange_2_points'],
             },
             {
               id: 'range-3',
               label: '4th Range (Shortest)',
-              layout: { type: 'row' },
+              layout: { type: 'row' as const },
               children: ['activityRange_3_days', 'activityRange_3_points'],
             },
           ],
@@ -506,7 +521,7 @@ function StaleIssuesForm({ settings, onChange }) {
                 'waitingForResponse_enabled',
                 {
                   id: 'waiting-for-response-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: ['waitingForResponse_points'],
                 },
               ],
@@ -518,7 +533,7 @@ function StaleIssuesForm({ settings, onChange }) {
                 'abandonedByAssignee_enabled',
                 {
                   id: 'abandoned-by-assignee-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: [
                     'abandonedByAssignee_points',
                     'abandonedByAssignee_daysThreshold',
@@ -533,7 +548,7 @@ function StaleIssuesForm({ settings, onChange }) {
                 'neverAddressed_enabled',
                 {
                   id: 'never-addressed-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: [
                     'neverAddressed_points',
                     'neverAddressed_ageThreshold',
@@ -548,7 +563,7 @@ function StaleIssuesForm({ settings, onChange }) {
                 'highInterestButStale_enabled',
                 {
                   id: 'high-interest-but-stale-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: [
                     'highInterestButStale_points',
                     'highInterestButStale_reactionThreshold',
@@ -565,7 +580,7 @@ function StaleIssuesForm({ settings, onChange }) {
                 'staleMilestone_enabled',
                 {
                   id: 'stale-milestone-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: [
                     'staleMilestone_points',
                     'staleMilestone_daysThreshold',
@@ -580,7 +595,7 @@ function StaleIssuesForm({ settings, onChange }) {
                 'markedForClosure_enabled',
                 {
                   id: 'marked-for-closure-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: ['markedForClosure_points'],
                 },
               ],
@@ -592,11 +607,11 @@ function StaleIssuesForm({ settings, onChange }) {
           label: 'Stale Level Thresholds',
           description:
             'Minimum scores for classification. Must be: Very Stale > Moderately Stale > Slightly Stale',
-          layout: { type: 'card' },
+          layout: { type: 'card' as const },
           children: [
             {
               id: 'thresholds-fields',
-              layout: { type: 'row' },
+              layout: { type: 'row' as const },
               children: [
                 'thresholds_veryStale',
                 'thresholds_moderatelyStale',

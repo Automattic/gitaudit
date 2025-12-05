@@ -39,10 +39,9 @@ export const createRefreshIssueAction = (owner: string, repo: string, onSuccess?
       console.error('Failed to refresh issue:', error);
     }
   },
-  isEligible: (item: Issue) => {
+  isEligible: () => {
     // Always eligible for all issues
     return true;
   },
   supportsBulk: false,
-  context: 'list', // Show in list view row actions
 });

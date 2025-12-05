@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { DataForm } from '@wordpress/dataviews';
 import {
   CheckboxControl,
@@ -9,8 +9,23 @@ import {
   flattenCommunityHealthSettings,
   unflattenCommunityHealthSettings,
 } from './settings-helpers';
+import type { RepoSettings } from '@/data/api/settings/types';
 
-function CommunityHealthForm({ settings, onChange }) {
+type CommunityHealthSettings = RepoSettings['communityHealth'];
+type FlattenedSettings = Record<string, string | number | boolean | string[]>;
+
+interface FieldEditProps {
+  data: FlattenedSettings;
+  field: { id: string; label: string; type: string };
+  onChange: (updates: Partial<FlattenedSettings>) => void;
+}
+
+interface CommunityHealthFormProps {
+  settings: CommunityHealthSettings;
+  onChange: (settings: CommunityHealthSettings) => void;
+}
+
+function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
   // Flatten for DataForm
   const flatData = useMemo(
     () => flattenCommunityHealthSettings(settings),
@@ -19,7 +34,7 @@ function CommunityHealthForm({ settings, onChange }) {
 
   // Handle changes from DataForm
   const handleChange = useCallback(
-    (edits) => {
+    (edits: Partial<FlattenedSettings>) => {
       const updated = unflattenCommunityHealthSettings(edits, settings);
       onChange(updated);
     },
@@ -32,13 +47,13 @@ function CommunityHealthForm({ settings, onChange }) {
       // Maintainer Team Configuration
       {
         id: 'maintainerTeam_org',
-        type: 'text',
+        type: 'text' as const,
         label: 'GitHub Organization',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             help="GitHub organization login (e.g., 'facebook')"
             placeholder="organization-name"
           />
@@ -46,13 +61,13 @@ function CommunityHealthForm({ settings, onChange }) {
       },
       {
         id: 'maintainerTeam_teamSlug',
-        type: 'text',
+        type: 'text' as const,
         label: 'Team Slug',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             help="GitHub team slug (e.g., 'react-core')"
             placeholder="team-slug"
           />
@@ -62,25 +77,25 @@ function CommunityHealthForm({ settings, onChange }) {
       // First-Time Contributor
       {
         id: 'firstTimeContributor_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="First-time contributors without maintainer response"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'firstTimeContributor_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.firstTimeContributor_enabled}
@@ -91,25 +106,25 @@ function CommunityHealthForm({ settings, onChange }) {
       // Me Too Comments
       {
         id: 'meTooComments_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label='"Me too" pile-ons without maintainer response'
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'meTooComments_points',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
             disabled={!data.meTooComments_enabled}
@@ -118,13 +133,13 @@ function CommunityHealthForm({ settings, onChange }) {
       },
       {
         id: 'meTooComments_minimumCount',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Minimum Count',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 3 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 3 })}
             min={1}
             max={100}
             disabled={!data.meTooComments_enabled}
@@ -136,25 +151,25 @@ function CommunityHealthForm({ settings, onChange }) {
       // Sentiment Analysis
       {
         id: 'sentimentAnalysis_enabled',
-        type: 'text',
+        type: 'text' as const,
         label: 'Enable',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
             label="Sentiment analysis"
-            checked={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: value })}
+            checked={data[field.id] as boolean}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
           />
         ),
       },
       {
         id: 'sentimentAnalysis_maxPoints',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Max Points',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 30 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 30 })}
             min={0}
             max={50}
             disabled={!data.sentimentAnalysis_enabled}
@@ -166,13 +181,13 @@ function CommunityHealthForm({ settings, onChange }) {
       // Thresholds
       {
         id: 'thresholds_critical',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Critical (minimum)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 60 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 60 })}
             min={0}
             max={500}
           />
@@ -180,13 +195,13 @@ function CommunityHealthForm({ settings, onChange }) {
       },
       {
         id: 'thresholds_high',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'High (minimum)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 40 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 40 })}
             min={0}
             max={500}
           />
@@ -194,13 +209,13 @@ function CommunityHealthForm({ settings, onChange }) {
       },
       {
         id: 'thresholds_medium',
-        type: 'integer',
+        type: 'integer' as const,
         label: 'Medium (minimum)',
-        Edit: ({ data, field, onChange }) => (
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value) => onChange({ [field.id]: parseInt(value) || 20 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 20 })}
             min={0}
             max={500}
           />
@@ -213,18 +228,18 @@ function CommunityHealthForm({ settings, onChange }) {
   // Form layout
   const form = useMemo(
     () => ({
-      layout: { type: 'card' },
+      layout: { type: 'card' as const },
       fields: [
         {
           id: 'maintainer-team',
           label: 'Maintainer Team Configuration',
           description:
             'Configure the GitHub team used to identify maintainers. Leave empty to disable maintainer-based scoring.',
-          layout: { type: 'card' },
+          layout: { type: 'card' as const },
           children: [
             {
               id: 'team-fields',
-              layout: { type: 'row' },
+              layout: { type: 'row' as const },
               children: ['maintainerTeam_org', 'maintainerTeam_teamSlug'],
             },
           ],
@@ -234,11 +249,11 @@ function CommunityHealthForm({ settings, onChange }) {
           label: 'Priority Thresholds',
           description:
             'Define the minimum scores required for each priority level.',
-          layout: { type: 'card' },
+          layout: { type: 'card' as const },
           children: [
             {
               id: 'thresholds-fields',
-              layout: { type: 'row' },
+              layout: { type: 'row' as const },
               children: [
                 'thresholds_critical',
                 'thresholds_high',
@@ -272,7 +287,7 @@ function CommunityHealthForm({ settings, onChange }) {
                 'meTooComments_enabled',
                 {
                   id: 'me-too-comments-fields',
-                  layout: { type: 'row' },
+                  layout: { type: 'row' as const },
                   children: [
                     'meTooComments_points',
                     'meTooComments_minimumCount',

@@ -101,7 +101,6 @@ function RepoSelector() {
           <Notice
             status="error"
             isDismissible={false}
-            style={{ marginBottom: "1rem" }}
           >
             {error instanceof Error
               ? error.message
@@ -156,11 +155,11 @@ function RepoSelector() {
                   transition: "transform 0.2s, box-shadow 0.2s",
                 }}
                 onClick={() => handleSelectRepo(repo)}
-                onMouseEnter={(e) => {
+                onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
                   e.currentTarget.style.transform = "translateY(-2px)";
                   e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
                 }}
-                onMouseLeave={(e) => {
+                onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
                   e.currentTarget.style.transform = "translateY(0)";
                   e.currentTarget.style.boxShadow = "none";
                 }}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { TabPanel, Button, Notice, Spinner } from '@wordpress/components';
 import { useQuery } from '@tanstack/react-query';
@@ -56,7 +56,7 @@ function Settings() {
     try {
       setError(null);
       setSuccess(false);
-      const defaults = await resetMutation.mutateAsync();
+      await resetMutation.mutateAsync();
       setLocalSettingsState(null); // Clear local edits, will fallback to server
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
@@ -122,26 +122,29 @@ function Settings() {
     >
       {/* Success/Error Notices */}
       {success && (
-        <Notice
-          status="success"
-          isDismissible
-          onRemove={() => setSuccess(false)}
-          style={{ marginBottom: '1rem' }}
-        >
-          Settings saved successfully!
-        </Notice>
+        <div style={{ marginBottom: '1rem' }}>
+          <Notice
+            status="success"
+            isDismissible
+            onRemove={() => setSuccess(false)}
+          >
+            Settings saved successfully!
+          </Notice>
+        </div>
       )}
       {error && (
-        <Notice
-          status="error"
-          isDismissible
-          onRemove={() => setError(null)}
-          style={{ marginBottom: '1rem' }}
-        >
-          {error}
-        </Notice>
+        <div style={{ marginBottom: '1rem' }}>
+          <Notice
+            status="error"
+            isDismissible
+            onRemove={() => setError(null)}
+          >
+            {error}
+          </Notice>
+        </div>
       )}
 
+      {/* @ts-ignore - External library type error */}
       <TabPanel
         className="settings-tabs"
         activeClass="is-active"
@@ -151,7 +154,7 @@ function Settings() {
           { name: 'community-health', title: 'Community Health' },
         ]}
       >
-        {(tab) => (
+        {(tab: { name: string; title: string }) => (
           <>
             {tab.name === 'important-bugs' && (
               <ImportantBugsForm

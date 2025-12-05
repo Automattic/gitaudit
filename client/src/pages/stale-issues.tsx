@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { DataViews } from "@wordpress/dataviews";
+import { DataViews, type Action, type Field, type View } from "@wordpress/dataviews";
 import {
   Card,
   CardBody,
@@ -10,6 +10,7 @@ import {
   Spinner,
 } from "@wordpress/components";
 import { issuesQueryOptions, useStartIssueFetchMutation } from "@/data/queries/issues";
+import type { Issue } from "@/data/api/issues/types";
 import Page from "../components/page";
 import { Tabs } from "../utils/lock-unlock";
 import {
@@ -28,8 +29,8 @@ function StaleIssues() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
 
   // UI state (DataViews)
-  const [view, setView] = useState({
-    type: "table" as const,
+  const [view, setView] = useState<View>({
+    type: "table",
     page: 1,
     perPage: 20,
     filters: [],
@@ -46,8 +47,8 @@ function StaleIssues() {
   // Data fetching with TanStack Query
   const { data, isLoading, error, refetch } = useQuery(
     issuesQueryOptions(owner!, repo!, {
-      page: view.page,
-      per_page: view.perPage,
+      page: view.page ?? 1,
+      per_page: view.perPage ?? 20,
       search: view.search,
       scoreType: 'staleIssues',
       level: activeTab,  // Use 'level' for stale issues, not 'priority'
@@ -80,7 +81,7 @@ function StaleIssues() {
   };
 
   // Field definitions using shared utilities
-  const fields = useMemo(
+  const fields: Field<Issue>[] = useMemo(
     () => [
       createScoreField("Staleness", "staleIssues", [
         staleThresholds.veryStale,
@@ -100,7 +101,7 @@ function StaleIssues() {
   );
 
   // Actions for DataViews
-  const actions = useMemo(
+  const actions: Action<Issue>[] = useMemo(
     () => [createRefreshIssueAction(owner!, repo!, refetch)],
     [owner, repo, refetch]
   );
@@ -133,7 +134,7 @@ function StaleIssues() {
           {/* Tabs - always visible */}
           <Tabs
             selectedTabId={activeTab}
-            onSelect={(tabId) => handleTabClick(tabId as string)}
+            onSelect={(tabId: string) => handleTabClick(tabId as string)}
           >
             <Tabs.TabList>
               <Tabs.Tab tabId="all">All</Tabs.Tab>
@@ -186,7 +187,7 @@ function StaleIssues() {
               isItemClickable={() => true}
               paginationInfo={paginationInfo}
               defaultLayouts={{ table: {} }}
-              getItemId={(item) => item.id}
+              getItemId={(item) => String(item.id)}
             />
           )}
         </CardBody>

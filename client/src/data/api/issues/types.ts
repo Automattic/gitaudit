@@ -1,3 +1,9 @@
+export interface ScoreObject {
+  type: 'importantBugs' | 'staleIssues' | 'communityHealth';
+  score: number;
+  metadata: Record<string, unknown>;
+}
+
 export interface Issue {
   id: number;
   number: number;
@@ -10,7 +16,7 @@ export interface Issue {
   labels: string[];
   assignees: string[];
   milestone: string | null;
-  score?: number;
+  scores?: ScoreObject[];
 }
 
 export interface IssuesResponse {

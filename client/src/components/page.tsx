@@ -1,15 +1,20 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 
 /**
  * Page component - Standardized page layout with title, description, and actions
- *
- * @param {Object} props
- * @param {string} props.title - Page title (h2)
- * @param {string} [props.description] - Optional description text below title
- * @param {React.ReactNode} [props.actions] - Optional action buttons (displayed top-right)
- * @param {React.ReactNode} props.children - Page content
  */
-function Page({ title, description, actions, children }) {
+interface PageProps {
+  /** Page title (h2) */
+  title: string;
+  /** Optional description text below title */
+  description?: string;
+  /** Optional action buttons (displayed top-right) */
+  actions?: ReactNode;
+  /** Page content */
+  children: ReactNode;
+}
+
+function Page({ title, description, actions, children }: PageProps) {
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}

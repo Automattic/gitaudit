@@ -1,10 +1,12 @@
-import { Dropdown, Button } from "@wordpress/components";
+import { Dropdown } from "@wordpress/components";
+import type { Field } from "@wordpress/dataviews";
+import type { Issue } from "@/data/api/issues/types";
 
 // Shared helper: Format dates
-export const formatDate = (dateString) => {
+export const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
   const now = new Date();
-  const diffMs = now - date;
+  const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) return "today";
@@ -15,7 +17,7 @@ export const formatDate = (dateString) => {
 };
 
 // Shared helper: Get score color based on thresholds
-export const getScoreColor = (score, thresholds) => {
+export const getScoreColor = (score: number, thresholds: [number, number, number]): string => {
   const [threshold1, threshold2, threshold3] = thresholds;
   if (score >= threshold1) return "#d63638";
   if (score >= threshold2) return "#f56e28";
@@ -24,7 +26,14 @@ export const getScoreColor = (score, thresholds) => {
 };
 
 // Component: Score Badge with Dropdown
-const ScoreBadge = ({ score, metadata, scoreType, thresholds }) => {
+interface ScoreBadgeProps {
+  score: number;
+  metadata: Record<string, any>;
+  scoreType: 'importantBugs' | 'staleIssues' | 'communityHealth';
+  thresholds: [number, number, number];
+}
+
+const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps) => {
   const renderMetadata = () => {
     if (scoreType === "importantBugs") {
       const items = [];
@@ -401,7 +410,7 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }) => {
         placement: "bottom-start",
       }}
       focusOnMount="container"
-      renderToggle={({ isOpen, onToggle }) => (
+      renderToggle={({ onToggle }: { onToggle: () => void }) => (
         <div
           onClick={onToggle}
           style={{
@@ -426,15 +435,18 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }) => {
 };
 
 // Shared field: Score badge
-export const createScoreField = (header, scoreType, thresholds) => ({
+export const createScoreField = (
+  header: string,
+  scoreType: 'importantBugs' | 'staleIssues' | 'communityHealth',
+  thresholds: [number, number, number]
+): Field<Issue> => ({
   id: "score",
   type: "integer",
   header,
   enableSorting: false,
   enableHiding: false,
-  width: "100px",
-  render: ({ item }) => {
-    const scoreObj = item.scores.find(s => s.type === scoreType);
+  render: ({ item }: { item: Issue }) => {
+    const scoreObj = item.scores?.find((s: { type: string; score: number; metadata: any }) => s.type === scoreType);
     const score = scoreObj?.score || 0;
     const metadata = scoreObj?.metadata || {};
     return (
@@ -449,14 +461,14 @@ export const createScoreField = (header, scoreType, thresholds) => ({
 });
 
 // Shared field: Title
-export const titleField = {
+export const titleField: Field<Issue> = {
   id: "title",
   type: "text",
   header: "Title",
   enableHiding: false,
   enableGlobalSearch: true,
-  getValue: ({ item }) => `#${item.number} ${item.title}`,
-  render: ({ item }) => {
+  getValue: ({ item }: { item: Issue }) => `#${item.number} ${item.title}`,
+  render: ({ item }: { item: Issue }) => {
     const maxLength = 60;
     const titleText =
       item.title.length > maxLength
@@ -471,20 +483,19 @@ export const titleField = {
 };
 
 // Shared field: Labels
-export const labelsField = {
+export const labelsField: Field<Issue> = {
   id: "labels",
   type: "text",
   header: "Labels",
   enableSorting: false,
-  getValue: ({ item }) => item.labels.join(", "),
-  width: "20%",
-  render: ({ item }) => {
+  getValue: ({ item }: { item: Issue }) => item.labels.join(", "),
+  render: ({ item }: { item: Issue }) => {
     if (!item.labels || item.labels.length === 0) {
       return <span style={{ color: "#999" }}>—</span>;
     }
     return (
       <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-        {item.labels.slice(0, 3).map((label, idx) => (
+        {item.labels.slice(0, 3).map((label: string, idx: number) => (
           <span
             key={idx}
             style={{
@@ -509,47 +520,45 @@ export const labelsField = {
 };
 
 // Shared field: Comments
-export const commentsField = {
+export const commentsField: Field<Issue> = {
   id: "commentsCount",
   type: "integer",
   header: "Comments",
   enableSorting: false,
-  width: "100px",
-  render: ({ item }) => (
+  render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>💬 {item.commentsCount}</span>
   ),
 };
 
 // Shared field: Updated At
-export const updatedAtField = {
+export const updatedAtField: Field<Issue> = {
   id: "updatedAt",
   type: "datetime",
   header: "Updated",
   enableSorting: false,
-  width: "120px",
-  render: ({ item }) => (
+  render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>{formatDate(item.updatedAt)}</span>
   ),
 };
 
 // Shared field: Created At
-export const createdAtField = {
+export const createdAtField: Field<Issue> = {
   id: "createdAt",
   type: "datetime",
   header: "Created",
   enableSorting: false,
-  render: ({ item }) => (
+  render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>{formatDate(item.createdAt)}</span>
   ),
 };
 
 // Shared field: Assignees
-export const assigneesField = {
+export const assigneesField: Field<Issue> = {
   id: "assignees",
   type: "text",
   header: "Assignees",
   enableSorting: false,
-  render: ({ item }) => (
+  render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>
       {item.assignees && item.assignees.length > 0
         ? item.assignees.join(", ")
@@ -559,12 +568,12 @@ export const assigneesField = {
 };
 
 // Shared field: Milestone
-export const milestoneField = {
+export const milestoneField: Field<Issue> = {
   id: "milestone",
   type: "text",
   header: "Milestone",
   enableSorting: false,
-  render: ({ item }) => (
+  render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>{item.milestone || "—"}</span>
   ),
 };

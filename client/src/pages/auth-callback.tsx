@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import { Spinner } from '@wordpress/components';
@@ -20,7 +20,7 @@ function AuthCallback() {
 
     if (token) {
       // Store token and redirect to repos page
-      login(token, null); // User data will be fetched by AuthContext
+      login(token); // User data will be fetched by AuthContext
       navigate('/repos');
     } else {
       navigate('/login');

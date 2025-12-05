@@ -8,7 +8,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (newToken: string, userData: User) => void;
+  login: (newToken: string) => void;
   logout: () => void;
 }
 
@@ -51,10 +51,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [error, token]);
 
-  function login(newToken: string, userData: User) {
+  function login(newToken: string) {
     localStorage.setItem('token', newToken);
     setToken(newToken);
-    setUser(userData);
   }
 
   function logout() {

@@ -4,21 +4,36 @@ export interface ThresholdSettings {
   medium: number;
 }
 
+export interface StaleIssuesThresholds {
+  veryStale: number;
+  moderatelyStale: number;
+  slightlyStale: number;
+}
+
 export interface ImportantBugsSettings {
   thresholds: ThresholdSettings;
-  weights: {
-    labels: number;
-    comments: number;
-    age: number;
+  scoringRules: {
+    [key: string]: any;
   };
 }
 
 export interface StaleIssuesSettings {
-  thresholds: ThresholdSettings;
+  thresholds: StaleIssuesThresholds;
+  activityTimeRanges: Array<{ days: number; points: number; name: string }>;
+  bonusRules: {
+    [key: string]: any;
+  };
 }
 
 export interface CommunityHealthSettings {
   thresholds: ThresholdSettings;
+  scoringRules: {
+    [key: string]: any;
+  };
+  maintainerTeam: {
+    org: string;
+    teamSlug: string;
+  };
 }
 
 export interface RepoSettings {

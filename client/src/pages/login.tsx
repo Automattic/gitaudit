@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Card, CardBody, Notice } from '@wordpress/components';
 import { useAuth } from '../context/auth-context';
@@ -21,7 +21,7 @@ function Login() {
     window.location.href = `${apiUrl}/auth/github`;
   };
 
-  const errorMessages = {
+  const errorMessages: Record<string, string> = {
     no_code: 'No authorization code received from GitHub',
     auth_failed: 'Authentication failed. Please try again.',
     session_expired: 'Your session has expired. Please sign in again.',
@@ -45,7 +45,7 @@ function Login() {
             </p>
 
             {error && (
-              <Notice status="error" isDismissible={false} style={{ marginBottom: '1rem', textAlign: 'left' }}>
+              <Notice status="error" isDismissible={false}>
                 {errorMessages[error] || 'An error occurred during authentication'}
               </Notice>
             )}

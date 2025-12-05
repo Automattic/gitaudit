@@ -89,7 +89,7 @@ function RepositoryLayout() {
           <nav>
             <NavLink
               to={`/repos/${owner}/${repo}/bugs`}
-              style={({ isActive }) => ({
+              style={({ isActive }: { isActive: boolean }) => ({
                 display: "block",
                 padding: "0.75rem 1.5rem",
                 color: isActive ? "#2271b1" : "#50575e",
@@ -105,7 +105,7 @@ function RepositoryLayout() {
             </NavLink>
             <NavLink
               to={`/repos/${owner}/${repo}/stale`}
-              style={({ isActive }) => ({
+              style={({ isActive }: { isActive: boolean }) => ({
                 display: "block",
                 padding: "0.75rem 1.5rem",
                 color: isActive ? "#2271b1" : "#50575e",
@@ -121,7 +121,7 @@ function RepositoryLayout() {
             </NavLink>
             <NavLink
               to={`/repos/${owner}/${repo}/community`}
-              style={({ isActive }) => ({
+              style={({ isActive }: { isActive: boolean }) => ({
                 display: "block",
                 padding: "0.75rem 1.5rem",
                 color: isActive ? "#2271b1" : "#50575e",
@@ -137,7 +137,7 @@ function RepositoryLayout() {
             </NavLink>
             <NavLink
               to={`/repos/${owner}/${repo}/settings`}
-              style={({ isActive }) => ({
+              style={({ isActive }: { isActive: boolean }) => ({
                 display: "block",
                 padding: "0.75rem 1.5rem",
                 color: isActive ? "#2271b1" : "#50575e",

@@ -12,24 +12,26 @@ interface AddRepositoryModalProps {
 
 function AddRepositoryModal({ onClose, onRepoAdded }: AddRepositoryModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 300);
+  const debouncedSetSearch = useDebounce((value: string) => {
+    setSearchTerm(value);
+  }, 300);
 
   // Conditional queries - only one will be active at a time
   const browseQuery = useQuery({
     ...repoBrowseQueryOptions(12),
-    enabled: debouncedSearch.length === 0,
+    enabled: searchTerm.length === 0,
   });
 
   const searchQuery = useQuery({
-    ...repoSearchQueryOptions(debouncedSearch),
-    enabled: debouncedSearch.length >= 3,
+    ...repoSearchQueryOptions(searchTerm),
+    enabled: searchTerm.length >= 3,
   });
 
   // Mutation for adding a repo
   const saveRepoMutation = useSaveRepoMutation();
 
   // Determine which query is active
-  const activeQuery = debouncedSearch.length >= 3 ? searchQuery : browseQuery;
+  const activeQuery = searchTerm.length >= 3 ? searchQuery : browseQuery;
   const repos = activeQuery.data?.repos ?? [];
   const isLoading = activeQuery.isLoading;
   const error = activeQuery.error;
@@ -66,23 +68,27 @@ function AddRepositoryModal({ onClose, onRepoAdded }: AddRepositoryModalProps) {
       <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
         <SearchControl
           value={searchTerm}
-          onChange={setSearchTerm}
+          onChange={debouncedSetSearch}
           placeholder="Search your repositories..."
           style={{ maxWidth: '400px', marginBottom: '2rem' }}
         />
 
         {error && (
-          <Notice status="error" isDismissible={false} style={{ marginBottom: '1rem' }}>
-            {error instanceof Error ? error.message : 'Failed to fetch repositories'}
-          </Notice>
+          <div style={{ marginBottom: '1rem' }}>
+            <Notice status="error" isDismissible={false}>
+              {error instanceof Error ? error.message : 'Failed to fetch repositories'}
+            </Notice>
+          </div>
         )}
 
         {saveRepoMutation.isError && (
-          <Notice status="error" isDismissible={false} style={{ marginBottom: '1rem' }}>
-            {saveRepoMutation.error instanceof Error
-              ? saveRepoMutation.error.message
-              : 'Failed to add repository'}
-          </Notice>
+          <div style={{ marginBottom: '1rem' }}>
+            <Notice status="error" isDismissible={false}>
+              {saveRepoMutation.error instanceof Error
+                ? saveRepoMutation.error.message
+                : 'Failed to add repository'}
+            </Notice>
+          </div>
         )}
 
         {isLoading ? (

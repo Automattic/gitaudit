@@ -30,7 +30,8 @@ export const queryKeys = {
         per_page: number;
         scoreType: string;
         issueType?: string;
-        priority: string;
+        priority?: string;
+        level?: string;
         search?: string;
       }
     ) => [...queryKeys.issues.repo(owner, repo), 'list', params] as const,
