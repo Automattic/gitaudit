@@ -33,11 +33,6 @@ function generateJobId(job) {
 export async function queueIssueFetch(jobData) {
   const { repoId, owner, repoName, accessToken } = jobData;
 
-  console.log(`[JobQueue] Queuing issue fetch for ${owner}/${repoName}, repoId=${repoId}`);
-  console.log(
-    `[JobQueue] Current queue length: ${queue.length}, processing repos: ${processingRepos.size}`
-  );
-
   const job = {
     type: 'issue-fetch',
     repoId,
@@ -49,8 +44,6 @@ export async function queueIssueFetch(jobData) {
 
   queue.push(job);
 
-  console.log(`[JobQueue] Job added to queue. New queue length: ${queue.length}`);
-
   // Trigger processing (will check capacity internally)
   processQueue();
 }
@@ -60,7 +53,6 @@ export async function queueIssueFetch(jobData) {
  * Usually called automatically after issue fetch completes
  */
 export async function queueSentimentAnalysis(repoId, accessToken) {
-  console.log(`Queuing sentiment analysis for repo ${repoId}`);
   const job = {
     type: 'sentiment',
     repoId,
@@ -79,8 +71,6 @@ export async function queueSentimentAnalysis(repoId, accessToken) {
 export async function queueSingleIssueRefresh(jobData) {
   const { repoId, issueNumber, accessToken } = jobData;
 
-  console.log(`[JobQueue] Queuing single issue refresh: repo ${repoId}, issue #${issueNumber}`);
-
   const job = {
     type: 'single-issue-refresh',
     repoId,
@@ -98,11 +88,8 @@ export async function queueSingleIssueRefresh(jobData) {
  * Process jobs from the queue, allowing multiple repos in parallel
  */
 async function processQueue() {
-  console.log(`[JobQueue] processQueue called. Queue length: ${queue.length}, processing repos: ${processingRepos.size}/${MAX_CONCURRENT_REPOS}`);
-
   // Check if we're at max capacity
   if (processingRepos.size >= MAX_CONCURRENT_REPOS) {
-    console.log(`[JobQueue] At max capacity (${MAX_CONCURRENT_REPOS} repos), waiting...`);
     return;
   }
 
@@ -110,11 +97,6 @@ async function processQueue() {
   const availableJobIndex = queue.findIndex(job => !processingRepos.has(job.repoId));
 
   if (availableJobIndex === -1) {
-    if (queue.length > 0) {
-      console.log(`[JobQueue] ${queue.length} jobs queued but all repos currently processing`);
-    } else {
-      console.log(`[JobQueue] Queue empty`);
-    }
     return;
   }
 
@@ -124,13 +106,12 @@ async function processQueue() {
   // Mark repo as being processed
   processingRepos.set(job.repoId, job);
 
-  console.log(`[JobQueue] Starting job: type=${job.type}, repoId=${job.repoId}, owner=${job.owner || 'unknown'}/${job.repoName || 'unknown'}`);
+  console.log(`[JobQueue] Starting: ${job.type} for ${job.owner || 'repo'}/${job.repoName || job.repoId}`);
 
   // Process the job asynchronously
   processJob(job).finally(() => {
     // Remove from processing map when done
     processingRepos.delete(job.repoId);
-    console.log(`[JobQueue] Repo ${job.repoId} finished processing. Processing: ${processingRepos.size}/${MAX_CONCURRENT_REPOS}`);
 
     // Trigger processing of next jobs
     processQueue();
@@ -151,10 +132,6 @@ async function processJob(job) {
 
       // After issue fetch completes, automatically queue sentiment analysis (if AI provider is configured)
       if (isSentimentAnalysisAvailable()) {
-        const repo = repoQueries.getById.get(job.repoId);
-        console.log(
-          `[${repo.owner}/${repo.name}] Issue fetch complete, queuing sentiment analysis...`
-        );
         queue.push({
           type: 'sentiment',
           repoId: job.repoId,
@@ -164,11 +141,6 @@ async function processJob(job) {
 
         // Trigger processing for the sentiment job
         setImmediate(() => processQueue());
-      } else {
-        const repo = repoQueries.getById.get(job.repoId);
-        console.log(
-          `[${repo.owner}/${repo.name}] Issue fetch complete. Sentiment analysis skipped (no AI provider configured).`
-        );
       }
     } else if (job.type === 'sentiment') {
       await processSentimentJob(job);
@@ -228,8 +200,7 @@ async function processIssueFetchJob(job) {
   // - Incremental sync (since = timestamp): fetches OPEN + CLOSED to catch state changes
   let since = null;
   if (repo.needs_full_refetch) {
-    console.log(`[${owner}/${repoName}] Starting issue fetch...`);
-    console.log(`[${owner}/${repoName}] Full refetch mode (populating author data)`);
+    console.log(`[${owner}/${repoName}] Starting full refetch (populating author data)`);
     since = null; // Force full sync
   } else if (repo.last_fetched) {
     // Use last successful fetch start time for incremental mode
@@ -238,18 +209,11 @@ async function processIssueFetchJob(job) {
     const sinceDate = new Date(lastFetchDate.getTime() - 60 * 1000); // 1 minute buffer for clock skew
     since = sinceDate.toISOString();
 
-    console.log(`[${owner}/${repoName}] Starting issue fetch...`);
     console.log(
-      `[${owner}/${repoName}] 📅 Incremental mode: fetching issues updated after ${since} ` +
-      `(last fetch started: ${repo.last_fetched}, with 1min buffer)`
-    );
-    console.log(
-      `[${owner}/${repoName}] ℹ️  Current time: ${jobStartTime} ` +
-      `(GitHub will return issues with updatedAt > ${since})`
+      `[${owner}/${repoName}] Starting incremental fetch (since: ${since})`
     );
   } else {
-    console.log(`[${owner}/${repoName}] Starting issue fetch...`);
-    console.log(`[${owner}/${repoName}] Full sync mode (first fetch)`);
+    console.log(`[${owner}/${repoName}] Starting full sync (first fetch)`);
   }
 
   while (hasNextPage) {
@@ -277,15 +241,6 @@ async function processIssueFetchJob(job) {
         const existingIssue = issueQueries.findByGithubId.get(issue.databaseId);
         const isNew = !existingIssue;
         const isUpdated = existingIssue && new Date(issue.updatedAt) > parseSqliteDate(existingIssue.updated_at);
-
-        // Debug: Log state changes
-        if (existingIssue && existingIssue.state !== issue.state.toLowerCase()) {
-          console.log(
-            `[${owner}/${repoName}] 🔄 Issue #${issue.number} state changed: ` +
-            `${existingIssue.state} → ${issue.state.toLowerCase()} ` +
-            `(updatedAt: ${issue.updatedAt})`
-          );
-        }
 
         if (isNew) {
           pageNewCount++;
@@ -420,20 +375,6 @@ async function processIssueFetchJob(job) {
   const totalTime = Date.now() - startTime;
   const avgTimePerPage = pageCount > 0 ? Math.round(totalTime / pageCount) : 0;
 
-  // Debug: Summary for incremental fetches
-  if (since) {
-    console.log(
-      `[${owner}/${repoName}] ✅ Incremental fetch complete: ` +
-      `${fetchedCount} issues returned by GitHub (${newCount} new, ${updatedCount} updated)`
-    );
-    if (fetchedCount === 0) {
-      console.log(
-        `[${owner}/${repoName}] ⚠️  No issues returned - this means no issues were updated after ${since}. ` +
-        `If you just closed an issue, check its updatedAt timestamp is after this time.`
-      );
-    }
-  }
-
   // Update status to completed and store job start time
   repoQueries.updateFetchStatusWithTime.run(jobStartTime, 'completed', repoId);
 
@@ -532,13 +473,6 @@ async function processSentimentJob(job) {
       );
 
       analyzedCount++;
-      const issueTime = Date.now() - issueStartTime;
-
-      console.log(
-        `[${repo.owner}/${repo.name}] Issue #${issue.number}: ` +
-        `score=${score}/30 (${metadata.reasoning}) | ` +
-        `${commentsSentiments.length} comments | ${issueTime}ms`
-      );
 
       // Progress update every 10 issues
       if (analyzedCount % 10 === 0) {

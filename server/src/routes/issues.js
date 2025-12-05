@@ -75,26 +75,19 @@ router.post('/fetch', authenticateToken, async (req, res) => {
 router.post('/refresh', authenticateToken, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
-  console.log(`[API] Refresh request received for ${owner}/${repoName}`);
-
   try {
     const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
-
-    console.log(`[API] Repository found/created: ${repo.id}, updating status to in_progress`);
 
     // Update status to in_progress
     repoQueries.updateFetchStatus.run('in_progress', repo.id);
 
     // Queue issue fetch job
-    console.log(`[API] Calling queueIssueFetch for ${owner}/${repoName}`);
     await queueIssueFetch({
       repoId: repo.id,
       owner,
       repoName,
       accessToken: req.user.accessToken,
     });
-
-    console.log(`[API] Job queued successfully for ${owner}/${repoName}`);
 
     res.json({
       message: 'Issue refresh queued',
@@ -109,8 +102,6 @@ router.post('/refresh', authenticateToken, async (req, res) => {
 // Refresh single issue
 router.post('/:issueNumber/refresh', authenticateToken, async (req, res) => {
   const { owner, repo: repoName, issueNumber } = req.params;
-
-  console.log(`[API] Single issue refresh request for ${owner}/${repoName}#${issueNumber}`);
 
   try {
     // Get or create repository
