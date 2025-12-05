@@ -7,7 +7,7 @@ import {
 import {
   flattenStaleIssuesSettings,
   unflattenStaleIssuesSettings,
-} from './settingsHelpers';
+} from './settings-helpers';
 
 function StaleIssuesForm({ settings, onChange }) {
   const flatData = useMemo(

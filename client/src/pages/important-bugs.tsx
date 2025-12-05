@@ -10,7 +10,7 @@ import {
   Spinner,
 } from "@wordpress/components";
 import { issuesQueryOptions, useStartIssueFetchMutation } from "@/data/queries/issues";
-import Page from "../components/Page";
+import Page from "../components/page";
 import { Tabs } from "../utils/lock-unlock";
 import {
   createScoreField,
@@ -21,10 +21,10 @@ import {
   createdAtField,
   assigneesField,
   milestoneField,
-} from "../utils/issueFields.jsx";
-import { createRefreshIssueAction } from "../utils/issueActions.jsx";
+} from "../utils/issue-fields.jsx";
+import { createRefreshIssueAction } from "../utils/issue-actions.jsx";
 
-function StaleIssues() {
+function ImportantBugs() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
 
   // UI state (DataViews)
@@ -33,7 +33,7 @@ function StaleIssues() {
     page: 1,
     perPage: 20,
     filters: [],
-    fields: ["score", "daysSinceUpdated", "commentsCount"],
+    fields: ["score", "commentsCount", "updatedAt"],
     layout: {},
     search: "",
     titleField: "title",
@@ -41,7 +41,7 @@ function StaleIssues() {
   });
 
   // UI state (tabs)
-  const [activeTab, setActiveTab] = useState<'all' | 'veryStale' | 'moderatelyStale' | 'slightlyStale'>("all");
+  const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'high' | 'medium'>("all");
 
   // Data fetching with TanStack Query
   const { data, isLoading, error, refetch } = useQuery(
@@ -49,8 +49,9 @@ function StaleIssues() {
       page: view.page,
       per_page: view.perPage,
       search: view.search,
-      scoreType: 'staleIssues',
-      level: activeTab,  // Use 'level' for stale issues, not 'priority'
+      scoreType: 'importantBugs',
+      issueType: 'bugs',
+      priority: activeTab,
     })
   );
 
@@ -64,8 +65,8 @@ function StaleIssues() {
   const fetchStatus = data?.fetchStatus;
 
   // Tab click handler
-  const handleTabClick = useCallback((staleLevel: string) => {
-    setActiveTab(staleLevel as 'all' | 'veryStale' | 'moderatelyStale' | 'slightlyStale');
+  const handleTabClick = useCallback((priorityLevel: string) => {
+    setActiveTab(priorityLevel as 'all' | 'critical' | 'high' | 'medium');
     setView((prev) => ({
       ...prev,
       page: 1, // Reset to first page
@@ -73,19 +74,19 @@ function StaleIssues() {
   }, []);
 
   // Get thresholds with defaults
-  const staleThresholds = thresholds?.staleIssues || {
-    veryStale: 60,
-    moderatelyStale: 40,
-    slightlyStale: 20,
+  const importantBugsThresholds = thresholds?.importantBugs || {
+    critical: 120,
+    high: 80,
+    medium: 50,
   };
 
   // Field definitions using shared utilities
   const fields = useMemo(
     () => [
-      createScoreField("Staleness", "staleIssues", [
-        staleThresholds.veryStale,
-        staleThresholds.moderatelyStale,
-        staleThresholds.slightlyStale
+      createScoreField("Score", "importantBugs", [
+        importantBugsThresholds.critical,
+        importantBugsThresholds.high,
+        importantBugsThresholds.medium
       ]),
       titleField,
       labelsField,
@@ -96,7 +97,7 @@ function StaleIssues() {
       assigneesField,
       milestoneField,
     ],
-    [staleThresholds]
+    [importantBugsThresholds]
   );
 
   // Actions for DataViews
@@ -125,8 +126,8 @@ function StaleIssues() {
   // Main view - always show page structure
   return (
     <Page
-      title="Stale Issues"
-      description="Issues scored by inactivity and age."
+      title="Important Bugs"
+      description="Bugs scored by activity, labels, and sentiment."
     >
       <Card size="none">
         <CardBody>
@@ -137,9 +138,9 @@ function StaleIssues() {
           >
             <Tabs.TabList>
               <Tabs.Tab tabId="all">All</Tabs.Tab>
-              <Tabs.Tab tabId="veryStale">Very Stale</Tabs.Tab>
-              <Tabs.Tab tabId="moderatelyStale">Moderately Stale</Tabs.Tab>
-              <Tabs.Tab tabId="slightlyStale">Slightly Stale</Tabs.Tab>
+              <Tabs.Tab tabId="critical">Critical</Tabs.Tab>
+              <Tabs.Tab tabId="high">High</Tabs.Tab>
+              <Tabs.Tab tabId="medium">Medium</Tabs.Tab>
             </Tabs.TabList>
           </Tabs>
 
@@ -158,7 +159,7 @@ function StaleIssues() {
             <div style={{ textAlign: "center", padding: "2rem" }}>
               <h3 style={{ marginBottom: "1rem" }}>No Issues Yet</h3>
               <p style={{ marginBottom: "2rem", color: "#666" }}>
-                Fetch issues from GitHub to start analyzing stale issues.
+                Fetch issues from GitHub to start analyzing bugs.
                 This may take a few minutes depending on the repository size.
               </p>
               <Button variant="primary" onClick={() => startFetchMutation.mutate()}>
@@ -195,4 +196,4 @@ function StaleIssues() {
   );
 }
 
-export default StaleIssues;
+export default ImportantBugs;

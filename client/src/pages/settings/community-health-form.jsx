@@ -8,7 +8,7 @@ import {
 import {
   flattenCommunityHealthSettings,
   unflattenCommunityHealthSettings,
-} from './settingsHelpers';
+} from './settings-helpers';
 
 function CommunityHealthForm({ settings, onChange }) {
   // Flatten for DataForm

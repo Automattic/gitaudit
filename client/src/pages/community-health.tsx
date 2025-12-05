@@ -10,7 +10,7 @@ import {
   Spinner,
 } from "@wordpress/components";
 import { issuesQueryOptions, useStartIssueFetchMutation } from "@/data/queries/issues";
-import Page from "../components/Page";
+import Page from "../components/page";
 import { Tabs } from "../utils/lock-unlock";
 import {
   createScoreField,
@@ -21,10 +21,10 @@ import {
   createdAtField,
   assigneesField,
   milestoneField,
-} from "../utils/issueFields.jsx";
-import { createRefreshIssueAction } from "../utils/issueActions.jsx";
+} from "../utils/issue-fields.jsx";
+import { createRefreshIssueAction } from "../utils/issue-actions.jsx";
 
-function ImportantBugs() {
+function CommunityHealth() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
 
   // UI state (DataViews)
@@ -49,8 +49,7 @@ function ImportantBugs() {
       page: view.page,
       per_page: view.perPage,
       search: view.search,
-      scoreType: 'importantBugs',
-      issueType: 'bugs',
+      scoreType: 'communityHealth',
       priority: activeTab,
     })
   );
@@ -74,19 +73,19 @@ function ImportantBugs() {
   }, []);
 
   // Get thresholds with defaults
-  const importantBugsThresholds = thresholds?.importantBugs || {
-    critical: 120,
-    high: 80,
-    medium: 50,
+  const communityHealthThresholds = thresholds?.communityHealth || {
+    critical: 60,
+    high: 40,
+    medium: 20,
   };
 
   // Field definitions using shared utilities
   const fields = useMemo(
     () => [
-      createScoreField("Score", "importantBugs", [
-        importantBugsThresholds.critical,
-        importantBugsThresholds.high,
-        importantBugsThresholds.medium
+      createScoreField("Score", "communityHealth", [
+        communityHealthThresholds.critical,
+        communityHealthThresholds.high,
+        communityHealthThresholds.medium
       ]),
       titleField,
       labelsField,
@@ -97,7 +96,7 @@ function ImportantBugs() {
       assigneesField,
       milestoneField,
     ],
-    [importantBugsThresholds]
+    [communityHealthThresholds]
   );
 
   // Actions for DataViews
@@ -126,8 +125,8 @@ function ImportantBugs() {
   // Main view - always show page structure
   return (
     <Page
-      title="Important Bugs"
-      description="Bugs scored by activity, labels, and sentiment."
+      title="Community Health"
+      description="Issues scored by community engagement and responsiveness."
     >
       <Card size="none">
         <CardBody>
@@ -159,7 +158,7 @@ function ImportantBugs() {
             <div style={{ textAlign: "center", padding: "2rem" }}>
               <h3 style={{ marginBottom: "1rem" }}>No Issues Yet</h3>
               <p style={{ marginBottom: "2rem", color: "#666" }}>
-                Fetch issues from GitHub to start analyzing bugs.
+                Fetch issues from GitHub to start analyzing community health.
                 This may take a few minutes depending on the repository size.
               </p>
               <Button variant="primary" onClick={() => startFetchMutation.mutate()}>
@@ -196,4 +195,4 @@ function ImportantBugs() {
   );
 }
 
-export default ImportantBugs;
+export default CommunityHealth;

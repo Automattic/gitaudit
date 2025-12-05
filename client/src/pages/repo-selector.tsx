@@ -9,11 +9,11 @@ import {
   Notice,
 } from "@wordpress/components";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/auth-context";
 import { reposQueryOptions } from "@/data/queries/repos";
 import { Repository } from "@/data/api/repos/types";
-import AddRepositoryModal from "../components/AddRepositoryModal";
-import Page from "../components/Page";
+import AddRepositoryModal from "../components/add-repository-modal";
+import Page from "../components/page";
 
 function RepoSelector() {
   const navigate = useNavigate();

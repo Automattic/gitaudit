@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { TabPanel, Button, Notice, Spinner } from '@wordpress/components';
 import { useQuery } from '@tanstack/react-query';
-import ImportantBugsForm from './settings/ImportantBugsForm';
-import StaleIssuesForm from './settings/StaleIssuesForm';
-import CommunityHealthForm from './settings/CommunityHealthForm';
+import ImportantBugsForm from './settings/important-bugs-form';
+import StaleIssuesForm from './settings/stale-issues-form';
+import CommunityHealthForm from './settings/community-health-form';
 import { repoSettingsQueryOptions, useUpdateSettingsMutation, useResetSettingsMutation } from '@/data/queries/settings';
 import { RepoSettings } from '@/data/api/settings/types';
-import Page from '../components/Page';
+import Page from '../components/page';
 
 function Settings() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();

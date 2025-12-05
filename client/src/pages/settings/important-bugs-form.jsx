@@ -8,7 +8,7 @@ import {
 import {
   flattenImportantBugsSettings,
   unflattenImportantBugsSettings,
-} from './settingsHelpers';
+} from './settings-helpers';
 
 function ImportantBugsForm({ settings, onChange }) {
   // Flatten for DataForm

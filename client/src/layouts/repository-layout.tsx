@@ -2,7 +2,7 @@ import { useParams, useNavigate, Outlet, NavLink } from "react-router-dom";
 import { Button } from "@wordpress/components";
 import { update as updateIcon } from "@wordpress/icons";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/auth-context";
 import { repoStatusQueryOptions } from "@/data/queries/repos";
 import { useRefreshIssuesMutation } from "@/data/queries/issues";
 import { Badge } from "../utils/lock-unlock";

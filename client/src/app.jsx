@@ -3,15 +3,15 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './data/queries/query-client';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Login from './pages/Login';
-import AuthCallback from './pages/AuthCallback';
-import RepoSelector from './pages/RepoSelector';
-import ImportantBugs from './pages/ImportantBugs';
-import StaleIssues from './pages/StaleIssues';
-import CommunityHealth from './pages/CommunityHealth';
-import Settings from './pages/Settings';
-import RepositoryLayout from './layouts/RepositoryLayout';
+import { AuthProvider, useAuth } from './context/auth-context';
+import Login from './pages/login';
+import AuthCallback from './pages/auth-callback';
+import RepoSelector from './pages/repo-selector';
+import ImportantBugs from './pages/important-bugs';
+import StaleIssues from './pages/stale-issues';
+import CommunityHealth from './pages/community-health';
+import Settings from './pages/settings';
+import RepositoryLayout from './layouts/repository-layout';
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {

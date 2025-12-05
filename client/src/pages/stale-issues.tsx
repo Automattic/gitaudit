@@ -10,7 +10,7 @@ import {
   Spinner,
 } from "@wordpress/components";
 import { issuesQueryOptions, useStartIssueFetchMutation } from "@/data/queries/issues";
-import Page from "../components/Page";
+import Page from "../components/page";
 import { Tabs } from "../utils/lock-unlock";
 import {
   createScoreField,
@@ -21,10 +21,10 @@ import {
   createdAtField,
   assigneesField,
   milestoneField,
-} from "../utils/issueFields.jsx";
-import { createRefreshIssueAction } from "../utils/issueActions.jsx";
+} from "../utils/issue-fields.jsx";
+import { createRefreshIssueAction } from "../utils/issue-actions.jsx";
 
-function CommunityHealth() {
+function StaleIssues() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
 
   // UI state (DataViews)
@@ -33,7 +33,7 @@ function CommunityHealth() {
     page: 1,
     perPage: 20,
     filters: [],
-    fields: ["score", "commentsCount", "updatedAt"],
+    fields: ["score", "daysSinceUpdated", "commentsCount"],
     layout: {},
     search: "",
     titleField: "title",
@@ -41,7 +41,7 @@ function CommunityHealth() {
   });
 
   // UI state (tabs)
-  const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'high' | 'medium'>("all");
+  const [activeTab, setActiveTab] = useState<'all' | 'veryStale' | 'moderatelyStale' | 'slightlyStale'>("all");
 
   // Data fetching with TanStack Query
   const { data, isLoading, error, refetch } = useQuery(
@@ -49,8 +49,8 @@ function CommunityHealth() {
       page: view.page,
       per_page: view.perPage,
       search: view.search,
-      scoreType: 'communityHealth',
-      priority: activeTab,
+      scoreType: 'staleIssues',
+      level: activeTab,  // Use 'level' for stale issues, not 'priority'
     })
   );
 
@@ -64,8 +64,8 @@ function CommunityHealth() {
   const fetchStatus = data?.fetchStatus;
 
   // Tab click handler
-  const handleTabClick = useCallback((priorityLevel: string) => {
-    setActiveTab(priorityLevel as 'all' | 'critical' | 'high' | 'medium');
+  const handleTabClick = useCallback((staleLevel: string) => {
+    setActiveTab(staleLevel as 'all' | 'veryStale' | 'moderatelyStale' | 'slightlyStale');
     setView((prev) => ({
       ...prev,
       page: 1, // Reset to first page
@@ -73,19 +73,19 @@ function CommunityHealth() {
   }, []);
 
   // Get thresholds with defaults
-  const communityHealthThresholds = thresholds?.communityHealth || {
-    critical: 60,
-    high: 40,
-    medium: 20,
+  const staleThresholds = thresholds?.staleIssues || {
+    veryStale: 60,
+    moderatelyStale: 40,
+    slightlyStale: 20,
   };
 
   // Field definitions using shared utilities
   const fields = useMemo(
     () => [
-      createScoreField("Score", "communityHealth", [
-        communityHealthThresholds.critical,
-        communityHealthThresholds.high,
-        communityHealthThresholds.medium
+      createScoreField("Staleness", "staleIssues", [
+        staleThresholds.veryStale,
+        staleThresholds.moderatelyStale,
+        staleThresholds.slightlyStale
       ]),
       titleField,
       labelsField,
@@ -96,7 +96,7 @@ function CommunityHealth() {
       assigneesField,
       milestoneField,
     ],
-    [communityHealthThresholds]
+    [staleThresholds]
   );
 
   // Actions for DataViews
@@ -125,8 +125,8 @@ function CommunityHealth() {
   // Main view - always show page structure
   return (
     <Page
-      title="Community Health"
-      description="Issues scored by community engagement and responsiveness."
+      title="Stale Issues"
+      description="Issues scored by inactivity and age."
     >
       <Card size="none">
         <CardBody>
@@ -137,9 +137,9 @@ function CommunityHealth() {
           >
             <Tabs.TabList>
               <Tabs.Tab tabId="all">All</Tabs.Tab>
-              <Tabs.Tab tabId="critical">Critical</Tabs.Tab>
-              <Tabs.Tab tabId="high">High</Tabs.Tab>
-              <Tabs.Tab tabId="medium">Medium</Tabs.Tab>
+              <Tabs.Tab tabId="veryStale">Very Stale</Tabs.Tab>
+              <Tabs.Tab tabId="moderatelyStale">Moderately Stale</Tabs.Tab>
+              <Tabs.Tab tabId="slightlyStale">Slightly Stale</Tabs.Tab>
             </Tabs.TabList>
           </Tabs>
 
@@ -158,7 +158,7 @@ function CommunityHealth() {
             <div style={{ textAlign: "center", padding: "2rem" }}>
               <h3 style={{ marginBottom: "1rem" }}>No Issues Yet</h3>
               <p style={{ marginBottom: "2rem", color: "#666" }}>
-                Fetch issues from GitHub to start analyzing community health.
+                Fetch issues from GitHub to start analyzing stale issues.
                 This may take a few minutes depending on the repository size.
               </p>
               <Button variant="primary" onClick={() => startFetchMutation.mutate()}>
@@ -195,4 +195,4 @@ function CommunityHealth() {
   );
 }
 
-export default CommunityHealth;
+export default StaleIssues;
