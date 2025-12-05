@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   DataViews,
@@ -30,7 +30,12 @@ import { createRefreshIssueAction } from "../utils/issue-actions.jsx";
 import { fetchLabels } from "@/data/api/issues/fetchers";
 
 function ImportantBugs() {
-  const { owner, repo } = useParams<{ owner: string; repo: string }>();
+  const { owner, repo, priority } = useParams<{
+    owner: string;
+    repo: string;
+    priority: string;
+  }>();
+  const navigate = useNavigate();
 
   // UI state (DataViews)
   const [view, setView] = useState<View>({
@@ -45,10 +50,11 @@ function ImportantBugs() {
     descriptionField: "labels",
   });
 
-  // UI state (tabs)
-  const [activeTab, setActiveTab] = useState<
-    "all" | "critical" | "high" | "medium"
-  >("all");
+  // Get activeTab from URL parameter with validation
+  const validPriorities = ["all", "critical", "high", "medium"] as const;
+  const activeTab = priority && validPriorities.includes(priority as any)
+    ? (priority as typeof validPriorities[number])
+    : "all";
 
   // Extract labels filter from view.filters
   const labelsFilter = useMemo(() => {
@@ -80,14 +86,17 @@ function ImportantBugs() {
   const thresholds = data?.thresholds;
   const fetchStatus = data?.fetchStatus;
 
-  // Tab click handler
-  const handleTabClick = useCallback((priorityLevel: string) => {
-    setActiveTab(priorityLevel as "all" | "critical" | "high" | "medium");
-    setView((prev) => ({
-      ...prev,
-      page: 1, // Reset to first page
-    }));
-  }, []);
+  // Tab click handler - navigate to new URL
+  const handleTabClick = useCallback(
+    (priorityLevel: string) => {
+      navigate(`/repos/${owner}/${repo}/bugs/${priorityLevel}`);
+      setView((prev) => ({
+        ...prev,
+        page: 1, // Reset to first page
+      }));
+    },
+    [navigate, owner, repo]
+  );
 
   // Get thresholds with defaults
   const importantBugsThresholds = thresholds?.importantBugs || {

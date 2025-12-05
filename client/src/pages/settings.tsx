@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { TabPanel, Button, Notice, Spinner } from '@wordpress/components';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button, Notice, Spinner } from '@wordpress/components';
 import { useQuery } from '@tanstack/react-query';
 import ImportantBugsForm from './settings/important-bugs-form';
 import StaleIssuesForm from './settings/stale-issues-form';
@@ -8,9 +8,21 @@ import CommunityHealthForm from './settings/community-health-form';
 import { repoSettingsQueryOptions, useUpdateSettingsMutation, useResetSettingsMutation } from '@/data/queries/settings';
 import { RepoSettings } from '@/data/api/settings/types';
 import Page from '../components/page';
+import { Tabs } from '../utils/lock-unlock';
 
 function Settings() {
-  const { owner, repo } = useParams<{ owner: string; repo: string }>();
+  const { owner, repo, section } = useParams<{
+    owner: string;
+    repo: string;
+    section: string;
+  }>();
+  const navigate = useNavigate();
+
+  // Validate section parameter with fallback
+  const validSections = ["bugs", "stale", "community"];
+  const activeSection = section && validSections.includes(section)
+    ? section
+    : "bugs";
 
   // Fetch settings using TanStack Query
   const { data: serverSettings, isLoading } = useQuery(
@@ -144,39 +156,37 @@ function Settings() {
         </div>
       )}
 
-      {/* @ts-ignore - External library type error */}
-      <TabPanel
-        className="settings-tabs"
-        activeClass="is-active"
-        tabs={[
-          { name: 'important-bugs', title: 'Important Bugs' },
-          { name: 'stale-issues', title: 'Stale Issues' },
-          { name: 'community-health', title: 'Community Health' },
-        ]}
+      <Tabs
+        selectedTabId={activeSection}
+        onSelect={(tabId: string) => navigate(`/repos/${owner}/${repo}/settings/${tabId}`)}
       >
-        {(tab: { name: string; title: string }) => (
-          <div style={{ marginTop: '1.5rem' }}>
-            {tab.name === 'important-bugs' && (
-              <ImportantBugsForm
-                settings={localSettings.importantBugs}
-                onChange={handleImportantBugsChange}
-              />
-            )}
-            {tab.name === 'stale-issues' && (
-              <StaleIssuesForm
-                settings={localSettings.staleIssues}
-                onChange={handleStaleIssuesChange}
-              />
-            )}
-            {tab.name === 'community-health' && (
-              <CommunityHealthForm
-                settings={localSettings.communityHealth}
-                onChange={handleCommunityHealthChange}
-              />
-            )}
-          </div>
+        <Tabs.TabList>
+          <Tabs.Tab tabId="bugs">Important Bugs</Tabs.Tab>
+          <Tabs.Tab tabId="stale">Stale Issues</Tabs.Tab>
+          <Tabs.Tab tabId="community">Community Health</Tabs.Tab>
+        </Tabs.TabList>
+      </Tabs>
+
+      <div style={{ marginTop: '1.5rem' }}>
+        {activeSection === "bugs" && (
+          <ImportantBugsForm
+            settings={localSettings.importantBugs}
+            onChange={handleImportantBugsChange}
+          />
         )}
-      </TabPanel>
+        {activeSection === "stale" && (
+          <StaleIssuesForm
+            settings={localSettings.staleIssues}
+            onChange={handleStaleIssuesChange}
+          />
+        )}
+        {activeSection === "community" && (
+          <CommunityHealthForm
+            settings={localSettings.communityHealth}
+            onChange={handleCommunityHealthChange}
+          />
+        )}
+      </div>
 
       {/* Action Buttons (outside card, shared for all tabs) */}
       <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>

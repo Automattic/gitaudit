@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   DataViews,
@@ -30,7 +30,12 @@ import { createRefreshIssueAction } from "../utils/issue-actions.jsx";
 import { fetchLabels } from "@/data/api/issues/fetchers";
 
 function StaleIssues() {
-  const { owner, repo } = useParams<{ owner: string; repo: string }>();
+  const { owner, repo, level } = useParams<{
+    owner: string;
+    repo: string;
+    level: string;
+  }>();
+  const navigate = useNavigate();
 
   // UI state (DataViews)
   const [view, setView] = useState<View>({
@@ -45,10 +50,11 @@ function StaleIssues() {
     descriptionField: "labels",
   });
 
-  // UI state (tabs)
-  const [activeTab, setActiveTab] = useState<
-    "all" | "veryStale" | "moderatelyStale" | "slightlyStale"
-  >("all");
+  // Get activeTab from URL parameter with validation
+  const validLevels = ["all", "veryStale", "moderatelyStale", "slightlyStale"] as const;
+  const activeTab = level && validLevels.includes(level as any)
+    ? (level as typeof validLevels[number])
+    : "all";
 
   // Extract labels filter from view.filters
   const labelsFilter = useMemo(() => {
@@ -79,16 +85,17 @@ function StaleIssues() {
   const thresholds = data?.thresholds;
   const fetchStatus = data?.fetchStatus;
 
-  // Tab click handler
-  const handleTabClick = useCallback((staleLevel: string) => {
-    setActiveTab(
-      staleLevel as "all" | "veryStale" | "moderatelyStale" | "slightlyStale"
-    );
-    setView((prev) => ({
-      ...prev,
-      page: 1, // Reset to first page
-    }));
-  }, []);
+  // Tab click handler - navigate to new URL
+  const handleTabClick = useCallback(
+    (staleLevel: string) => {
+      navigate(`/repos/${owner}/${repo}/stale/${staleLevel}`);
+      setView((prev) => ({
+        ...prev,
+        page: 1, // Reset to first page
+      }));
+    },
+    [navigate, owner, repo]
+  );
 
   // Get thresholds with defaults
   const staleThresholds = thresholds?.staleIssues || {

@@ -53,13 +53,25 @@ function App() {
               }
             >
               {/* Default redirect to bugs */}
-              <Route index element={<Navigate to="bugs" replace />} />
+              <Route index element={<Navigate to="bugs/all" replace />} />
 
-              {/* Nested routes */}
-              <Route path="bugs" element={<ImportantBugs />} />
-              <Route path="stale" element={<StaleIssues />} />
-              <Route path="community" element={<CommunityHealth />} />
-              <Route path="settings" element={<Settings />} />
+              {/* Nested routes with tab parameters */}
+              <Route path="bugs">
+                <Route index element={<Navigate to="all" replace />} />
+                <Route path=":priority" element={<ImportantBugs />} />
+              </Route>
+              <Route path="stale">
+                <Route index element={<Navigate to="all" replace />} />
+                <Route path=":level" element={<StaleIssues />} />
+              </Route>
+              <Route path="community">
+                <Route index element={<Navigate to="all" replace />} />
+                <Route path=":priority" element={<CommunityHealth />} />
+              </Route>
+              <Route path="settings">
+                <Route index element={<Navigate to="bugs" replace />} />
+                <Route path=":section" element={<Settings />} />
+              </Route>
             </Route>
             <Route path="/" element={<Navigate to="/repos" replace />} />
           </Routes>
