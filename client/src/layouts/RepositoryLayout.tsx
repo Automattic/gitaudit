@@ -1,16 +1,28 @@
-import React, { useState } from "react";
 import { useParams, useNavigate, Outlet, NavLink } from "react-router-dom";
 import { Button } from "@wordpress/components";
 import { update as updateIcon } from "@wordpress/icons";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
-import { useRepoStatus } from "../hooks/useRepoStatus";
+import { repoStatusQueryOptions } from "@/data/queries/repos";
+import { useRefreshIssuesMutation } from "@/data/queries/issues";
 import { Badge } from "../utils/lock-unlock";
 
 function RepositoryLayout() {
-  const { owner, repo } = useParams();
+  const { owner, repo } = useParams<{ owner: string; repo: string }>();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { status, currentJob, refresh } = useRepoStatus(owner, repo);
+
+  // Use TanStack Query for repo status with automatic polling
+  const { data: statusData } = useQuery(repoStatusQueryOptions(owner!, repo!));
+  const refreshMutation = useRefreshIssuesMutation(owner!, repo!);
+
+  const status = statusData?.status;
+  const currentJob = statusData?.currentJob;
+
+  const handleRefresh = async () => {
+    await refreshMutation.mutateAsync();
+  };
+
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f0f0f0" }}>
       {/* Header */}
@@ -48,9 +60,10 @@ function RepositoryLayout() {
           {(status === "completed" || status === "not_started" || status === "failed" || !status) && (
             <Button
               icon={updateIcon}
-              onClick={refresh}
+              onClick={handleRefresh}
               label="Refresh data"
               size="small"
+              isBusy={refreshMutation.isPending}
             />
           )}
         </div>

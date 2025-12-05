@@ -1,77 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal, SearchControl, Button, Spinner, Notice, Card, CardBody } from '@wordpress/components';
-import api from '../utils/api';
+import { useDebounce } from '@wordpress/compose';
+import { useQuery } from '@tanstack/react-query';
+import { repoBrowseQueryOptions, repoSearchQueryOptions, useSaveRepoMutation } from '@/data/queries/repos';
+import { GitHubRepo } from '@/data/api/repos/types';
 
-function AddRepositoryModal({ isOpen, onClose, onRepoAdded }) {
+interface AddRepositoryModalProps {
+  onClose: () => void;
+  onRepoAdded: () => void;
+}
+
+function AddRepositoryModal({ onClose, onRepoAdded }: AddRepositoryModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [repos, setRepos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [addingRepo, setAddingRepo] = useState(null); // Track which repo is being added
+  const debouncedSearch = useDebounce(searchTerm, 300);
 
-  // Fetch initial repositories on mount
-  useEffect(() => {
-    fetchInitialRepos();
-  }, []);
+  // Conditional queries - only one will be active at a time
+  const browseQuery = useQuery({
+    ...repoBrowseQueryOptions(12),
+    enabled: debouncedSearch.length === 0,
+  });
 
-  // Debounced search effect
-  useEffect(() => {
-    if (searchTerm.length >= 3) {
-      const timeoutId = setTimeout(() => {
-        searchRepositories(searchTerm);
-      }, 300); // 300ms debounce
+  const searchQuery = useQuery({
+    ...repoSearchQueryOptions(debouncedSearch),
+    enabled: debouncedSearch.length >= 3,
+  });
 
-      return () => clearTimeout(timeoutId);
-    } else if (searchTerm.length === 0) {
-      // Reset to initial repos when search is cleared
-      fetchInitialRepos();
-    }
-  }, [searchTerm]);
+  // Mutation for adding a repo
+  const saveRepoMutation = useSaveRepoMutation();
 
-  async function fetchInitialRepos() {
+  // Determine which query is active
+  const activeQuery = debouncedSearch.length >= 3 ? searchQuery : browseQuery;
+  const repos = activeQuery.data?.repos ?? [];
+  const isLoading = activeQuery.isLoading;
+  const error = activeQuery.error;
+
+  async function handleAddRepo(repo: GitHubRepo) {
     try {
-      setLoading(true);
-      setError(null);
-      const data = await api.get('/api/repos/browse?limit=12');
-      setRepos(data.repos || []);
-    } catch (err) {
-      console.error('Error fetching repositories:', err);
-      setError(err.message || 'Failed to fetch repositories');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function searchRepositories(query) {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await api.get(`/api/repos/search?q=${encodeURIComponent(query)}`);
-      setRepos(data.repos || []);
-      if (data.repos.length === 0) {
-        setError('No repositories found matching your search');
-      }
-    } catch (err) {
-      console.error('Search error:', err);
-      setError(err.message || 'Failed to search repositories');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleAddRepo(repo) {
-    try {
-      setAddingRepo(repo.databaseId);
-      setError(null);
-
-      await api.post('/api/repos/save', {
+      await saveRepoMutation.mutateAsync({
         owner: repo.owner.login,
         name: repo.name,
         githubId: repo.databaseId,
         description: repo.description,
         stars: repo.stargazerCount,
-        language: repo.primaryLanguage?.name,
-        languageColor: repo.primaryLanguage?.color,
+        language: repo.primaryLanguage?.name ?? null,
+        languageColor: repo.primaryLanguage?.color ?? null,
         updatedAt: repo.updatedAt,
         isPrivate: repo.isPrivate
       });
@@ -81,9 +53,7 @@ function AddRepositoryModal({ isOpen, onClose, onRepoAdded }) {
       onClose();
     } catch (err) {
       console.error('Add repo error:', err);
-      setError(err.message || 'Failed to add repository');
-    } finally {
-      setAddingRepo(null);
+      // Error is handled by the mutation itself
     }
   }
 
@@ -103,11 +73,19 @@ function AddRepositoryModal({ isOpen, onClose, onRepoAdded }) {
 
         {error && (
           <Notice status="error" isDismissible={false} style={{ marginBottom: '1rem' }}>
-            {error}
+            {error instanceof Error ? error.message : 'Failed to fetch repositories'}
           </Notice>
         )}
 
-        {loading ? (
+        {saveRepoMutation.isError && (
+          <Notice status="error" isDismissible={false} style={{ marginBottom: '1rem' }}>
+            {saveRepoMutation.error instanceof Error
+              ? saveRepoMutation.error.message
+              : 'Failed to add repository'}
+          </Notice>
+        )}
+
+        {isLoading ? (
           <div style={{ textAlign: 'center', padding: '3rem' }}>
             <Spinner />
             <p style={{ marginTop: '1rem', color: '#666' }}>
@@ -129,7 +107,7 @@ function AddRepositoryModal({ isOpen, onClose, onRepoAdded }) {
                 key={repo.databaseId}
                 repo={repo}
                 onAdd={handleAddRepo}
-                isAdding={addingRepo === repo.databaseId}
+                isAdding={saveRepoMutation.isPending && saveRepoMutation.variables?.githubId === repo.databaseId}
               />
             ))}
           </div>
@@ -139,7 +117,13 @@ function AddRepositoryModal({ isOpen, onClose, onRepoAdded }) {
   );
 }
 
-function RepositorySearchResult({ repo, onAdd, isAdding }) {
+interface RepositorySearchResultProps {
+  repo: GitHubRepo;
+  onAdd: (repo: GitHubRepo) => void;
+  isAdding: boolean;
+}
+
+function RepositorySearchResult({ repo, onAdd, isAdding }: RepositorySearchResultProps) {
   return (
     <Card>
       <CardBody>

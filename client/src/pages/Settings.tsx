@@ -1,58 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { TabPanel, Button, Notice, Spinner } from '@wordpress/components';
+import { useQuery } from '@tanstack/react-query';
 import ImportantBugsForm from './settings/ImportantBugsForm';
 import StaleIssuesForm from './settings/StaleIssuesForm';
 import CommunityHealthForm from './settings/CommunityHealthForm';
-import api from '../utils/api';
+import { repoSettingsQueryOptions, useUpdateSettingsMutation, useResetSettingsMutation } from '@/data/queries/settings';
+import { RepoSettings } from '@/data/api/settings/types';
 import Page from '../components/Page';
 
 function Settings() {
-  const { owner, repo } = useParams();
+  const { owner, repo } = useParams<{ owner: string; repo: string }>();
 
-  // State
-  const [settings, setSettings] = useState(null); // Full unified settings
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  // Fetch settings using TanStack Query
+  const { data: serverSettings, isLoading } = useQuery(
+    repoSettingsQueryOptions(owner!, repo!)
+  );
+
+  // Local state for editing (null means no edits yet, fallback to server)
+  const [localSettingsState, setLocalSettingsState] = useState<RepoSettings | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Load settings on mount
-  useEffect(() => {
-    loadSettings();
-  }, [owner, repo]);
+  // Mutations
+  const updateMutation = useUpdateSettingsMutation(owner!, repo!);
+  const resetMutation = useResetSettingsMutation(owner!, repo!);
 
-  async function loadSettings() {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await api.get(`/api/repos/${owner}/${repo}/issues/settings`);
-      setSettings(data); // { importantBugs: {...}, staleIssues: {...} }
-    } catch (err) {
-      console.error('Failed to load settings:', err);
-      setError(err.message || 'Failed to load settings');
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Use local settings if edited, otherwise use server settings
+  const localSettings = localSettingsState ?? serverSettings;
 
   async function handleSave() {
+    if (!localSettings) return;
+
     try {
-      setSaving(true);
       setError(null);
       setSuccess(false);
-      await api.put(`/api/repos/${owner}/${repo}/issues/settings`, settings);
+      await updateMutation.mutateAsync(localSettings);
+      setLocalSettingsState(null); // Clear local edits after save, fallback to updated server settings
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to save settings:', err);
       setError(
-        err.response?.data?.details?.join(', ') ||
-          err.message ||
-          'Failed to save settings'
+        err instanceof Error
+          ? err.message
+          : 'Failed to save settings'
       );
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -61,44 +54,45 @@ function Settings() {
       return;
 
     try {
-      setSaving(true);
       setError(null);
       setSuccess(false);
-      const defaults = await api.delete(`/api/repos/${owner}/${repo}/issues/settings`);
-      setSettings(defaults);
+      const defaults = await resetMutation.mutateAsync();
+      setLocalSettingsState(null); // Clear local edits, will fallback to server
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to reset settings:', err);
-      setError(err.message || 'Failed to reset settings');
-    } finally {
-      setSaving(false);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to reset settings'
+      );
     }
   }
 
   // Callbacks for child components
-  function handleImportantBugsChange(updatedImportantBugs) {
-    setSettings((prev) => ({
-      ...prev,
+  function handleImportantBugsChange(updatedImportantBugs: RepoSettings['importantBugs']) {
+    setLocalSettingsState((prev) => ({
+      ...(prev ?? serverSettings!),
       importantBugs: updatedImportantBugs,
     }));
   }
 
-  function handleStaleIssuesChange(updatedStaleIssues) {
-    setSettings((prev) => ({
-      ...prev,
+  function handleStaleIssuesChange(updatedStaleIssues: RepoSettings['staleIssues']) {
+    setLocalSettingsState((prev) => ({
+      ...(prev ?? serverSettings!),
       staleIssues: updatedStaleIssues,
     }));
   }
 
-  function handleCommunityHealthChange(updatedCommunityHealth) {
-    setSettings((prev) => ({
-      ...prev,
+  function handleCommunityHealthChange(updatedCommunityHealth: RepoSettings['communityHealth']) {
+    setLocalSettingsState((prev) => ({
+      ...(prev ?? serverSettings!),
       communityHealth: updatedCommunityHealth,
     }));
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Page title="Scoring Settings">
         <div style={{ textAlign: 'center', padding: '3rem' }}>
@@ -109,7 +103,7 @@ function Settings() {
     );
   }
 
-  if (!settings) {
+  if (!localSettings) {
     return (
       <Page title="Scoring Settings">
         <Notice status="error" isDismissible={false}>
@@ -118,6 +112,8 @@ function Settings() {
       </Page>
     );
   }
+
+  const saving = updateMutation.isPending || resetMutation.isPending;
 
   return (
     <Page
@@ -159,19 +155,19 @@ function Settings() {
           <>
             {tab.name === 'important-bugs' && (
               <ImportantBugsForm
-                settings={settings.importantBugs}
+                settings={localSettings.importantBugs}
                 onChange={handleImportantBugsChange}
               />
             )}
             {tab.name === 'stale-issues' && (
               <StaleIssuesForm
-                settings={settings.staleIssues}
+                settings={localSettings.staleIssues}
                 onChange={handleStaleIssuesChange}
               />
             )}
             {tab.name === 'community-health' && (
               <CommunityHealthForm
-                settings={settings.communityHealth}
+                settings={localSettings.communityHealth}
                 onChange={handleCommunityHealthChange}
               />
             )}

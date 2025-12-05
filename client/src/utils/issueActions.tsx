@@ -1,19 +1,25 @@
 import { __ } from '@wordpress/i18n';
 import { Icon, backup } from '@wordpress/icons';
-import api from './api';
+import { refreshSingleIssue } from '@/data/api/issues/mutators';
+
+interface Issue {
+  number: number;
+  id: number;
+  [key: string]: any;
+}
 
 /**
  * Create a refresh action for a specific repository
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {Function} onSuccess - Callback when refresh completes
+ * @param owner - Repository owner
+ * @param repo - Repository name
+ * @param onSuccess - Callback when refresh completes
  */
-export const createRefreshIssueAction = (owner, repo, onSuccess) => ({
+export const createRefreshIssueAction = (owner: string, repo: string, onSuccess?: () => void) => ({
   id: 'refresh-issue',
   label: __('Refresh from GitHub'),
   icon: <Icon icon={backup} />,
   isPrimary: false,
-  callback: async (items) => {
+  callback: async (items: Issue[]) => {
     if (items.length !== 1) {
       return; // Only works for single items
     }
@@ -21,7 +27,7 @@ export const createRefreshIssueAction = (owner, repo, onSuccess) => ({
     const issue = items[0];
 
     try {
-      await api.post(`/api/repos/${owner}/${repo}/issues/${issue.number}/refresh`);
+      await refreshSingleIssue(owner, repo, issue.number);
 
       console.log(`Issue #${issue.number} refresh queued`);
 
@@ -33,7 +39,7 @@ export const createRefreshIssueAction = (owner, repo, onSuccess) => ({
       console.error('Failed to refresh issue:', error);
     }
   },
-  isEligible: (item) => {
+  isEligible: (item: Issue) => {
     // Always eligible for all issues
     return true;
   },

@@ -27,144 +27,6 @@ function classifyStaleLevel(score, thresholds) {
 }
 
 /**
- * Calculate unified stats for all score types
- */
-function calculateUnifiedStats(issues, scoreType, settings) {
-  const stats = {};
-
-  if (scoreType === "all" || scoreType === "importantBugs") {
-    const criticalCount = issues.filter((i) => {
-      const bugScore = i.scores.find((s) => s.type === "importantBugs");
-      return (
-        bugScore && bugScore.score >= settings.importantBugs.thresholds.critical
-      );
-    }).length;
-
-    const highCount = issues.filter((i) => {
-      const bugScore = i.scores.find((s) => s.type === "importantBugs");
-      return (
-        bugScore &&
-        bugScore.score >= settings.importantBugs.thresholds.high &&
-        bugScore.score < settings.importantBugs.thresholds.critical
-      );
-    }).length;
-
-    const mediumCount = issues.filter((i) => {
-      const bugScore = i.scores.find((s) => s.type === "importantBugs");
-      return (
-        bugScore &&
-        bugScore.score >= settings.importantBugs.thresholds.medium &&
-        bugScore.score < settings.importantBugs.thresholds.high
-      );
-    }).length;
-
-    const lowCount = issues.filter((i) => {
-      const bugScore = i.scores.find((s) => s.type === "importantBugs");
-      return (
-        bugScore && bugScore.score < settings.importantBugs.thresholds.medium
-      );
-    }).length;
-
-    stats.importantBugs = {
-      all: criticalCount + highCount + mediumCount + lowCount,
-      critical: criticalCount,
-      high: highCount,
-      medium: mediumCount,
-      low: lowCount,
-    };
-  }
-
-  if (scoreType === "all" || scoreType === "staleIssues") {
-    const veryStaleCount = issues.filter((i) => {
-      const staleScore = i.scores.find((s) => s.type === "staleIssues");
-      return (
-        staleScore &&
-        staleScore.score >= settings.staleIssues.thresholds.veryStale
-      );
-    }).length;
-
-    const moderatelyStaleCount = issues.filter((i) => {
-      const staleScore = i.scores.find((s) => s.type === "staleIssues");
-      return (
-        staleScore &&
-        staleScore.score >= settings.staleIssues.thresholds.moderatelyStale &&
-        staleScore.score < settings.staleIssues.thresholds.veryStale
-      );
-    }).length;
-
-    const slightlyStaleCount = issues.filter((i) => {
-      const staleScore = i.scores.find((s) => s.type === "staleIssues");
-      return (
-        staleScore &&
-        staleScore.score >= settings.staleIssues.thresholds.slightlyStale &&
-        staleScore.score < settings.staleIssues.thresholds.moderatelyStale
-      );
-    }).length;
-
-    const freshCount = issues.filter((i) => {
-      const staleScore = i.scores.find((s) => s.type === "staleIssues");
-      return (
-        staleScore &&
-        staleScore.score < settings.staleIssues.thresholds.slightlyStale
-      );
-    }).length;
-
-    stats.staleIssues = {
-      all:
-        veryStaleCount + moderatelyStaleCount + slightlyStaleCount + freshCount,
-      veryStale: veryStaleCount,
-      moderatelyStale: moderatelyStaleCount,
-      slightlyStale: slightlyStaleCount,
-      fresh: freshCount,
-    };
-  }
-
-  if (scoreType === "all" || scoreType === "communityHealth") {
-    const criticalCount = issues.filter((i) => {
-      const healthScore = i.scores.find((s) => s.type === "communityHealth");
-      return (
-        healthScore && healthScore.score >= settings.communityHealth.thresholds.critical
-      );
-    }).length;
-
-    const highCount = issues.filter((i) => {
-      const healthScore = i.scores.find((s) => s.type === "communityHealth");
-      return (
-        healthScore &&
-        healthScore.score >= settings.communityHealth.thresholds.high &&
-        healthScore.score < settings.communityHealth.thresholds.critical
-      );
-    }).length;
-
-    const mediumCount = issues.filter((i) => {
-      const healthScore = i.scores.find((s) => s.type === "communityHealth");
-      return (
-        healthScore &&
-        healthScore.score >= settings.communityHealth.thresholds.medium &&
-        healthScore.score < settings.communityHealth.thresholds.high
-      );
-    }).length;
-
-    const lowCount = issues.filter((i) => {
-      const healthScore = i.scores.find((s) => s.type === "communityHealth");
-      return (
-        healthScore && healthScore.score < settings.communityHealth.thresholds.medium
-      );
-    }).length;
-
-    stats.communityHealth = {
-      all: criticalCount + highCount + mediumCount + lowCount,
-      critical: criticalCount,
-      high: highCount,
-      medium: mediumCount,
-      low: lowCount,
-    };
-  }
-
-  return stats;
-}
-
-/**
  * Analyze issues with all score types
  */
 export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
@@ -229,9 +91,6 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
 
     return { ...issue, scores };
   });
-
-  // Calculate stats BEFORE filtering (so tabs show correct counts)
-  const stats = calculateUnifiedStats(scoredIssues, scoreType, settings);
 
   // Apply filters based on scoreType
   let filteredIssues = scoredIssues;
@@ -307,7 +166,6 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
     issues: paginatedIssues,
     totalItems: filteredIssues.length,
     totalPages: Math.ceil(filteredIssues.length / perPage),
-    stats,
     thresholds: {
       importantBugs: settings.importantBugs.thresholds,
       staleIssues: settings.staleIssues.thresholds,

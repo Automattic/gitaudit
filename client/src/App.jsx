@@ -1,7 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { queryClient } from './data/queries/query-client';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { RepoProvider } from './context/RepoContext';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import RepoSelector from './pages/RepoSelector';
@@ -28,8 +30,8 @@ function ProtectedRoute({ children }) {
 
 function App() {
   return (
-    <AuthProvider>
-      <RepoProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -62,8 +64,11 @@ function App() {
             <Route path="/" element={<Navigate to="/repos" replace />} />
           </Routes>
         </BrowserRouter>
-      </RepoProvider>
-    </AuthProvider>
+      </AuthProvider>
+
+      {/* Dev tools - only in development */}
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+    </QueryClientProvider>
   );
 }
 

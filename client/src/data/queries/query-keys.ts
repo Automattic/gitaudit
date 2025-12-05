@@ -1,0 +1,44 @@
+/**
+ * Query key factory following wp-calypso patterns
+ * Hierarchical structure for easy invalidation
+ */
+export const queryKeys = {
+  // Auth keys
+  auth: {
+    verify: () => ['auth', 'verify'] as const,
+  },
+
+  // Repository keys
+  repos: {
+    all: () => ['repos'] as const,
+    list: () => [...queryKeys.repos.all(), 'list'] as const,
+    browse: (limit?: number) => [...queryKeys.repos.all(), 'browse', { limit }] as const,
+    search: (query: string) => [...queryKeys.repos.all(), 'search', query] as const,
+    detail: (owner: string, repo: string) => [...queryKeys.repos.all(), owner, repo] as const,
+    status: (owner: string, repo: string) => [...queryKeys.repos.detail(owner, repo), 'status'] as const,
+  },
+
+  // Issues keys
+  issues: {
+    all: () => ['issues'] as const,
+    repo: (owner: string, repo: string) => [...queryKeys.issues.all(), owner, repo] as const,
+    list: (
+      owner: string,
+      repo: string,
+      params: {
+        page: number;
+        per_page: number;
+        scoreType: string;
+        issueType?: string;
+        priority: string;
+        search?: string;
+      }
+    ) => [...queryKeys.issues.repo(owner, repo), 'list', params] as const,
+  },
+
+  // Settings keys
+  settings: {
+    all: () => ['settings'] as const,
+    repo: (owner: string, repo: string) => [...queryKeys.settings.all(), owner, repo] as const,
+  },
+} as const;

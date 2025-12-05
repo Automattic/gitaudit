@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories } from '../services/github.js';
-import { repoQueries, transaction } from '../db/queries.js';
+import { repoQueries, issueQueries, analysisQueries, transaction } from '../db/queries.js';
 import { toSqliteDateTime } from '../utils/dates.js';
 
 const router = express.Router();
@@ -63,6 +63,55 @@ router.get('/search', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error searching repositories:', error);
     res.status(500).json({ error: 'Failed to search repositories' });
+  }
+});
+
+// Get repository status (for polling background jobs)
+router.get('/:owner/:repo/status', authenticateToken, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+
+  try {
+    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
+
+    if (!repo) {
+      return res.json({
+        hasCachedData: false,
+        status: 'not_started',
+        currentJob: null,
+        sentiment: { totalIssues: 0, analyzedIssues: 0, progress: 0 }
+      });
+    }
+
+    const issueCount = issueQueries.countByRepo.get(repo.id);
+    const analyzedIssues = analysisQueries.countByRepoAndType.get(repo.id, 'sentiment');
+
+    // Import queue status helper
+    const { getCurrentJobForRepo } = await import('../services/jobQueue.js');
+    const currentJob = getCurrentJobForRepo(repo.id);
+
+    // Determine overall status
+    let overallStatus = repo.fetch_status;
+
+    // If fetch is completed but sentiment is processing, show in_progress
+    if (repo.fetch_status === 'completed' && currentJob === 'sentiment') {
+      overallStatus = 'in_progress';
+    }
+
+    res.json({
+      hasCachedData: issueCount.count > 0,
+      status: overallStatus,
+      lastFetched: repo.last_fetched,
+      issueCount: issueCount.count,
+      currentJob: currentJob,
+      sentiment: {
+        totalIssues: issueCount.count,
+        analyzedIssues: analyzedIssues.count,
+        progress: issueCount.count > 0 ? (analyzedIssues.count / issueCount.count) * 100 : 0
+      }
+    });
+  } catch (error) {
+    console.error('Error getting repository status:', error);
+    res.status(500).json({ error: 'Failed to get repository status' });
   }
 });
 
