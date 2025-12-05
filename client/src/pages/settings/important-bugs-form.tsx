@@ -69,6 +69,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={0}
             max={200}
             disabled={!data.priorityLabels_enabled}
+            help="Points added to score when labels match"
           />
         ),
       },
@@ -112,6 +113,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={-200}
             max={200}
             disabled={!data.lowPriorityLabels_enabled}
+            help="Points subtracted from score (use negative values)"
           />
         ),
       },
@@ -155,6 +157,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={0}
             max={200}
             disabled={!data.recentActivity_enabled}
+            help="Points added for recent activity"
           />
         ),
       },
@@ -170,6 +173,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={1}
             max={365}
             disabled={!data.recentActivity_enabled}
+            help="Maximum days since last update to qualify"
           />
         ),
       },
@@ -199,6 +203,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={0}
             max={200}
             disabled={!data.highReactions_enabled}
+            help="Points added when reaction threshold met"
           />
         ),
       },
@@ -214,6 +219,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={1}
             max={100}
             disabled={!data.highReactions_enabled}
+            help="Minimum number of reactions required"
           />
         ),
       },
@@ -243,6 +249,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={0}
             max={200}
             disabled={!data.assigned_enabled}
+            help="Points added when issue is assigned"
           />
         ),
       },
@@ -272,6 +279,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={0}
             max={200}
             disabled={!data.milestone_enabled}
+            help="Points added when issue has a milestone"
           />
         ),
       },
@@ -301,6 +309,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={0}
             max={100}
             disabled={!data.activeDiscussion_enabled}
+            help="Minimum comments before scoring starts"
           />
         ),
       },
@@ -316,6 +325,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={0}
             max={50}
             disabled={!data.activeDiscussion_enabled}
+            help="Points added for every 10 comments above threshold"
           />
         ),
       },
@@ -331,6 +341,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={0}
             max={100}
             disabled={!data.activeDiscussion_enabled}
+            help="Maximum points that can be awarded"
           />
         ),
       },
@@ -360,6 +371,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={0}
             max={200}
             disabled={!data.longstandingButActive_enabled}
+            help="Points added when both conditions met"
           />
         ),
       },
@@ -375,6 +387,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={1}
             max={365}
             disabled={!data.longstandingButActive_enabled}
+            help="Minimum age of issue in days"
           />
         ),
       },
@@ -390,6 +403,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={1}
             max={365}
             disabled={!data.longstandingButActive_enabled}
+            help="Maximum days since last activity"
           />
         ),
       },
@@ -435,6 +449,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 120 })}
             min={0}
             max={500}
+            help="Minimum score for critical priority"
           />
         ),
       },
@@ -449,6 +464,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 80 })}
             min={0}
             max={500}
+            help="Minimum score for high priority"
           />
         ),
       },
@@ -463,6 +479,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 50 })}
             min={0}
             max={500}
+            help="Minimum score for medium priority"
           />
         ),
       },
@@ -477,14 +494,14 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
       fields: [
         {
           id: 'thresholds',
-          label: 'Priority Thresholds',
+          label: 'Score Thresholds',
           description:
             'Define the minimum scores required for each priority level.',
           layout: { type: 'card' as const },
           children: [
             {
               id: 'thresholds-fields',
-              layout: { type: 'row' as const },
+              layout: { type: 'row' as const, alignment: 'start' as const },
               children: [
                 'thresholds_critical',
                 'thresholds_high',
@@ -506,7 +523,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 'priorityLabels_enabled',
                 {
                   id: 'priority-labels-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: ['priorityLabels_points'],
                 },
                 'priorityLabels_labels',
@@ -519,7 +536,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 'lowPriorityLabels_enabled',
                 {
                   id: 'low-priority-labels-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: ['lowPriorityLabels_points'],
                 },
                 'lowPriorityLabels_labels',
@@ -532,7 +549,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 'recentActivity_enabled',
                 {
                   id: 'recent-activity-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: [
                     'recentActivity_points',
                     'recentActivity_daysThreshold',
@@ -547,7 +564,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 'highReactions_enabled',
                 {
                   id: 'high-reactions-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: [
                     'highReactions_points',
                     'highReactions_reactionThreshold',
@@ -562,7 +579,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 'assigned_enabled',
                 {
                   id: 'assigned-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: ['assigned_points'],
                 },
               ],
@@ -574,7 +591,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 'milestone_enabled',
                 {
                   id: 'milestone-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: ['milestone_points'],
                 },
               ],
@@ -586,7 +603,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 'activeDiscussion_enabled',
                 {
                   id: 'active-discussion-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: [
                     'activeDiscussion_baseThreshold',
                     'activeDiscussion_pointsPer10Comments',
@@ -602,7 +619,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 'longstandingButActive_enabled',
                 {
                   id: 'longstanding-but-active-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: [
                     'longstandingButActive_points',
                     'longstandingButActive_ageThreshold',
@@ -618,7 +635,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 'sentimentAnalysis_enabled',
                 {
                   id: 'sentiment-analysis-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: ['sentimentAnalysis_maxPoints'],
                 },
               ],

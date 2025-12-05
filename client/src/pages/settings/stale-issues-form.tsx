@@ -53,6 +53,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
+            help="Days without activity to match this range"
           />
         ),
       },
@@ -67,6 +68,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
+            help="Points awarded for this range"
           />
         ),
       },
@@ -83,6 +85,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
+            help="Days without activity to match this range"
           />
         ),
       },
@@ -97,6 +100,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
+            help="Points awarded for this range"
           />
         ),
       },
@@ -113,6 +117,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
+            help="Days without activity to match this range"
           />
         ),
       },
@@ -127,6 +132,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
+            help="Points awarded for this range"
           />
         ),
       },
@@ -143,6 +149,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
+            help="Days without activity to match this range"
           />
         ),
       },
@@ -157,6 +164,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
+            help="Points awarded for this range"
           />
         ),
       },
@@ -186,6 +194,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={0}
             max={200}
             disabled={!data.waitingForResponse_enabled}
+            help="Bonus points for waiting labels"
           />
         ),
       },
@@ -215,6 +224,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={0}
             max={200}
             disabled={!data.abandonedByAssignee_enabled}
+            help="Bonus points for abandoned assignments"
           />
         ),
       },
@@ -230,6 +240,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={1}
             max={365}
             disabled={!data.abandonedByAssignee_enabled}
+            help="Days without update while assigned"
           />
         ),
       },
@@ -259,6 +270,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={0}
             max={200}
             disabled={!data.neverAddressed_enabled}
+            help="Bonus points for never addressed issues"
           />
         ),
       },
@@ -274,6 +286,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={1}
             max={999}
             disabled={!data.neverAddressed_enabled}
+            help="Minimum age with zero comments"
           />
         ),
       },
@@ -303,6 +316,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={0}
             max={200}
             disabled={!data.highInterestButStale_enabled}
+            help="Bonus points when all thresholds met"
           />
         ),
       },
@@ -318,6 +332,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={0}
             max={100}
             disabled={!data.highInterestButStale_enabled}
+            help="Minimum reactions to qualify"
           />
         ),
       },
@@ -333,6 +348,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={0}
             max={100}
             disabled={!data.highInterestButStale_enabled}
+            help="Minimum comments to qualify"
           />
         ),
       },
@@ -348,6 +364,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={1}
             max={365}
             disabled={!data.highInterestButStale_enabled}
+            help="Days without activity to qualify"
           />
         ),
       },
@@ -377,6 +394,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={0}
             max={200}
             disabled={!data.staleMilestone_enabled}
+            help="Bonus points for stale milestones"
           />
         ),
       },
@@ -392,6 +410,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={1}
             max={365}
             disabled={!data.staleMilestone_enabled}
+            help="Days without activity in milestone"
           />
         ),
       },
@@ -421,6 +440,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             min={0}
             max={200}
             disabled={!data.markedForClosure_enabled}
+            help="Bonus points for closure labels"
           />
         ),
       },
@@ -437,6 +457,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={500}
+            help="Minimum score for very stale classification"
           />
         ),
       },
@@ -451,6 +472,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={500}
+            help="Minimum score for moderately stale classification"
           />
         ),
       },
@@ -465,6 +487,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={500}
+            help="Minimum score for slightly stale classification"
           />
         ),
       },
@@ -478,6 +501,24 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
       layout: { type: 'card' as const },
       fields: [
         {
+          id: 'thresholds',
+          label: 'Score Thresholds',
+          description:
+            'Minimum scores for classification. Must be: Very Stale > Moderately Stale > Slightly Stale',
+          layout: { type: 'card' as const },
+          children: [
+            {
+              id: 'thresholds-fields',
+              layout: { type: 'row' as const, alignment: 'start' as const },
+              children: [
+                'thresholds_veryStale',
+                'thresholds_moderatelyStale',
+                'thresholds_slightlyStale',
+              ],
+            },
+          ],
+        },
+        {
           id: 'activity-time-ranges',
           label: 'Activity Time Ranges',
           description:
@@ -486,25 +527,25 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             {
               id: 'range-0',
               label: '1st Range (Longest)',
-              layout: { type: 'row' as const },
+              layout: { type: 'row' as const, alignment: 'start' as const },
               children: ['activityRange_0_days', 'activityRange_0_points'],
             },
             {
               id: 'range-1',
               label: '2nd Range',
-              layout: { type: 'row' as const },
+              layout: { type: 'row' as const, alignment: 'start' as const },
               children: ['activityRange_1_days', 'activityRange_1_points'],
             },
             {
               id: 'range-2',
               label: '3rd Range',
-              layout: { type: 'row' as const },
+              layout: { type: 'row' as const, alignment: 'start' as const },
               children: ['activityRange_2_days', 'activityRange_2_points'],
             },
             {
               id: 'range-3',
               label: '4th Range (Shortest)',
-              layout: { type: 'row' as const },
+              layout: { type: 'row' as const, alignment: 'start' as const },
               children: ['activityRange_3_days', 'activityRange_3_points'],
             },
           ],
@@ -521,7 +562,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
                 'waitingForResponse_enabled',
                 {
                   id: 'waiting-for-response-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: ['waitingForResponse_points'],
                 },
               ],
@@ -533,7 +574,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
                 'abandonedByAssignee_enabled',
                 {
                   id: 'abandoned-by-assignee-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: [
                     'abandonedByAssignee_points',
                     'abandonedByAssignee_daysThreshold',
@@ -548,7 +589,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
                 'neverAddressed_enabled',
                 {
                   id: 'never-addressed-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: [
                     'neverAddressed_points',
                     'neverAddressed_ageThreshold',
@@ -563,7 +604,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
                 'highInterestButStale_enabled',
                 {
                   id: 'high-interest-but-stale-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: [
                     'highInterestButStale_points',
                     'highInterestButStale_reactionThreshold',
@@ -580,7 +621,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
                 'staleMilestone_enabled',
                 {
                   id: 'stale-milestone-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: [
                     'staleMilestone_points',
                     'staleMilestone_daysThreshold',
@@ -595,27 +636,9 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
                 'markedForClosure_enabled',
                 {
                   id: 'marked-for-closure-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: ['markedForClosure_points'],
                 },
-              ],
-            },
-          ],
-        },
-        {
-          id: 'thresholds',
-          label: 'Stale Level Thresholds',
-          description:
-            'Minimum scores for classification. Must be: Very Stale > Moderately Stale > Slightly Stale',
-          layout: { type: 'card' as const },
-          children: [
-            {
-              id: 'thresholds-fields',
-              layout: { type: 'row' as const },
-              children: [
-                'thresholds_veryStale',
-                'thresholds_moderatelyStale',
-                'thresholds_slightlyStale',
               ],
             },
           ],

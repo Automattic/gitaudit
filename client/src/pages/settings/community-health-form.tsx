@@ -99,6 +99,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
             min={0}
             max={200}
             disabled={!data.firstTimeContributor_enabled}
+            help="Points added when first-time contributor ignored"
           />
         ),
       },
@@ -128,6 +129,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
             min={0}
             max={200}
             disabled={!data.meTooComments_enabled}
+            help="Points added when threshold met"
           />
         ),
       },
@@ -143,7 +145,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
             min={1}
             max={100}
             disabled={!data.meTooComments_enabled}
-            help="Minimum number of 'me too' style comments"
+            help="Minimum 'me too' comments required"
           />
         ),
       },
@@ -173,7 +175,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
             min={0}
             max={50}
             disabled={!data.sentimentAnalysis_enabled}
-            help="Maximum points from sentiment (0-30 range)"
+            help="Maximum points from negative sentiment"
           />
         ),
       },
@@ -190,6 +192,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 60 })}
             min={0}
             max={500}
+            help="Minimum score for critical priority"
           />
         ),
       },
@@ -204,6 +207,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 40 })}
             min={0}
             max={500}
+            help="Minimum score for high priority"
           />
         ),
       },
@@ -218,6 +222,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 20 })}
             min={0}
             max={500}
+            help="Minimum score for medium priority"
           />
         ),
       },
@@ -231,6 +236,24 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
       layout: { type: 'card' as const },
       fields: [
         {
+          id: 'thresholds',
+          label: 'Score Thresholds',
+          description:
+            'Define the minimum scores required for each priority level.',
+          layout: { type: 'card' as const },
+          children: [
+            {
+              id: 'thresholds-fields',
+              layout: { type: 'row' as const, alignment: 'start' as const },
+              children: [
+                'thresholds_critical',
+                'thresholds_high',
+                'thresholds_medium',
+              ],
+            },
+          ],
+        },
+        {
           id: 'maintainer-team',
           label: 'Maintainer Team Configuration',
           description:
@@ -239,26 +262,8 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
           children: [
             {
               id: 'team-fields',
-              layout: { type: 'row' as const },
+              layout: { type: 'row' as const, alignment: 'start' as const },
               children: ['maintainerTeam_org', 'maintainerTeam_teamSlug'],
-            },
-          ],
-        },
-        {
-          id: 'thresholds',
-          label: 'Priority Thresholds',
-          description:
-            'Define the minimum scores required for each priority level.',
-          layout: { type: 'card' as const },
-          children: [
-            {
-              id: 'thresholds-fields',
-              layout: { type: 'row' as const },
-              children: [
-                'thresholds_critical',
-                'thresholds_high',
-                'thresholds_medium',
-              ],
             },
           ],
         },
@@ -287,7 +292,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
                 'meTooComments_enabled',
                 {
                   id: 'me-too-comments-fields',
-                  layout: { type: 'row' as const },
+                  layout: { type: 'row' as const, alignment: 'start' as const },
                   children: [
                     'meTooComments_points',
                     'meTooComments_minimumCount',

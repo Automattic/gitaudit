@@ -155,7 +155,7 @@ function Settings() {
         ]}
       >
         {(tab: { name: string; title: string }) => (
-          <>
+          <div style={{ marginTop: '1.5rem' }}>
             {tab.name === 'important-bugs' && (
               <ImportantBugsForm
                 settings={localSettings.importantBugs}
@@ -174,7 +174,7 @@ function Settings() {
                 onChange={handleCommunityHealthChange}
               />
             )}
-          </>
+          </div>
         )}
       </TabPanel>
 
