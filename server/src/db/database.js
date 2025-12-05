@@ -121,6 +121,9 @@ export function initializeDatabase() {
   // Trigger full refetch after timezone bug fix (one-time)
   triggerFullRefetchAfterTimezoneFix();
 
+  // Reset last_fetched to recover from bug where it was updated at job start
+  resetLastFetchedToRecoverUpdates();
+
   // Clean up any stuck in_progress statuses from server crashes
   cleanupStuckStatuses();
 
@@ -234,6 +237,50 @@ function triggerFullRefetchAfterTimezoneFix() {
 
   } catch (error) {
     console.error('Failed to trigger full refetch after timezone fix:', error);
+    // Don't throw - allow server to start even if migration fails
+  }
+}
+
+// Reset last_fetched to recover from updateFetchStatus bug (one-time migration)
+// The bug: updateFetchStatus was setting last_fetched = CURRENT_TIMESTAMP at job START
+// This caused incremental fetches to miss recent updates
+// Fix: Set last_fetched to 2 days ago to re-fetch all recent updates
+function resetLastFetchedToRecoverUpdates() {
+  try {
+    // Check if this migration has already run
+    const migrationName = 'reset_last_fetched_recover_updates_2025_12';
+    const alreadyRun = db.prepare(`
+      SELECT COUNT(*) as count FROM migration_log WHERE migration_name = ?
+    `).get(migrationName);
+
+    if (alreadyRun.count > 0) {
+      // Migration already completed
+      return;
+    }
+
+    // Set last_fetched to 2 days ago for all repositories
+    // This will cause next fetch to get all issues updated in last 2 days
+    const result = db.prepare(`
+      UPDATE repositories
+      SET last_fetched = datetime('now', '-2 days')
+      WHERE last_fetched IS NOT NULL
+    `).run();
+
+    if (result.changes > 0) {
+      console.log(`\n${'='.repeat(70)}`);
+      console.log('🔧 BUG FIX: Recovering from last_fetched timestamp bug');
+      console.log(`   Reset last_fetched to 2 days ago for ${result.changes} repository(ies)`);
+      console.log(`   Next refresh will fetch all issues updated in the last 2 days`);
+      console.log(`${'='.repeat(70)}\n`);
+    }
+
+    // Mark this migration as complete
+    db.prepare(`
+      INSERT INTO migration_log (migration_name) VALUES (?)
+    `).run(migrationName);
+
+  } catch (error) {
+    console.error('Failed to reset last_fetched timestamps:', error);
     // Don't throw - allow server to start even if migration fails
   }
 }

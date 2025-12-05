@@ -43,7 +43,7 @@ export const repoQueries = {
   get updateFetchStatus() {
     return db.prepare(`
       UPDATE repositories
-      SET last_fetched = CURRENT_TIMESTAMP, fetch_status = ?
+      SET fetch_status = ?
       WHERE id = ?
     `);
   },
