@@ -2,18 +2,18 @@ import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { queryClient } from './data/queries/query-client.ts';
-import { AuthProvider, useAuth } from './context/auth-context.tsx';
-import Login from './pages/login.tsx';
-import AuthCallback from './pages/auth-callback.tsx';
-import RepoSelector from './pages/repo-selector.tsx';
-import ImportantBugs from './pages/important-bugs.tsx';
-import StaleIssues from './pages/stale-issues.tsx';
-import CommunityHealth from './pages/community-health.tsx';
-import Settings from './pages/settings.tsx';
-import RepositoryLayout from './layouts/repository-layout.tsx';
-import AppLayout from './layouts/app-layout.tsx';
-import Loading from './components/loading.tsx';
+import { queryClient } from './data/queries/query-client';
+import { AuthProvider, useAuth } from './context/auth-context';
+import Login from './pages/login';
+import AuthCallback from './pages/auth-callback';
+import RepoSelector from './pages/repo-selector';
+import ImportantBugs from './pages/important-bugs';
+import StaleIssues from './pages/stale-issues';
+import CommunityHealth from './pages/community-health';
+import Settings from './pages/settings';
+import RepositoryLayout from './layouts/repository-layout';
+import AppLayout from './layouts/app-layout';
+import Loading from './components/loading';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: ReactNode }) {

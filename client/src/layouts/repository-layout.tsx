@@ -1,8 +1,8 @@
 import { useParams, Outlet, NavLink } from "react-router-dom";
 import { __experimentalHStack as HStack } from "@wordpress/components";
-import Logo from "./shared/logo.tsx";
-import UserMenu from "./shared/user-menu.tsx";
-import RefreshButton from "./shared/refresh-button.tsx";
+import Logo from "./shared/logo";
+import UserMenu from "./shared/user-menu";
+import RefreshButton from "./shared/refresh-button";
 
 function RepositoryLayout() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
