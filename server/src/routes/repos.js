@@ -3,6 +3,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories } from '../services/github.js';
 import { repoQueries, issueQueries, analysisQueries, transaction } from '../db/queries.js';
 import { toSqliteDateTime } from '../utils/dates.js';
+import { getCurrentJobForRepo } from '../services/job-queue.js';
 
 const router = express.Router();
 
@@ -85,8 +86,7 @@ router.get('/:owner/:repo/status', authenticateToken, async (req, res) => {
     const issueCount = issueQueries.countByRepo.get(repo.id);
     const analyzedIssues = analysisQueries.countByRepoAndType.get(repo.id, 'sentiment');
 
-    // Import queue status helper
-    const { getCurrentJobForRepo } = await import('../services/jobQueue.js');
+    // Get current job status
     const currentJob = getCurrentJobForRepo(repo.id);
 
     // Determine overall status

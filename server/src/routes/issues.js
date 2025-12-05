@@ -3,6 +3,9 @@ import { authenticateToken } from '../middleware/auth.js';
 import { fetchRepositoryIssues } from '../services/github.js';
 import { repoQueries, issueQueries, analysisQueries, transaction, settingsQueries } from '../db/queries.js';
 import { getDefaultSettings, validateSettings, loadRepoSettings } from '../services/settings.js';
+import { queueIssueFetch, queueSingleIssueRefresh, getQueueStatus } from '../services/job-queue.js';
+import { graphql } from '@octokit/graphql';
+import { analyzeIssuesWithAllScores } from '../services/analyzers/unified.js';
 
 const router = express.Router({ mergeParams: true });
 
@@ -12,7 +15,6 @@ async function getOrCreateRepo(owner, name, accessToken) {
 
   if (!repo) {
     // Fetch repo info from GitHub to get the database ID
-    const { graphql } = await import('@octokit/graphql');
     const client = graphql.defaults({
       headers: { authorization: `token ${accessToken}` },
     });
@@ -52,7 +54,6 @@ router.post('/fetch', authenticateToken, async (req, res) => {
     repoQueries.updateFetchStatus.run('in_progress', repo.id);
 
     // Queue issue fetch job
-    const { queueIssueFetch } = await import('../services/jobQueue.js');
     await queueIssueFetch({
       repoId: repo.id,
       owner,
@@ -85,7 +86,6 @@ router.post('/refresh', authenticateToken, async (req, res) => {
     repoQueries.updateFetchStatus.run('in_progress', repo.id);
 
     // Queue issue fetch job
-    const { queueIssueFetch } = await import('../services/jobQueue.js');
     console.log(`[API] Calling queueIssueFetch for ${owner}/${repoName}`);
     await queueIssueFetch({
       repoId: repo.id,
@@ -115,9 +115,6 @@ router.post('/:issueNumber/refresh', authenticateToken, async (req, res) => {
   try {
     // Get or create repository
     const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
-
-    // Import job queue
-    const { queueSingleIssueRefresh } = await import('../services/jobQueue.js');
 
     // Queue the refresh job
     await queueSingleIssueRefresh({
@@ -154,7 +151,6 @@ router.get('/sentiment/status', authenticateToken, async (req, res) => {
     const totalIssues = issueQueries.countByRepo.get(repo.id).count;
     const analyzedIssues = analysisQueries.countByRepoAndType.get(repo.id, 'sentiment').count;
 
-    const { getQueueStatus } = await import('../services/jobQueue.js');
     const queueStatus = getQueueStatus();
 
     res.json({
@@ -210,7 +206,6 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     // Analyze with unified analyzer
-    const { analyzeIssuesWithAllScores } = await import('../services/analyzers/unified.js');
     const { issues: analyzedIssues, totalItems, totalPages, thresholds } =
       analyzeIssuesWithAllScores(issues, allSettings, {
         page, perPage, scoreType, sortBy, priority, level, search, issueType, maintainerLogins

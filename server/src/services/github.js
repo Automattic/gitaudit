@@ -1,32 +1,112 @@
 import { graphql } from '@octokit/graphql';
+import {
+  rateLimitConfig,
+  isRateLimitError,
+  recordRateLimitHit,
+  shouldApplyCooldown,
+  getCooldownRemaining,
+  withRetry,
+} from '../utils/rate-limit-handler.js';
 
-// Rate limiting: delay between requests to avoid secondary rate limits
-const MIN_REQUEST_INTERVAL_MS = 500; // 500ms between requests
+// Rate limiting: configurable delay between requests to avoid secondary rate limits
+const MIN_REQUEST_INTERVAL_MS = rateLimitConfig.baseRequestDelay;
+
+// Centralized request queue - ensures only ONE GitHub API request at a time across all repos
+const requestQueue = [];
+let isProcessing = false;
 let lastRequestTime = 0;
 
 /**
  * Sleep for specified milliseconds
  */
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Rate-limited API call wrapper
- * Ensures minimum time between requests to avoid secondary rate limits
- * If rate limit is hit, job will fail and resume on next fetch
+ * Enqueue a GitHub API request for serial execution
+ * All requests go through this queue to prevent parallel execution across repos
+ * @param {Function} fn - The async function to execute
+ * @param {string} context - Context for logging
+ * @returns {Promise<any>} Result of the function
  */
-async function rateLimitedCall(fn) {
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
+async function enqueueRequest(fn, context = 'API call') {
+  return new Promise((resolve, reject) => {
+    requestQueue.push({ fn, context, resolve, reject, enqueuedAt: Date.now() });
+    processNextRequest();
+  });
+}
 
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL_MS) {
-    const delay = MIN_REQUEST_INTERVAL_MS - timeSinceLastRequest;
-    await sleep(delay);
+/**
+ * Process the next request in the queue
+ * Ensures only ONE request executes at a time with proper rate limiting
+ */
+async function processNextRequest() {
+  if (isProcessing || requestQueue.length === 0) return;
+
+  isProcessing = true;
+  const { fn, context, resolve, reject, enqueuedAt } = requestQueue.shift();
+  const queueWaitTime = Date.now() - enqueuedAt;
+
+  // Log if request waited more than 1 second in queue
+  if (queueWaitTime > 1000) {
+    console.log(
+      `[RequestQueue] ${context} waited ${queueWaitTime}ms in queue (${requestQueue.length} remaining)`
+    );
   }
 
-  lastRequestTime = Date.now();
-  return await fn();
+  try {
+    // Enforce minimum delay since last request
+    const now = Date.now();
+    const elapsed = now - lastRequestTime;
+    if (elapsed < MIN_REQUEST_INTERVAL_MS) {
+      await sleep(MIN_REQUEST_INTERVAL_MS - elapsed);
+    }
+
+    // Execute the request
+    lastRequestTime = Date.now();
+    const result = await fn();
+    resolve(result);
+  } catch (error) {
+    reject(error);
+  } finally {
+    isProcessing = false;
+    // Process next request in queue
+    setImmediate(processNextRequest);
+  }
+}
+
+/**
+ * Rate-limited API call wrapper with retry logic and cooldown
+ * Enqueues requests for serial execution and handles rate limit errors
+ * @param {Function} fn - The async function to execute
+ * @param {string} context - Context for logging
+ * @returns {Promise<any>} Result of the function
+ */
+async function rateLimitedCall(fn, context = 'API call') {
+  // Check if we should apply cooldown due to recent rate limits
+  if (shouldApplyCooldown()) {
+    const remaining = getCooldownRemaining();
+    console.warn(
+      `[RateLimit] Cooldown active due to repeated rate limits, ` +
+        `waiting ${Math.round(remaining / 1000)}s before proceeding`
+    );
+    await sleep(remaining);
+  }
+
+  // Enqueue request for serial execution
+  try {
+    return await enqueueRequest(fn, context);
+  } catch (error) {
+    // Detect and record rate limit errors
+    if (isRateLimitError(error)) {
+      const hitCount = recordRateLimitHit();
+      console.warn(
+        `[RateLimit] ${context} - Rate limit detected (consecutive hits: ${hitCount})`
+      );
+    }
+    throw error; // Re-throw for upper layers to handle
+  }
 }
 
 // Create GitHub GraphQL client with user token
@@ -37,9 +117,16 @@ export function createGitHubClient(accessToken) {
     },
   });
 
-  // Wrap client to add rate limiting
+  // Wrap client to add rate limiting with context
   return async (query, variables) => {
-    return rateLimitedCall(() => client(query, variables));
+    // Extract operation name from query for better logging
+    const operationMatch = query.match(/(?:query|mutation)\s+(\w+)/);
+    const operation = operationMatch ? operationMatch[1] : 'GraphQL';
+    const context =
+      operation +
+      (variables?.owner && variables?.repo ? ` (${variables.owner}/${variables.repo})` : '');
+
+    return rateLimitedCall(() => client(query, variables), context);
   };
 }
 
@@ -330,13 +417,17 @@ export async function fetchIssueComments(accessToken, owner, repo, issueNumber) 
     }
   `;
 
-  // Fetch up to 100 comments (paginate if needed)
+  // Fetch up to 100 comments (paginate if needed) with retry logic
   let allComments = [];
   let hasNextPage = true;
   let after = null;
 
   while (hasNextPage && allComments.length < 100) {
-    const result = await client(query, { owner, repo, issueNumber, first: 100, after });
+    // Wrap individual page fetch in retry logic
+    const result = await withRetry(
+      () => client(query, { owner, repo, issueNumber, first: 100, after }),
+      `fetchIssueComments(${owner}/${repo}#${issueNumber}, page=${after || 'first'})`
+    );
     const comments = result.repository.issue.comments;
 
     allComments = allComments.concat(comments.nodes);
@@ -376,16 +467,20 @@ export async function fetchTeamMembers(accessToken, org, teamSlug) {
     }
   `;
 
-  // Fetch all team members with pagination
+  // Fetch all team members with pagination and retry logic
   let allMembers = [];
   let hasNextPage = true;
   let after = null;
 
   while (hasNextPage) {
-    const result = await client(query, { org, teamSlug, first: 100, after });
+    // Wrap individual page fetch in retry logic
+    const result = await withRetry(
+      () => client(query, { org, teamSlug, first: 100, after }),
+      `fetchTeamMembers(${org}/${teamSlug}, page=${after || 'first'})`
+    );
     const members = result.organization.team.members;
 
-    allMembers = allMembers.concat(members.nodes.map(node => node.login));
+    allMembers = allMembers.concat(members.nodes.map((node) => node.login));
     hasNextPage = members.pageInfo.hasNextPage;
     after = members.pageInfo.endCursor;
   }

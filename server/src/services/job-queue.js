@@ -1,5 +1,5 @@
 import { issueQueries, repoQueries, analysisQueries, commentQueries, transaction } from '../db/queries.js';
-import { fetchRepositoryIssues, fetchIssueComments, fetchTeamMembers } from './github.js';
+import { fetchRepositoryIssues, fetchIssueComments, fetchTeamMembers, fetchSingleIssue } from './github.js';
 import {
   analyzeIssueSentiment,
   analyzeCommentsSentiment,
@@ -9,12 +9,25 @@ import {
 import { isBugIssue } from './analyzers/important-bugs.js';
 import { loadRepoSettings } from './settings.js';
 import { toSqliteDateTime, now, parseSqliteDate } from '../utils/dates.js';
+import { isRateLimitError } from '../utils/rate-limit-handler.js';
 
-// In-memory job queue
+// In-memory job queue with retry tracking
 const queue = [];
 const MAX_CONCURRENT_REPOS = 5;
 // Map of repoId -> current job being processed for that repo
 const processingRepos = new Map();
+// Map of jobId -> retry count for tracking job retries
+const jobRetries = new Map();
+const MAX_JOB_RETRIES = 3;
+
+/**
+ * Generate unique job ID for retry tracking
+ * @param {object} job - The job object
+ * @returns {string} Unique job identifier
+ */
+function generateJobId(job) {
+  return `${job.type}-${job.repoId}-${job.issueNumber || 'all'}`;
+}
 
 /**
  * Queue issue fetch for a repository
@@ -24,15 +37,20 @@ export async function queueIssueFetch(jobData) {
   const { repoId, owner, repoName, accessToken } = jobData;
 
   console.log(`[JobQueue] Queuing issue fetch for ${owner}/${repoName}, repoId=${repoId}`);
-  console.log(`[JobQueue] Current queue length: ${queue.length}, processing repos: ${processingRepos.size}`);
+  console.log(
+    `[JobQueue] Current queue length: ${queue.length}, processing repos: ${processingRepos.size}`
+  );
 
-  queue.push({
+  const job = {
     type: 'issue-fetch',
     repoId,
     owner,
     repoName,
-    accessToken
-  });
+    accessToken,
+    id: generateJobId({ type: 'issue-fetch', repoId }),
+  };
+
+  queue.push(job);
 
   console.log(`[JobQueue] Job added to queue. New queue length: ${queue.length}`);
 
@@ -46,7 +64,13 @@ export async function queueIssueFetch(jobData) {
  */
 export async function queueSentimentAnalysis(repoId, accessToken) {
   console.log(`Queuing sentiment analysis for repo ${repoId}`);
-  queue.push({ type: 'sentiment', repoId, accessToken });
+  const job = {
+    type: 'sentiment',
+    repoId,
+    accessToken,
+    id: generateJobId({ type: 'sentiment', repoId }),
+  };
+  queue.push(job);
 
   // Trigger processing (will check capacity internally)
   processQueue();
@@ -60,12 +84,15 @@ export async function queueSingleIssueRefresh(jobData) {
 
   console.log(`[JobQueue] Queuing single issue refresh: repo ${repoId}, issue #${issueNumber}`);
 
-  queue.push({
+  const job = {
     type: 'single-issue-refresh',
     repoId,
     issueNumber,
     accessToken,
-  });
+    id: generateJobId({ type: 'single-issue-refresh', repoId, issueNumber }),
+  };
+
+  queue.push(job);
 
   processQueue();
 }
@@ -117,42 +144,94 @@ async function processQueue() {
 }
 
 /**
- * Process a single job (issue-fetch or sentiment)
+ * Process a single job (issue-fetch, sentiment, or single-issue-refresh)
+ * Includes automatic retry logic for rate limit errors
  */
 async function processJob(job) {
+  const jobId = job.id || generateJobId(job);
+  const retryCount = jobRetries.get(jobId) || 0;
+
   try {
     if (job.type === 'issue-fetch') {
       await processIssueFetchJob(job);
 
+      // Success - clear retry counter
+      jobRetries.delete(jobId);
+
       // After issue fetch completes, automatically queue sentiment analysis (if AI provider is configured)
       if (isSentimentAnalysisAvailable()) {
         const repo = repoQueries.getById.get(job.repoId);
-        console.log(`[${repo.owner}/${repo.name}] Issue fetch complete, queuing sentiment analysis...`);
+        console.log(
+          `[${repo.owner}/${repo.name}] Issue fetch complete, queuing sentiment analysis...`
+        );
         queue.push({
           type: 'sentiment',
           repoId: job.repoId,
-          accessToken: job.accessToken
+          accessToken: job.accessToken,
+          id: generateJobId({ type: 'sentiment', repoId: job.repoId }),
         });
 
         // Trigger processing for the sentiment job
         setImmediate(() => processQueue());
       } else {
         const repo = repoQueries.getById.get(job.repoId);
-        console.log(`[${repo.owner}/${repo.name}] Issue fetch complete. Sentiment analysis skipped (no AI provider configured).`);
+        console.log(
+          `[${repo.owner}/${repo.name}] Issue fetch complete. Sentiment analysis skipped (no AI provider configured).`
+        );
       }
     } else if (job.type === 'sentiment') {
       await processSentimentJob(job);
+      jobRetries.delete(jobId);
     } else if (job.type === 'single-issue-refresh') {
       await processSingleIssueRefreshJob(job);
+      jobRetries.delete(jobId);
     }
 
     console.log(`[JobQueue] ✓ Completed job: ${job.type} for repo ${job.repoId}`);
   } catch (error) {
-    console.error(`[JobQueue] ✗ Job failed: ${job.type} for repo ${job.repoId}`, error);
+    const isRateLimitErr = isRateLimitError(error);
+    const canRetry = isRateLimitErr && retryCount < MAX_JOB_RETRIES;
 
-    // Update repo status on failure
-    if (job.type === 'issue-fetch' || job.type === 'single-issue-refresh') {
-      repoQueries.updateFetchStatus.run('failed', job.repoId);
+    console.error(
+      `[JobQueue] ✗ Job failed: ${job.type} for repo ${job.repoId} ` +
+        `(attempt ${retryCount + 1}/${MAX_JOB_RETRIES + 1})`,
+      error.message || error
+    );
+
+    if (canRetry) {
+      // Increment retry counter
+      jobRetries.set(jobId, retryCount + 1);
+
+      // Calculate backoff delay (exponential: 5s, 10s, 20s)
+      const backoffDelay = Math.min(5000 * Math.pow(2, retryCount), 30000);
+
+      console.log(
+        `[JobQueue] Rate limit error detected, will retry job in ${backoffDelay / 1000}s ` +
+          `(attempt ${retryCount + 2}/${MAX_JOB_RETRIES + 1})`
+      );
+
+      // Re-queue job after delay
+      setTimeout(() => {
+        queue.push(job);
+        processQueue();
+      }, backoffDelay);
+
+      // Don't update repo status yet - we're retrying
+    } else {
+      // Permanent failure or max retries exceeded
+      jobRetries.delete(jobId);
+
+      if (isRateLimitErr) {
+        console.error(
+          `[JobQueue] Rate limit error persisted after ${MAX_JOB_RETRIES} retries, ` +
+            `marking job as failed. Manual retry may be needed.`
+        );
+      }
+
+      // Update repo status on permanent failure
+      if (job.type === 'issue-fetch' || job.type === 'single-issue-refresh') {
+        repoQueries.updateFetchStatus.run('failed', job.repoId);
+      }
     }
   }
 }
@@ -316,11 +395,19 @@ async function processIssueFetchJob(job) {
         commentsFetchedCount++;
         totalCommentsSaved += comments.length;
       } catch (error) {
+        const errorType = isRateLimitError(error) ? '[RateLimit]' : '[Error]';
+
         console.error(
-          `[${owner}/${repoName}] Failed to fetch comments for issue #${issueInfo.number}:`,
+          `[${owner}/${repoName}] ${errorType} Failed to fetch comments for issue #${issueInfo.number}:`,
           error.message
         );
+
         // Don't mark as fetched if it failed - will retry next time
+        // If rate limit error, propagate it to trigger job retry
+        if (isRateLimitError(error)) {
+          throw error; // Propagate rate limit error to trigger job retry
+        }
+        // Other errors: continue with other issues (soft failure)
       }
     }
 
@@ -496,7 +583,6 @@ async function processSingleIssueRefreshJob(job) {
 
   try {
     // 1. Fetch single issue from GitHub
-    const { fetchSingleIssue, fetchIssueComments } = await import('./github.js');
     const issue = await fetchSingleIssue(accessToken, owner, repoName, issueNumber);
 
     // 2. Upsert to database
@@ -562,9 +648,6 @@ async function processSingleIssueRefreshJob(job) {
 
       if (isBug) {
         console.log(`[${owner}/${repoName}] Triggering sentiment analysis for issue #${issueNumber}...`);
-
-        const { analyzeIssueSentiment, analyzeCommentsSentiment, calculateSentimentScore } =
-          await import('./analyzers/sentiment.js');
 
         const issueSentiment = await analyzeIssueSentiment(issue);
         const commentsSentiment = await analyzeCommentsSentiment(dbIssue.id);
