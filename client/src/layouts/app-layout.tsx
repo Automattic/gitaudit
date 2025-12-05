@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import Logo from "./shared/logo";
-import UserMenu from "./shared/user-menu";
+import Logo from "./shared/logo.tsx";
+import UserMenu from "./shared/user-menu.tsx";
 
 interface AppLayoutProps {
   children: ReactNode;
