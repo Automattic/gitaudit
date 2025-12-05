@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Modal, SearchControl, Button, Spinner, Notice, Card, CardBody } from '@wordpress/components';
+import { Modal, SearchControl, Button, Notice, Card, CardBody } from '@wordpress/components';
 import { useDebounce } from '@wordpress/compose';
 import { useQuery } from '@tanstack/react-query';
 import { repoBrowseQueryOptions, repoSearchQueryOptions, useSaveRepoMutation } from '@/data/queries/repos';
 import { GitHubRepo } from '@/data/api/repos/types';
+import Loading from './loading';
 
 interface AddRepositoryModalProps {
   onClose: () => void;
@@ -92,12 +93,7 @@ function AddRepositoryModal({ onClose, onRepoAdded }: AddRepositoryModalProps) {
         )}
 
         {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '3rem' }}>
-            <Spinner />
-            <p style={{ marginTop: '1rem', color: '#666' }}>
-              {searchTerm ? 'Searching GitHub...' : 'Loading repositories...'}
-            </p>
-          </div>
+          <Loading />
         ) : repos.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: '#666' }}>
             <p>{searchTerm ? 'No repositories found matching your search' : 'No repositories found'}</p>
@@ -139,7 +135,7 @@ function RepositorySearchResult({ repo, onAdd, isAdding }: RepositorySearchResul
               margin: 0,
               fontSize: '1rem',
               fontWeight: 600,
-              color: '#0073aa',
+              color: 'var(--wp-admin-theme-color)',
               marginBottom: '0.25rem'
             }}>
               {repo.owner.login}/{repo.name}

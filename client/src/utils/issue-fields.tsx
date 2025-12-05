@@ -1,6 +1,7 @@
 import { Dropdown } from "@wordpress/components";
 import type { Field } from "@wordpress/dataviews";
 import type { Issue } from "@/data/api/issues/types";
+import { Badge } from "./lock-unlock";
 
 // Shared helper: Format dates
 export const formatDate = (dateString: string): string => {
@@ -137,7 +138,7 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps)
                   <span style={{
                     fontSize: "0.85rem",
                     fontWeight: "600",
-                    color: "#2271b1",
+                    color: "var(--wp-admin-theme-color)",
                     marginLeft: "12px",
                     flexShrink: 0
                   }}>
@@ -157,7 +158,7 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps)
             justifyContent: "space-between"
           }}>
             <span>Total Score:</span>
-            <span style={{ color: "#2271b1" }}>{score}</span>
+            <span style={{ color: "var(--wp-admin-theme-color)" }}>{score}</span>
           </div>
         </div>
       );
@@ -416,12 +417,14 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps)
           style={{
             backgroundColor: getScoreColor(score, thresholds),
             color: "white",
-            padding: "4px 12px",
             borderRadius: "4px",
             fontWeight: "bold",
-            textAlign: "center",
-            display: "inline-block",
-            minWidth: "50px",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "30px",
+            height: "30px",
+            lineHeight: 1,
             cursor: "pointer",
             userSelect: "none",
           }}
@@ -502,18 +505,7 @@ export const labelsField: Field<Issue> = {
     return (
       <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
         {item.labels.slice(0, 3).map((label: string, idx: number) => (
-          <span
-            key={idx}
-            style={{
-              fontSize: "0.75rem",
-              padding: "2px 8px",
-              backgroundColor: "#f0f0f0",
-              borderRadius: "12px",
-              color: "#50575e",
-            }}
-          >
-            {label}
-          </span>
+          <Badge key={idx}>{label}</Badge>
         ))}
         {item.labels.length > 3 && (
           <span style={{ fontSize: "0.75rem", color: "#666" }}>

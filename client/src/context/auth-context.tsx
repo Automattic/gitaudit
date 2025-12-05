@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { authVerifyQueryOptions } from '@/data/queries/auth';
 import { User } from '@/data/api/auth/types';
@@ -29,6 +30,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const navigate = useNavigate();
 
   // Use TanStack Query for token verification
   const { data, isLoading, error } = useQuery({
@@ -60,6 +62,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
+    navigate('/login');
   }
 
   return (
@@ -67,9 +70,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       value={{
         user,
         token,
-        // User is authenticated if we have a user, OR if we have data from the query
-        // This prevents the race condition where query completes but useEffect hasn't run yet
-        isAuthenticated: !!user || !!data,
+        // User is authenticated if we have both a token and user
+        isAuthenticated: !!token && !!user,
         loading: isLoading,
         login,
         logout,

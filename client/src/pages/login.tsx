@@ -1,19 +1,30 @@
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Card, CardBody, Notice } from '@wordpress/components';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Button, Notice } from '@wordpress/components';
 import { useAuth } from '../context/auth-context';
+import Loading from '../components/loading';
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const error = searchParams.get('error');
 
+  // Get the location they were trying to access, or default to /repos
+  const from = (location.state as any)?.from?.pathname || '/repos';
+
   useEffect(() => {
+    // Only redirect if authenticated and actually on the login page
     if (isAuthenticated) {
-      navigate('/repos');
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, from]);
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return <Loading fullScreen />;
+  }
 
   const handleLogin = () => {
     // Redirect to GitHub OAuth
@@ -30,32 +41,38 @@ function Login() {
   return (
     <div style={{
       minHeight: '100vh',
+      backgroundColor: 'white',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '2rem',
+      padding: '1.5rem',
     }}>
-      <Card style={{ maxWidth: '400px', width: '100%' }}>
-        <CardBody>
-          <div style={{ textAlign: 'center' }}>
-            <h1 style={{ marginBottom: '1rem' }}>GitAudit</h1>
-            <p style={{ marginBottom: '2rem', color: '#666' }}>
-              Audit GitHub repository issues to identify important bugs,
-              stale issues, duplicates, and triage needs.
-            </p>
+      <div style={{ maxWidth: '400px', width: '100%', textAlign: 'center' }}>
+        <h1 style={{
+          marginBottom: '2rem',
+          fontSize: '2.5rem',
+          fontWeight: 700,
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--wp-admin-theme-color)',
+          letterSpacing: '-0.5px',
+        }}>
+          GitAudit
+        </h1>
+        <p style={{ marginBottom: '2rem', color: '#666' }}>
+          Audit GitHub repository issues to identify important bugs,
+          stale issues, duplicates, and triage needs.
+        </p>
 
-            {error && (
-              <Notice status="error" isDismissible={false}>
-                {errorMessages[error] || 'An error occurred during authentication'}
-              </Notice>
-            )}
+        {error && (
+          <Notice status="error" isDismissible={false}>
+            {errorMessages[error] || 'An error occurred during authentication'}
+          </Notice>
+        )}
 
-            <Button variant="primary" onClick={handleLogin} style={{ width: '100%' }}>
-              Sign in with GitHub
-            </Button>
-          </div>
-        </CardBody>
-      </Card>
+        <Button variant="primary" onClick={handleLogin}>
+          Sign in with GitHub
+        </Button>
+      </div>
     </div>
   );
 }

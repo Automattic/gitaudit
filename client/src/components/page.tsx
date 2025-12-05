@@ -16,18 +16,18 @@ interface PageProps {
 
 function Page({ title, description, actions, children }: PageProps) {
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: '2rem'
+        marginBottom: '1.5rem'
       }}>
         <div style={{ flex: 1 }}>
           <h2 style={{ marginBottom: description ? '0.5rem' : 0 }}>{title}</h2>
           {description && (
-            <p style={{ color: '#666', margin: 0 }}>{description}</p>
+            <p style={{ color: '#666', margin: 0, fontSize: '0.9rem' }}>{description}</p>
           )}
         </div>
         {actions && (

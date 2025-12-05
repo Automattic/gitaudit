@@ -524,9 +524,8 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 {
                   id: 'priority-labels-fields',
                   layout: { type: 'row' as const, alignment: 'start' as const },
-                  children: ['priorityLabels_points'],
+                  children: ['priorityLabels_points', 'priorityLabels_labels'],
                 },
-                'priorityLabels_labels',
               ],
             },
             {
@@ -537,9 +536,8 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
                 {
                   id: 'low-priority-labels-fields',
                   layout: { type: 'row' as const, alignment: 'start' as const },
-                  children: ['lowPriorityLabels_points'],
+                  children: ['lowPriorityLabels_points', 'lowPriorityLabels_labels'],
                 },
-                'lowPriorityLabels_labels',
               ],
             },
             {

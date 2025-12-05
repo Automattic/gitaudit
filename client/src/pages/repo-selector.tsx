@@ -4,20 +4,18 @@ import {
   Card,
   CardBody,
   SearchControl,
-  Spinner,
   Button,
   Notice,
 } from "@wordpress/components";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../context/auth-context";
 import { reposQueryOptions } from "@/data/queries/repos";
 import { Repository } from "@/data/api/repos/types";
 import AddRepositoryModal from "../components/add-repository-modal";
 import Page from "../components/page";
+import Loading from "../components/loading";
 
 function RepoSelector() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
 
   const [filteredRepos, setFilteredRepos] = useState<Repository[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -59,29 +57,7 @@ function RepoSelector() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f0f0f0" }}>
-      {/* Header */}
-      <div
-        style={{
-          backgroundColor: "white",
-          borderBottom: "1px solid #ddd",
-          padding: "1rem 2rem",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: "1.5rem" }}>GitAudit</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ color: "#666" }}>@{user?.username}</span>
-          <Button variant="secondary" onClick={logout}>
-            Logout
-          </Button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <Page
+    <Page
         title="My Repositories"
         description="Choose a repository to audit its issues"
         actions={
@@ -109,12 +85,7 @@ function RepoSelector() {
         )}
 
         {isLoading ? (
-          <div style={{ textAlign: "center", padding: "3rem" }}>
-            <Spinner />
-            <p style={{ marginTop: "1rem", color: "#666" }}>
-              Loading repositories...
-            </p>
-          </div>
+          <Loading />
         ) : repos.length === 0 && !searchTerm ? (
           <Card>
             <CardBody>
@@ -179,7 +150,7 @@ function RepoSelector() {
                           margin: 0,
                           fontSize: "1rem",
                           fontWeight: 600,
-                          color: "#0073aa",
+                          color: "var(--wp-admin-theme-color)",
                         }}
                       >
                         {repo.fullName}
@@ -261,7 +232,6 @@ function RepoSelector() {
           />
         )}
       </Page>
-    </div>
   );
 }
 

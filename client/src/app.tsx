@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './data/queries/query-client';
@@ -12,17 +12,22 @@ import StaleIssues from './pages/stale-issues';
 import CommunityHealth from './pages/community-health';
 import Settings from './pages/settings';
 import RepositoryLayout from './layouts/repository-layout';
+import AppLayout from './layouts/AppLayout';
+import Loading from './components/loading';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, token } = useAuth();
+  const location = useLocation();
 
-  if (loading) {
-    return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
+  // Show loading if we're checking auth or if we have a token but haven't verified it yet
+  if (loading || (token && !isAuthenticated)) {
+    return <Loading fullScreen />;
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    // Save the location they were trying to access
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return children;
@@ -31,8 +36,8 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
@@ -40,7 +45,9 @@ function App() {
               path="/repos"
               element={
                 <ProtectedRoute>
-                  <RepoSelector />
+                  <AppLayout>
+                    <RepoSelector />
+                  </AppLayout>
                 </ProtectedRoute>
               }
             />
@@ -75,8 +82,8 @@ function App() {
             </Route>
             <Route path="/" element={<Navigate to="/repos" replace />} />
           </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+        </AuthProvider>
+      </BrowserRouter>
 
       {/* Dev tools - only in development */}
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}

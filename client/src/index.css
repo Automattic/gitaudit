@@ -2,6 +2,10 @@
 @import '@wordpress/components/build-style/style.css';
 @import '@wordpress/dataviews/build-style/style.css';
 
+:root {
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -9,11 +13,30 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #f0f0f0;
+}
+
+/* Force all buttons, inputs, and WordPress components to use monospace font */
+button,
+input,
+textarea,
+select,
+label,
+.components-button,
+.components-base-control,
+.components-text-control__input,
+.components-textarea-control__input,
+.components-select-control__input,
+.components-tab-panel__tabs,
+.components-panel,
+.components-card,
+[class*="components-"],
+[class*="dataviews-"],
+[class*="dataforms-"] {
+  font-family: var(--font-mono) !important;
 }
 
 #root {
@@ -22,6 +45,27 @@ body {
 
 code {
   font-family: 'Courier New', Courier, monospace;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-mono);
+  letter-spacing: -0.5px;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+}
+
+h4, h5, h6 {
+  font-size: 1rem;
 }
 
 /* Refreshing indicator animation */

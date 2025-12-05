@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
-import { Spinner } from '@wordpress/components';
+import Loading from '../components/loading';
 
 function AuthCallback() {
   const navigate = useNavigate();
@@ -27,19 +27,7 @@ function AuthCallback() {
     }
   }, [searchParams, login, navigate]);
 
-  return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      <div style={{ textAlign: 'center' }}>
-        <Spinner />
-        <p style={{ marginTop: '1rem' }}>Authenticating...</p>
-      </div>
-    </div>
-  );
+  return <Loading fullScreen />;
 }
 
 export default AuthCallback;
