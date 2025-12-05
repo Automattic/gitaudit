@@ -51,4 +51,5 @@ export interface IssuesQueryParams {
   priority?: 'all' | 'critical' | 'high' | 'medium';
   level?: 'all' | 'veryStale' | 'moderatelyStale' | 'slightlyStale';
   search?: string;
+  labels?: string[];
 }

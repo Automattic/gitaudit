@@ -1,17 +1,20 @@
 import { useState, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { DataViews, type Action, type Field, type View } from "@wordpress/dataviews";
 import {
-  Card,
-  CardBody,
-  Button,
-  Notice,
-  Spinner,
-} from "@wordpress/components";
-import { issuesQueryOptions, useStartIssueFetchMutation } from "@/data/queries/issues";
+  DataViews,
+  type Action,
+  type Field,
+  type View,
+} from "@wordpress/dataviews";
+import { Card, CardBody, Notice } from "@wordpress/components";
+import {
+  issuesQueryOptions,
+  useStartIssueFetchMutation,
+} from "@/data/queries/issues";
 import type { Issue } from "@/data/api/issues/types";
 import Page from "../components/page";
+import { NoIssuesPlaceholder } from "../components/no-issues-placeholder";
 import { Tabs } from "../utils/lock-unlock";
 import {
   createScoreField,
@@ -24,6 +27,7 @@ import {
   milestoneField,
 } from "../utils/issue-fields.jsx";
 import { createRefreshIssueAction } from "../utils/issue-actions.jsx";
+import { fetchLabels } from "@/data/api/issues/fetchers";
 
 function ImportantBugs() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
@@ -42,7 +46,17 @@ function ImportantBugs() {
   });
 
   // UI state (tabs)
-  const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'high' | 'medium'>("all");
+  const [activeTab, setActiveTab] = useState<
+    "all" | "critical" | "high" | "medium"
+  >("all");
+
+  // Extract labels filter from view.filters
+  const labelsFilter = useMemo(() => {
+    const labelsFilterObj = view.filters?.find(
+      (f) => f.field === "labels" && f.operator === "isAll"
+    );
+    return labelsFilterObj?.value as string[] | undefined;
+  }, [view.filters]);
 
   // Data fetching with TanStack Query
   const { data, isLoading, error, refetch } = useQuery(
@@ -50,9 +64,10 @@ function ImportantBugs() {
       page: view.page ?? 1,
       per_page: view.perPage ?? 20,
       search: view.search,
-      scoreType: 'importantBugs',
-      issueType: 'bugs',
+      scoreType: "importantBugs",
+      issueType: "bugs",
       priority: activeTab,
+      labels: labelsFilter,
     })
   );
 
@@ -67,7 +82,7 @@ function ImportantBugs() {
 
   // Tab click handler
   const handleTabClick = useCallback((priorityLevel: string) => {
-    setActiveTab(priorityLevel as 'all' | 'critical' | 'high' | 'medium');
+    setActiveTab(priorityLevel as "all" | "critical" | "high" | "medium");
     setView((prev) => ({
       ...prev,
       page: 1, // Reset to first page
@@ -81,16 +96,25 @@ function ImportantBugs() {
     medium: 50,
   };
 
+  // Create cached label fetcher using the new API endpoint
+  const getLabelsElements = useCallback(async () => {
+    const labels = await fetchLabels(owner!, repo!);
+    return labels.map((label) => ({ value: label, label }));
+  }, [owner, repo]);
+
   // Field definitions using shared utilities
   const fields: Field<Issue>[] = useMemo(
     () => [
       createScoreField("Score", "importantBugs", [
         importantBugsThresholds.critical,
         importantBugsThresholds.high,
-        importantBugsThresholds.medium
+        importantBugsThresholds.medium,
       ]),
       titleField,
-      labelsField,
+      {
+        ...labelsField,
+        getElements: getLabelsElements,
+      },
       commentsField,
       updatedAtField,
       // Additional hidden fields (user can show via column selector)
@@ -98,7 +122,7 @@ function ImportantBugs() {
       assigneesField,
       milestoneField,
     ],
-    [importantBugsThresholds]
+    [importantBugsThresholds, getLabelsElements]
   );
 
   // Actions for DataViews
@@ -147,36 +171,17 @@ function ImportantBugs() {
 
           {/* Error notice */}
           {error && (
-            <Notice
-              status="error"
-              isDismissible={false}
-            >
-              {error instanceof Error ? error.message : 'Failed to load issues'}
+            <Notice status="error" isDismissible={false}>
+              {error instanceof Error ? error.message : "Failed to load issues"}
             </Notice>
           )}
 
           {/* Content area - conditional based on fetchStatus */}
-          {fetchStatus === 'not_started' ? (
-            <div style={{ textAlign: "center", padding: "2rem" }}>
-              <h3 style={{ marginBottom: "1rem" }}>No Issues Yet</h3>
-              <p style={{ marginBottom: "2rem", color: "#666" }}>
-                Fetch issues from GitHub to start analyzing bugs.
-                This may take a few minutes depending on the repository size.
-              </p>
-              <Button variant="primary" onClick={() => startFetchMutation.mutate()}>
-                Fetch Issues from GitHub
-              </Button>
-            </div>
-          ) : isLoading ? (
-            <div style={{ textAlign: "center", padding: "1rem" }}>
-              <Spinner />
-            </div>
-          ) : issues.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "2rem" }}>
-              <p style={{ color: "#666", margin: 0 }}>
-                No issues found in this category.
-              </p>
-            </div>
+          {fetchStatus === "not_started" ? (
+            <NoIssuesPlaceholder
+              description="bugs"
+              onFetchClick={() => startFetchMutation.mutate()}
+            />
           ) : (
             <DataViews
               data={issues}
@@ -189,6 +194,8 @@ function ImportantBugs() {
               paginationInfo={paginationInfo}
               defaultLayouts={{ table: {} }}
               getItemId={(item) => String(item.id)}
+              isLoading={isLoading}
+              empty={<div style={{ padding: "2rem 0" }}>No Results</div>}
             />
           )}
         </CardBody>

@@ -32,7 +32,26 @@ export const fetchIssues = async (
     queryParams.set('search', params.search);
   }
 
+  if (params.labels && params.labels.length > 0) {
+    params.labels.forEach(label => {
+      queryParams.append('labels', label);
+    });
+  }
+
   return apiClient.get<IssuesResponse>(
     `/api/repos/${owner}/${repo}/issues?${queryParams}`
   );
+};
+
+/**
+ * Fetch distinct labels for a repository
+ */
+export const fetchLabels = async (
+  owner: string,
+  repo: string
+): Promise<string[]> => {
+  const response = await apiClient.get<{ labels: string[] }>(
+    `/api/repos/${owner}/${repo}/issues/labels`
+  );
+  return response.labels;
 };

@@ -40,6 +40,7 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
     search = "",
     issueType = "all", // 'bugs', 'all' (can be extended for 'feature-requests', etc.)
     maintainerLogins = [], // Array of maintainer usernames for community health
+    labels = [], // Array of label names to filter by (must have ALL labels)
   } = options;
 
   // Filter by issue type if requested
@@ -142,6 +143,14 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
         issue.body?.toLowerCase().includes(searchLower) ||
         issue.number.toString().includes(search)
     );
+  }
+
+  // Apply labels filter (must have ALL specified labels)
+  if (labels && labels.length > 0) {
+    filteredIssues = filteredIssues.filter((issue) => {
+      const issueLabels = JSON.parse(issue.labels || "[]");
+      return labels.every((label) => issueLabels.includes(label));
+    });
   }
 
   // Sort by requested score type

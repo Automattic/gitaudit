@@ -157,6 +157,33 @@ router.get('/sentiment/status', authenticateToken, async (req, res) => {
   }
 });
 
+// Get distinct labels for a repository
+router.get('/labels', authenticateToken, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+
+  try {
+    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    const issues = issueQueries.findOpenByRepo.all(repo.id);
+    const uniqueLabels = new Set();
+
+    issues.forEach(issue => {
+      const labels = JSON.parse(issue.labels || '[]');
+      labels.forEach(label => uniqueLabels.add(label));
+    });
+
+    res.json({
+      labels: Array.from(uniqueLabels).sort()
+    });
+  } catch (error) {
+    console.error('Error fetching labels:', error);
+    res.status(500).json({ error: 'Failed to fetch labels' });
+  }
+});
+
 // Unified endpoint for all issues with scores
 router.get('/', authenticateToken, async (req, res) => {
   const { owner, repo: repoName } = req.params;
@@ -170,6 +197,9 @@ router.get('/', authenticateToken, async (req, res) => {
   const level = req.query.level || 'all';
   const search = req.query.search || '';
   const issueType = req.query.issueType || 'all';
+  const labels = req.query.labels
+    ? (Array.isArray(req.query.labels) ? req.query.labels : [req.query.labels])
+    : [];
 
   try {
     const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
@@ -199,7 +229,7 @@ router.get('/', authenticateToken, async (req, res) => {
     // Analyze with unified analyzer
     const { issues: analyzedIssues, totalItems, totalPages, thresholds } =
       analyzeIssuesWithAllScores(issues, allSettings, {
-        page, perPage, scoreType, sortBy, priority, level, search, issueType, maintainerLogins
+        page, perPage, scoreType, sortBy, priority, level, search, issueType, maintainerLogins, labels
       });
 
     // Format response

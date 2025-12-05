@@ -445,6 +445,7 @@ export const createScoreField = (
   header,
   enableSorting: false,
   enableHiding: false,
+  filterBy: false,
   render: ({ item }: { item: Issue }) => {
     const scoreObj = item.scores?.find((s: { type: string; score: number; metadata: any }) => s.type === scoreType);
     const score = scoreObj?.score || 0;
@@ -466,6 +467,8 @@ export const titleField: Field<Issue> = {
   type: "text",
   header: "Title",
   enableHiding: false,
+  enableSorting: false,
+  filterBy: false,
   enableGlobalSearch: true,
   getValue: ({ item }: { item: Issue }) => `#${item.number} ${item.title}`,
   render: ({ item }: { item: Issue }) => {
@@ -482,13 +485,16 @@ export const titleField: Field<Issue> = {
   },
 };
 
-// Shared field: Labels
+// Shared field: Labels (getElements will be injected by components)
 export const labelsField: Field<Issue> = {
   id: "labels",
-  type: "text",
+  type: "array",
   header: "Labels",
   enableSorting: false,
-  getValue: ({ item }: { item: Issue }) => item.labels.join(", "),
+  filterBy: {
+    operators: ['isAll'],
+  },
+  getValue: ({ item }: { item: Issue }) => item.labels,
   render: ({ item }: { item: Issue }) => {
     if (!item.labels || item.labels.length === 0) {
       return <span style={{ color: "#999" }}>—</span>;
@@ -525,6 +531,7 @@ export const commentsField: Field<Issue> = {
   type: "integer",
   header: "Comments",
   enableSorting: false,
+  filterBy: false,
   render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>💬 {item.commentsCount}</span>
   ),
@@ -536,6 +543,7 @@ export const updatedAtField: Field<Issue> = {
   type: "datetime",
   header: "Updated",
   enableSorting: false,
+  filterBy: false,
   render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>{formatDate(item.updatedAt)}</span>
   ),
@@ -547,6 +555,7 @@ export const createdAtField: Field<Issue> = {
   type: "datetime",
   header: "Created",
   enableSorting: false,
+  filterBy: false,
   render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>{formatDate(item.createdAt)}</span>
   ),
@@ -558,6 +567,7 @@ export const assigneesField: Field<Issue> = {
   type: "text",
   header: "Assignees",
   enableSorting: false,
+  filterBy: false,
   render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>
       {item.assignees && item.assignees.length > 0
@@ -573,6 +583,7 @@ export const milestoneField: Field<Issue> = {
   type: "text",
   header: "Milestone",
   enableSorting: false,
+  filterBy: false,
   render: ({ item }: { item: Issue }) => (
     <span style={{ color: "#666" }}>{item.milestone || "—"}</span>
   ),
