@@ -12,7 +12,7 @@ import StaleIssues from './pages/stale-issues';
 import CommunityHealth from './pages/community-health';
 import Settings from './pages/settings';
 import RepositoryLayout from './layouts/repository-layout';
-import AppLayout from './layouts/AppLayout';
+import AppLayout from './layouts/app-layout';
 import Loading from './components/loading';
 
 // Protected route wrapper

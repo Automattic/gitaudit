@@ -20,11 +20,7 @@ export const repoStatusQueryOptions = (owner: string, repo: string) =>
   queryOptions({
     queryKey: queryKeys.repos.status(owner, repo),
     queryFn: () => fetchRepoStatus(owner, repo),
-    refetchInterval: (query) => {
-      // Poll every 2 seconds if status is 'in_progress', otherwise stop polling
-      const status = query.state.data?.status;
-      return status === 'in_progress' ? 2000 : false;
-    },
+    refetchInterval: 5000, // Poll every 5 seconds
   });
 
 /**

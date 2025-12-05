@@ -1,26 +1,11 @@
 import { useParams, Outlet, NavLink } from "react-router-dom";
-import { Button, __experimentalHStack as HStack } from "@wordpress/components";
-import { update as updateIcon } from "@wordpress/icons";
-import { useQuery } from "@tanstack/react-query";
-import { repoStatusQueryOptions } from "@/data/queries/repos";
-import { useRefreshIssuesMutation } from "@/data/queries/issues";
-import { Badge } from "../utils/lock-unlock";
-import Logo from "./shared/Logo";
-import UserMenu from "./shared/UserMenu";
+import { __experimentalHStack as HStack } from "@wordpress/components";
+import Logo from "./shared/logo";
+import UserMenu from "./shared/user-menu";
+import RefreshButton from "./shared/refresh-button";
 
 function RepositoryLayout() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
-
-  // Use TanStack Query for repo status with automatic polling
-  const { data: statusData } = useQuery(repoStatusQueryOptions(owner!, repo!));
-  const refreshMutation = useRefreshIssuesMutation(owner!, repo!);
-
-  const status = statusData?.status;
-  const currentJob = statusData?.currentJob;
-
-  const handleRefresh = async () => {
-    await refreshMutation.mutateAsync();
-  };
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
@@ -59,35 +44,9 @@ function RepositoryLayout() {
               >
                 {owner}/{repo}
               </div>
-
-              {/* Status badges */}
-              {status === "in_progress" && currentJob === "issue-fetch" && (
-                <Badge>Fetching issues...</Badge>
-              )}
-              {status === "in_progress" && currentJob === "sentiment" && (
-                <Badge>Analyzing sentiment...</Badge>
-              )}
-              {status === "in_progress" && !currentJob && (
-                <Badge>Pending...</Badge>
-              )}
-              {status === "failed" && (
-                <Badge>Failed</Badge>
-              )}
             </div>
 
-            {/* Refresh button */}
-            {(status === "completed" || status === "not_started" || status === "failed" || !status) && (
-              <div style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
-                <Button
-                  icon={updateIcon}
-                  onClick={handleRefresh}
-                  label="Refresh data"
-                  size="small"
-                  variant="secondary"
-                  isBusy={refreshMutation.isPending}
-                />
-              </div>
-            )}
+            <RefreshButton owner={owner!} repo={repo!} />
           </HStack>
         </div>
 
