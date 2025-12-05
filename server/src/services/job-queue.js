@@ -16,9 +16,6 @@ const queue = [];
 const MAX_CONCURRENT_REPOS = 5;
 // Map of repoId -> current job being processed for that repo
 const processingRepos = new Map();
-// Map of jobId -> retry count for tracking job retries
-const jobRetries = new Map();
-const MAX_JOB_RETRIES = 3;
 
 /**
  * Generate unique job ID for retry tracking
@@ -145,18 +142,12 @@ async function processQueue() {
 
 /**
  * Process a single job (issue-fetch, sentiment, or single-issue-refresh)
- * Includes automatic retry logic for rate limit errors
+ * Request-level retries are handled within the API call layer
  */
 async function processJob(job) {
-  const jobId = job.id || generateJobId(job);
-  const retryCount = jobRetries.get(jobId) || 0;
-
   try {
     if (job.type === 'issue-fetch') {
       await processIssueFetchJob(job);
-
-      // Success - clear retry counter
-      jobRetries.delete(jobId);
 
       // After issue fetch completes, automatically queue sentiment analysis (if AI provider is configured)
       if (isSentimentAnalysisAvailable()) {
@@ -181,57 +172,31 @@ async function processJob(job) {
       }
     } else if (job.type === 'sentiment') {
       await processSentimentJob(job);
-      jobRetries.delete(jobId);
     } else if (job.type === 'single-issue-refresh') {
       await processSingleIssueRefreshJob(job);
-      jobRetries.delete(jobId);
     }
 
     console.log(`[JobQueue] ✓ Completed job: ${job.type} for repo ${job.repoId}`);
   } catch (error) {
     const isRateLimitErr = isRateLimitError(error);
-    const canRetry = isRateLimitErr && retryCount < MAX_JOB_RETRIES;
 
     console.error(
-      `[JobQueue] ✗ Job failed: ${job.type} for repo ${job.repoId} ` +
-        `(attempt ${retryCount + 1}/${MAX_JOB_RETRIES + 1})`,
+      `[JobQueue] ✗ Job failed: ${job.type} for repo ${job.repoId}`,
       error.message || error
     );
 
-    if (canRetry) {
-      // Increment retry counter
-      jobRetries.set(jobId, retryCount + 1);
-
-      // Calculate backoff delay (exponential: 5s, 10s, 20s)
-      const backoffDelay = Math.min(5000 * Math.pow(2, retryCount), 30000);
-
-      console.log(
-        `[JobQueue] Rate limit error detected, will retry job in ${backoffDelay / 1000}s ` +
-          `(attempt ${retryCount + 2}/${MAX_JOB_RETRIES + 1})`
+    // For rate limit errors, provide guidance for manual retry
+    if (isRateLimitErr) {
+      console.warn(
+        `[JobQueue] Rate limit error - job marked as failed. ` +
+        `The next fetch will resume from last checkpoint using the 'since' timestamp. ` +
+        `Please wait a few minutes before retrying to allow rate limits to reset.`
       );
+    }
 
-      // Re-queue job after delay
-      setTimeout(() => {
-        queue.push(job);
-        processQueue();
-      }, backoffDelay);
-
-      // Don't update repo status yet - we're retrying
-    } else {
-      // Permanent failure or max retries exceeded
-      jobRetries.delete(jobId);
-
-      if (isRateLimitErr) {
-        console.error(
-          `[JobQueue] Rate limit error persisted after ${MAX_JOB_RETRIES} retries, ` +
-            `marking job as failed. Manual retry may be needed.`
-        );
-      }
-
-      // Update repo status on permanent failure
-      if (job.type === 'issue-fetch' || job.type === 'single-issue-refresh') {
-        repoQueries.updateFetchStatus.run('failed', job.repoId);
-      }
+    // Update repo status on failure (for all error types)
+    if (job.type === 'issue-fetch' || job.type === 'single-issue-refresh') {
+      repoQueries.updateFetchStatus.run('failed', job.repoId);
     }
   }
 }
@@ -403,9 +368,14 @@ async function processIssueFetchJob(job) {
         );
 
         // Don't mark as fetched if it failed - will retry next time
-        // If rate limit error, propagate it to trigger job retry
+        // For rate limit errors: Let them propagate to fail the job
+        // The `since`-based fetch will pick up this issue on next run
         if (isRateLimitError(error)) {
-          throw error; // Propagate rate limit error to trigger job retry
+          console.warn(
+            `[${owner}/${repoName}] Rate limit during comment fetch for #${issueInfo.number}. ` +
+            `Job will be marked as failed. This issue will be retried on next fetch.`
+          );
+          throw error; // Propagate to fail the job gracefully
         }
         // Other errors: continue with other issues (soft failure)
       }

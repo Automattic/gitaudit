@@ -9,8 +9,8 @@
 export const rateLimitConfig = {
   baseRequestDelay: 750,        // 750ms delay between API requests
   maxRetryAttempts: 3,           // Max retry attempts per request
-  retryBaseDelay: 1000,          // Initial backoff delay (1s)
-  retryMaxDelay: 60000,          // Max backoff delay (60s)
+  retryBaseDelay: 5000,          // Initial backoff delay (5s)
+  retryMaxDelay: 30000,          // Max backoff delay (30s)
   rateLimitCooldown: 120000,     // Cooldown after repeated rate limits (2 min)
 };
 
@@ -77,7 +77,7 @@ export function isSecondaryRateLimit(error) {
  * @param {number} baseDelay - Base delay in milliseconds
  * @returns {number} Delay in milliseconds
  */
-export function calculateBackoffDelay(attempt, baseDelay = rateLimitConfig.retryBaseDelay) {
+export function calculateBackoffDelay(attempt, baseDelay = 5000) {
   // Exponential: 2^attempt * baseDelay
   const exponentialDelay = Math.pow(2, attempt) * baseDelay;
 
