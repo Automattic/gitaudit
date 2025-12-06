@@ -115,32 +115,15 @@ export function getDefaultSettings() {
 }
 
 /**
- * Migrates old settings format to new unified format
+ * Ensures settings have all required sections with defaults
  */
 function migrateSettings(settings) {
   const defaults = getDefaultSettings();
 
-  let bugs;
-  let stale;
-  let community;
-
-  // Handle new format (bugs, stale, community)
-  if (settings.bugs || settings.stale || settings.community) {
-    bugs = settings.bugs || defaults.bugs;
-    stale = settings.stale || defaults.stale;
-    community = settings.community || defaults.community;
-  }
-  // Handle old format (importantBugs, staleIssues, communityHealth)
-  else if (settings.importantBugs || settings.staleIssues || settings.communityHealth) {
-    bugs = settings.importantBugs || defaults.bugs;
-    stale = settings.staleIssues || defaults.stale;
-    community = settings.communityHealth || defaults.community;
-  } else {
-    // Very old format: wrap in bugs, add stale and community defaults
-    bugs = settings;
-    stale = defaults.stale;
-    community = defaults.community;
-  }
+  // Settings should already be in new format (bugs, stale, community) after DB migration
+  const bugs = settings.bugs || defaults.bugs;
+  const stale = settings.stale || defaults.stale;
+  const community = settings.community || defaults.community;
 
   // Migrate priorityLabels and lowPriorityLabels to include labels field if missing
   if (bugs.scoringRules) {
@@ -166,13 +149,13 @@ function migrateSettings(settings) {
 }
 
 /**
- * Validates important bugs settings
+ * Validates bugs settings
  */
-function validateImportantBugsSettings(bugSettings) {
+function validateBugsSettings(bugSettings) {
   const errors = [];
 
   if (!bugSettings.scoringRules || !bugSettings.thresholds) {
-    errors.push('importantBugs: Missing required fields: scoringRules or thresholds');
+    errors.push('bugs: Missing required fields: scoringRules or thresholds');
     return { valid: false, errors };
   }
 
@@ -191,30 +174,30 @@ function validateImportantBugsSettings(bugSettings) {
 
   for (const rule of simpleRules) {
     if (!rules[rule]) {
-      errors.push(`importantBugs: Missing rule: ${rule}`);
+      errors.push(`bugs: Missing rule: ${rule}`);
       continue;
     }
 
     const points = rules[rule].points;
     if (typeof points !== 'number' || points < -200 || points > 200) {
-      errors.push(`importantBugs: ${rule}.points must be a number between -200 and 200`);
+      errors.push(`bugs: ${rule}.points must be a number between -200 and 200`);
     }
 
     if (typeof rules[rule].enabled !== 'boolean') {
-      errors.push(`importantBugs: ${rule}.enabled must be a boolean`);
+      errors.push(`bugs: ${rule}.enabled must be a boolean`);
     }
   }
 
   // Validate priorityLabels and lowPriorityLabels have labels field
   if (rules.priorityLabels) {
     if (typeof rules.priorityLabels.labels !== 'string' || rules.priorityLabels.labels.trim() === '') {
-      errors.push('importantBugs: priorityLabels.labels must be a non-empty string');
+      errors.push('bugs: priorityLabels.labels must be a non-empty string');
     }
   }
 
   if (rules.lowPriorityLabels) {
     if (typeof rules.lowPriorityLabels.labels !== 'string' || rules.lowPriorityLabels.labels.trim() === '') {
-      errors.push('importantBugs: lowPriorityLabels.labels must be a non-empty string');
+      errors.push('bugs: lowPriorityLabels.labels must be a non-empty string');
     }
   }
 
@@ -222,7 +205,7 @@ function validateImportantBugsSettings(bugSettings) {
   if (rules.recentActivity) {
     const threshold = rules.recentActivity.daysThreshold;
     if (typeof threshold !== 'number' || threshold < 1 || threshold > 365) {
-      errors.push('importantBugs: recentActivity.daysThreshold must be between 1 and 365');
+      errors.push('bugs: recentActivity.daysThreshold must be between 1 and 365');
     }
   }
 
@@ -230,7 +213,7 @@ function validateImportantBugsSettings(bugSettings) {
   if (rules.highReactions) {
     const threshold = rules.highReactions.reactionThreshold;
     if (typeof threshold !== 'number' || threshold < 1 || threshold > 100) {
-      errors.push('importantBugs: highReactions.reactionThreshold must be between 1 and 100');
+      errors.push('bugs: highReactions.reactionThreshold must be between 1 and 100');
     }
   }
 
@@ -239,11 +222,11 @@ function validateImportantBugsSettings(bugSettings) {
     const ad = rules.activeDiscussion;
 
     if (typeof ad.enabled !== 'boolean') {
-      errors.push('importantBugs: activeDiscussion.enabled must be a boolean');
+      errors.push('bugs: activeDiscussion.enabled must be a boolean');
     }
 
     if (typeof ad.baseThreshold !== 'number' || ad.baseThreshold < 0 || ad.baseThreshold > 100) {
-      errors.push('importantBugs: activeDiscussion.baseThreshold must be between 0 and 100');
+      errors.push('bugs: activeDiscussion.baseThreshold must be between 0 and 100');
     }
 
     if (
@@ -251,14 +234,14 @@ function validateImportantBugsSettings(bugSettings) {
       ad.pointsPer10Comments < 0 ||
       ad.pointsPer10Comments > 50
     ) {
-      errors.push('importantBugs: activeDiscussion.pointsPer10Comments must be between 0 and 50');
+      errors.push('bugs: activeDiscussion.pointsPer10Comments must be between 0 and 50');
     }
 
     if (typeof ad.maxPoints !== 'number' || ad.maxPoints < 0 || ad.maxPoints > 100) {
-      errors.push('importantBugs: activeDiscussion.maxPoints must be between 0 and 100');
+      errors.push('bugs: activeDiscussion.maxPoints must be between 0 and 100');
     }
   } else {
-    errors.push('importantBugs: Missing rule: activeDiscussion');
+    errors.push('bugs: Missing rule: activeDiscussion');
   }
 
   // Validate longstandingButActive thresholds
@@ -266,7 +249,7 @@ function validateImportantBugsSettings(bugSettings) {
     const lba = rules.longstandingButActive;
 
     if (typeof lba.ageThreshold !== 'number' || lba.ageThreshold < 1 || lba.ageThreshold > 365) {
-      errors.push('importantBugs: longstandingButActive.ageThreshold must be between 1 and 365');
+      errors.push('bugs: longstandingButActive.ageThreshold must be between 1 and 365');
     }
 
     if (
@@ -275,7 +258,7 @@ function validateImportantBugsSettings(bugSettings) {
       lba.activityThreshold > 365
     ) {
       errors.push(
-        'importantBugs: longstandingButActive.activityThreshold must be between 1 and 365'
+        'bugs: longstandingButActive.activityThreshold must be between 1 and 365'
       );
     }
   }
@@ -285,46 +268,46 @@ function validateImportantBugsSettings(bugSettings) {
     const sa = rules.sentimentAnalysis;
 
     if (typeof sa.enabled !== 'boolean') {
-      errors.push('importantBugs: sentimentAnalysis.enabled must be a boolean');
+      errors.push('bugs: sentimentAnalysis.enabled must be a boolean');
     }
 
     if (typeof sa.maxPoints !== 'number' || sa.maxPoints < 0 || sa.maxPoints > 50) {
-      errors.push('importantBugs: sentimentAnalysis.maxPoints must be between 0 and 50');
+      errors.push('bugs: sentimentAnalysis.maxPoints must be between 0 and 50');
     }
   } else {
-    errors.push('importantBugs: Missing rule: sentimentAnalysis');
+    errors.push('bugs: Missing rule: sentimentAnalysis');
   }
 
   // Validate thresholds (critical > high > medium >= 0)
   const { critical, high, medium } = bugSettings.thresholds;
 
   if (typeof critical !== 'number' || critical < 0 || critical > 500) {
-    errors.push('importantBugs: thresholds.critical must be a number between 0 and 500');
+    errors.push('bugs: thresholds.critical must be a number between 0 and 500');
   }
 
   if (typeof high !== 'number' || high < 0 || high > 500) {
-    errors.push('importantBugs: thresholds.high must be a number between 0 and 500');
+    errors.push('bugs: thresholds.high must be a number between 0 and 500');
   }
 
   if (typeof medium !== 'number' || medium < 0 || medium > 500) {
-    errors.push('importantBugs: thresholds.medium must be a number between 0 and 500');
+    errors.push('bugs: thresholds.medium must be a number between 0 and 500');
   }
 
   if (typeof critical === 'number' && typeof high === 'number' && critical <= high) {
-    errors.push('importantBugs: thresholds.critical must be greater than thresholds.high');
+    errors.push('bugs: thresholds.critical must be greater than thresholds.high');
   }
 
   if (typeof high === 'number' && typeof medium === 'number' && high <= medium) {
-    errors.push('importantBugs: thresholds.high must be greater than thresholds.medium');
+    errors.push('bugs: thresholds.high must be greater than thresholds.medium');
   }
 
   return { valid: errors.length === 0, errors };
 }
 
 /**
- * Validates stale issues settings
+ * Validates stale settings
  */
-function validateStaleIssuesSettings(staleSettings) {
+function validateStaleSettings(staleSettings) {
   const errors = [];
 
   if (
@@ -332,23 +315,23 @@ function validateStaleIssuesSettings(staleSettings) {
     !staleSettings.bonusRules ||
     !staleSettings.thresholds
   ) {
-    errors.push('staleIssues: Missing required fields: activityTimeRanges, bonusRules, or thresholds');
+    errors.push('stale: Missing required fields: activityTimeRanges, bonusRules, or thresholds');
     return { valid: false, errors };
   }
 
   // Validate activityTimeRanges
   if (!Array.isArray(staleSettings.activityTimeRanges)) {
-    errors.push('staleIssues: activityTimeRanges must be an array');
+    errors.push('stale: activityTimeRanges must be an array');
   } else {
     staleSettings.activityTimeRanges.forEach((range, idx) => {
       if (typeof range.days !== 'number' || range.days < 1 || range.days > 999) {
-        errors.push(`staleIssues: activityTimeRanges[${idx}].days must be between 1 and 999`);
+        errors.push(`stale: activityTimeRanges[${idx}].days must be between 1 and 999`);
       }
       if (typeof range.points !== 'number' || range.points < 0 || range.points > 200) {
-        errors.push(`staleIssues: activityTimeRanges[${idx}].points must be between 0 and 200`);
+        errors.push(`stale: activityTimeRanges[${idx}].points must be between 0 and 200`);
       }
       if (typeof range.name !== 'string' || range.name.trim() === '') {
-        errors.push(`staleIssues: activityTimeRanges[${idx}].name must be a non-empty string`);
+        errors.push(`stale: activityTimeRanges[${idx}].name must be a non-empty string`);
       }
     });
   }
@@ -367,34 +350,34 @@ function validateStaleIssuesSettings(staleSettings) {
   for (const ruleName of expectedRules) {
     const rule = rules[ruleName];
     if (!rule) {
-      errors.push(`staleIssues: Missing bonusRule: ${ruleName}`);
+      errors.push(`stale: Missing bonusRule: ${ruleName}`);
       continue;
     }
 
     if (typeof rule.enabled !== 'boolean') {
-      errors.push(`staleIssues: bonusRules.${ruleName}.enabled must be boolean`);
+      errors.push(`stale: bonusRules.${ruleName}.enabled must be boolean`);
     }
 
     if (typeof rule.points !== 'number' || rule.points < 0 || rule.points > 200) {
-      errors.push(`staleIssues: bonusRules.${ruleName}.points must be between 0 and 200`);
+      errors.push(`stale: bonusRules.${ruleName}.points must be between 0 and 200`);
     }
 
     // Validate rule-specific thresholds
     if (ruleName === 'waitingForResponse' || ruleName === 'markedForClosure') {
       if (!Array.isArray(rule.labels)) {
-        errors.push(`staleIssues: bonusRules.${ruleName}.labels must be an array`);
+        errors.push(`stale: bonusRules.${ruleName}.labels must be an array`);
       }
     }
 
     if (ruleName === 'abandonedByAssignee' || ruleName === 'staleMilestone') {
       if (typeof rule.daysThreshold !== 'number' || rule.daysThreshold < 1 || rule.daysThreshold > 365) {
-        errors.push(`staleIssues: bonusRules.${ruleName}.daysThreshold must be between 1 and 365`);
+        errors.push(`stale: bonusRules.${ruleName}.daysThreshold must be between 1 and 365`);
       }
     }
 
     if (ruleName === 'neverAddressed') {
       if (typeof rule.ageThreshold !== 'number' || rule.ageThreshold < 1 || rule.ageThreshold > 999) {
-        errors.push(`staleIssues: bonusRules.${ruleName}.ageThreshold must be between 1 and 999`);
+        errors.push(`stale: bonusRules.${ruleName}.ageThreshold must be between 1 and 999`);
       }
     }
 
@@ -405,7 +388,7 @@ function validateStaleIssuesSettings(staleSettings) {
         rule.reactionThreshold > 100
       ) {
         errors.push(
-          `staleIssues: bonusRules.${ruleName}.reactionThreshold must be between 0 and 100`
+          `stale: bonusRules.${ruleName}.reactionThreshold must be between 0 and 100`
         );
       }
       if (
@@ -414,7 +397,7 @@ function validateStaleIssuesSettings(staleSettings) {
         rule.commentsThreshold > 100
       ) {
         errors.push(
-          `staleIssues: bonusRules.${ruleName}.commentsThreshold must be between 0 and 100`
+          `stale: bonusRules.${ruleName}.commentsThreshold must be between 0 and 100`
         );
       }
       if (
@@ -422,7 +405,7 @@ function validateStaleIssuesSettings(staleSettings) {
         rule.daysThreshold < 1 ||
         rule.daysThreshold > 365
       ) {
-        errors.push(`staleIssues: bonusRules.${ruleName}.daysThreshold must be between 1 and 365`);
+        errors.push(`stale: bonusRules.${ruleName}.daysThreshold must be between 1 and 365`);
       }
     }
   }
@@ -431,36 +414,36 @@ function validateStaleIssuesSettings(staleSettings) {
   const { critical, high, medium } = staleSettings.thresholds;
 
   if (typeof critical !== 'number' || critical < 0 || critical > 500) {
-    errors.push('staleIssues: thresholds.critical must be a number between 0 and 500');
+    errors.push('stale: thresholds.critical must be a number between 0 and 500');
   }
 
   if (typeof high !== 'number' || high < 0 || high > 500) {
-    errors.push('staleIssues: thresholds.high must be a number between 0 and 500');
+    errors.push('stale: thresholds.high must be a number between 0 and 500');
   }
 
   if (typeof medium !== 'number' || medium < 0 || medium > 500) {
-    errors.push('staleIssues: thresholds.medium must be a number between 0 and 500');
+    errors.push('stale: thresholds.medium must be a number between 0 and 500');
   }
 
   if (typeof critical === 'number' && typeof high === 'number' && critical <= high) {
-    errors.push('staleIssues: thresholds.critical must be greater than thresholds.high');
+    errors.push('stale: thresholds.critical must be greater than thresholds.high');
   }
 
   if (typeof high === 'number' && typeof medium === 'number' && high <= medium) {
-    errors.push('staleIssues: thresholds.high must be greater than thresholds.medium');
+    errors.push('stale: thresholds.high must be greater than thresholds.medium');
   }
 
   return { valid: errors.length === 0, errors };
 }
 
 /**
- * Validates community health settings
+ * Validates community settings
  */
-function validateCommunityHealthSettings(healthSettings) {
+function validateCommunitySettings(healthSettings) {
   const errors = [];
 
   if (!healthSettings.scoringRules || !healthSettings.maintainerTeam || !healthSettings.thresholds) {
-    errors.push('communityHealth: Missing required fields: scoringRules, maintainerTeam, or thresholds');
+    errors.push('community: Missing required fields: scoringRules, maintainerTeam, or thresholds');
     return { valid: false, errors };
   }
 
@@ -468,84 +451,84 @@ function validateCommunityHealthSettings(healthSettings) {
 
   // Validate firstTimeContributor
   if (!rules.firstTimeContributor) {
-    errors.push('communityHealth: Missing rule: firstTimeContributor');
+    errors.push('community: Missing rule: firstTimeContributor');
   } else {
     const ftc = rules.firstTimeContributor;
 
     if (typeof ftc.enabled !== 'boolean') {
-      errors.push('communityHealth: firstTimeContributor.enabled must be boolean');
+      errors.push('community: firstTimeContributor.enabled must be boolean');
     }
 
     if (typeof ftc.points !== 'number' || ftc.points < 0 || ftc.points > 200) {
-      errors.push('communityHealth: firstTimeContributor.points must be between 0 and 200');
+      errors.push('community: firstTimeContributor.points must be between 0 and 200');
     }
   }
 
   // Validate meTooComments
   if (!rules.meTooComments) {
-    errors.push('communityHealth: Missing rule: meTooComments');
+    errors.push('community: Missing rule: meTooComments');
   } else {
     const mtc = rules.meTooComments;
 
     if (typeof mtc.enabled !== 'boolean') {
-      errors.push('communityHealth: meTooComments.enabled must be boolean');
+      errors.push('community: meTooComments.enabled must be boolean');
     }
 
     if (typeof mtc.points !== 'number' || mtc.points < 0 || mtc.points > 200) {
-      errors.push('communityHealth: meTooComments.points must be between 0 and 200');
+      errors.push('community: meTooComments.points must be between 0 and 200');
     }
 
     if (typeof mtc.minimumCount !== 'number' || mtc.minimumCount < 1 || mtc.minimumCount > 100) {
-      errors.push('communityHealth: meTooComments.minimumCount must be between 1 and 100');
+      errors.push('community: meTooComments.minimumCount must be between 1 and 100');
     }
   }
 
   // Validate sentimentAnalysis
   if (!rules.sentimentAnalysis) {
-    errors.push('communityHealth: Missing rule: sentimentAnalysis');
+    errors.push('community: Missing rule: sentimentAnalysis');
   } else {
     const sa = rules.sentimentAnalysis;
 
     if (typeof sa.enabled !== 'boolean') {
-      errors.push('communityHealth: sentimentAnalysis.enabled must be boolean');
+      errors.push('community: sentimentAnalysis.enabled must be boolean');
     }
 
     if (typeof sa.maxPoints !== 'number' || sa.maxPoints < 0 || sa.maxPoints > 50) {
-      errors.push('communityHealth: sentimentAnalysis.maxPoints must be between 0 and 50');
+      errors.push('community: sentimentAnalysis.maxPoints must be between 0 and 50');
     }
   }
 
   // Validate maintainerTeam (org and teamSlug can be empty but must be strings)
   const team = healthSettings.maintainerTeam;
   if (typeof team.org !== 'string') {
-    errors.push('communityHealth: maintainerTeam.org must be a string');
+    errors.push('community: maintainerTeam.org must be a string');
   }
 
   if (typeof team.teamSlug !== 'string') {
-    errors.push('communityHealth: maintainerTeam.teamSlug must be a string');
+    errors.push('community: maintainerTeam.teamSlug must be a string');
   }
 
   // Validate thresholds (critical > high > medium >= 0)
   const { critical, high, medium } = healthSettings.thresholds;
 
   if (typeof critical !== 'number' || critical < 0 || critical > 500) {
-    errors.push('communityHealth: thresholds.critical must be a number between 0 and 500');
+    errors.push('community: thresholds.critical must be a number between 0 and 500');
   }
 
   if (typeof high !== 'number' || high < 0 || high > 500) {
-    errors.push('communityHealth: thresholds.high must be a number between 0 and 500');
+    errors.push('community: thresholds.high must be a number between 0 and 500');
   }
 
   if (typeof medium !== 'number' || medium < 0 || medium > 500) {
-    errors.push('communityHealth: thresholds.medium must be a number between 0 and 500');
+    errors.push('community: thresholds.medium must be a number between 0 and 500');
   }
 
   if (typeof critical === 'number' && typeof high === 'number' && critical <= high) {
-    errors.push('communityHealth: thresholds.critical must be greater than thresholds.high');
+    errors.push('community: thresholds.critical must be greater than thresholds.high');
   }
 
   if (typeof high === 'number' && typeof medium === 'number' && high <= medium) {
-    errors.push('communityHealth: thresholds.high must be greater than thresholds.medium');
+    errors.push('community: thresholds.high must be greater than thresholds.medium');
   }
 
   return { valid: errors.length === 0, errors };
@@ -563,15 +546,15 @@ export function validateSettings(settings) {
   }
 
   // Validate bugs
-  const bugValidation = validateImportantBugsSettings(settings.bugs);
+  const bugValidation = validateBugsSettings(settings.bugs);
   errors.push(...bugValidation.errors);
 
-  // Validate stale issues
-  const staleValidation = validateStaleIssuesSettings(settings.stale);
+  // Validate stale
+  const staleValidation = validateStaleSettings(settings.stale);
   errors.push(...staleValidation.errors);
 
-  // Validate community health
-  const healthValidation = validateCommunityHealthSettings(settings.community);
+  // Validate community
+  const healthValidation = validateCommunitySettings(settings.community);
   errors.push(...healthValidation.errors);
 
   return { valid: errors.length === 0, errors };

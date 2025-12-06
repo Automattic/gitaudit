@@ -4,7 +4,10 @@
 
 import { commentQueries, analysisQueries } from '../../db/queries.js';
 import { getDefaultSettings } from '../settings.js';
-import { parseSqliteDate } from '../../utils/dates.js';
+import { parseSqliteDate, MS_PER_DAY } from '../../utils/dates.js';
+import { filterIssuesBySearch, filterIssuesByLevel } from '../../utils/issue-filters.js';
+import { calculateStats, paginateResults } from '../../utils/issue-stats.js';
+import { scaleSentimentScore } from '../../utils/sentiment-utils.js';
 
 /**
  * Check if a user is a maintainer
@@ -86,11 +89,11 @@ export function scoreCommunityHealth(issue, settings, maintainerLogins) {
 
   // Calculate days since last activity
   const updatedAt = parseSqliteDate(issue.updated_at);
-  const daysSinceUpdate = (Date.now() - updatedAt) / (1000 * 60 * 60 * 24);
+  const daysSinceUpdate = (Date.now() - updatedAt) / MS_PER_DAY;
 
   // Calculate days since creation
   const createdAt = parseSqliteDate(issue.created_at);
-  const daysSinceCreation = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
+  const daysSinceCreation = (Date.now() - createdAt) / MS_PER_DAY;
 
   // Rule 1: First-time contributor without maintainer response
   if (rules.firstTimeContributor.enabled) {
@@ -118,9 +121,7 @@ export function scoreCommunityHealth(issue, settings, maintainerLogins) {
   if (rules.sentimentAnalysis.enabled) {
     const sentimentAnalysis = analysisQueries.findByIssueAndType.get(issue.id, 'sentiment');
     if (sentimentAnalysis && sentimentAnalysis.score) {
-      // Scale score proportionally: (actual score / max possible score) * desired max points
-      // Sentiment score ranges from 0-30
-      const scaledScore = Math.round(sentimentAnalysis.score * (rules.sentimentAnalysis.maxPoints / 30));
+      const scaledScore = scaleSentimentScore(sentimentAnalysis.score, rules.sentimentAnalysis.maxPoints);
       score += scaledScore;
       metadata.sentimentScore = scaledScore;
       metadata.sentimentMetadata = JSON.parse(sentimentAnalysis.metadata);
@@ -144,10 +145,9 @@ export function scoreCommunityHealth(issue, settings, maintainerLogins) {
  * Analyze community health for a set of issues
  * @param {Array} issues - Issues to analyze
  * @param {Object} settings - Community health settings
- * @param {Array<string>} maintainerLogins - Array of maintainer usernames
- * @param {Object} options - Pagination and filtering options
+ * @param {Object} options - Pagination and filtering options (includes maintainerLogins array)
  */
-export function analyzeCommunityHealth(issues, settings, maintainerLogins, options = {}) {
+export function analyzeCommunityHealth(issues, settings = null, options = {}) {
   if (!settings) {
     settings = getDefaultSettings().community;
   }
@@ -156,7 +156,8 @@ export function analyzeCommunityHealth(issues, settings, maintainerLogins, optio
     page = 1,
     perPage = 20,
     priorityLevel = 'all', // 'all', 'critical', 'high', 'medium'
-    search = ''
+    search = '',
+    maintainerLogins = []
   } = options;
 
   const thresholds = settings.thresholds;
@@ -175,74 +176,22 @@ export function analyzeCommunityHealth(issues, settings, maintainerLogins, optio
   scoredIssues.sort((a, b) => b.score - a.score);
 
   // Filter by priority level
-  let filteredIssues = scoredIssues;
-  if (priorityLevel !== 'all') {
-    if (priorityLevel === 'critical') {
-      filteredIssues = scoredIssues.filter(i => i.score >= thresholds.critical);
-    } else if (priorityLevel === 'high') {
-      filteredIssues = scoredIssues.filter(
-        i => i.score >= thresholds.high && i.score < thresholds.critical
-      );
-    } else if (priorityLevel === 'medium') {
-      filteredIssues = scoredIssues.filter(
-        i => i.score >= thresholds.medium && i.score < thresholds.high
-      );
-    }
-  }
+  let filteredIssues = filterIssuesByLevel(scoredIssues, priorityLevel, thresholds);
 
-  // Apply search filter if present
-  if (search) {
-    const searchLower = search.toLowerCase();
-    filteredIssues = filteredIssues.filter(issue => {
-      // Search in title
-      if (issue.title.toLowerCase().includes(searchLower)) {
-        return true;
-      }
+  // Apply search filter
+  filteredIssues = filterIssuesBySearch(filteredIssues, search);
 
-      // Search in issue number (e.g., "#123")
-      if (searchLower.startsWith('#')) {
-        const numberSearch = searchLower.substring(1);
-        if (issue.number.toString().includes(numberSearch)) {
-          return true;
-        }
-      } else if (issue.number.toString().includes(searchLower)) {
-        return true;
-      }
-
-      // Search in labels
-      const labels = JSON.parse(issue.labels || '[]');
-      if (labels.some(label => label.toLowerCase().includes(searchLower))) {
-        return true;
-      }
-
-      return false;
-    });
-  }
-
-  // Calculate total before pagination
-  const totalItems = filteredIssues.length;
-  const totalPages = Math.ceil(totalItems / perPage);
+  // Calculate stats for ALL issues (not just current page)
+  const stats = calculateStats(scoredIssues, thresholds);
 
   // Apply pagination
-  const startIndex = (page - 1) * perPage;
-  const paginatedIssues = filteredIssues.slice(startIndex, startIndex + perPage);
-
-  // Calculate stats for ALL scored issues (not just current page)
-  const stats = {
-    all: scoredIssues.length,
-    critical: scoredIssues.filter(i => i.score >= thresholds.critical).length,
-    high: scoredIssues.filter(
-      i => i.score >= thresholds.high && i.score < thresholds.critical
-    ).length,
-    medium: scoredIssues.filter(
-      i => i.score >= thresholds.medium && i.score < thresholds.high
-    ).length,
-  };
+  const { paginatedItems, totalItems, totalPages } = paginateResults(filteredIssues, page, perPage);
 
   return {
-    issues: paginatedIssues,
+    issues: paginatedItems,
     totalItems,
     totalPages,
     stats,
+    thresholds,
   };
 }

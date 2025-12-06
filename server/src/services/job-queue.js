@@ -6,7 +6,7 @@ import {
   calculateSentimentScore,
   isSentimentAnalysisAvailable,
 } from './analyzers/sentiment.js';
-import { isBugIssue } from './analyzers/important-bugs.js';
+import { isBugIssue } from './analyzers/bugs.js';
 import { loadRepoSettings } from './settings.js';
 import { toSqliteDateTime, now, parseSqliteDate } from '../utils/dates.js';
 import { isRateLimitError } from '../utils/rate-limit-handler.js';

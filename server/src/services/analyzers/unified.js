@@ -1,9 +1,9 @@
 import {
   scoreIssue as scoreImportantBug,
   isBugIssue,
-} from "./important-bugs.js";
-import { scoreStaleIssue } from "./stale-issues.js";
-import { scoreCommunityHealth } from "./community-health.js";
+} from "./bugs.js";
+import { scoreStaleIssue } from "./stale.js";
+import { scoreCommunityHealth } from "./community.js";
 import { getDefaultSettings } from "../settings.js";
 
 /**
@@ -17,7 +17,20 @@ function classifyLevel(score, thresholds) {
 }
 
 /**
- * Analyze issues with all score types
+ * Analyze issues with all score types (bugs, stale, community)
+ * @param {Array} issues - Issues to analyze
+ * @param {Object} settings - Settings object containing bugs, stale, and community settings
+ * @param {Object} options - Analysis options
+ * @param {number} options.page - Page number for pagination (default: 1)
+ * @param {number} options.perPage - Items per page (default: 20)
+ * @param {string} options.scoreType - Score type to filter by: 'bugs', 'stale', 'community', 'all' (default: 'all')
+ * @param {string} options.sortBy - Sort by specific score: 'bugs.score', 'stale.score', 'community.score' (default: null)
+ * @param {string} options.level - Priority level: 'critical', 'high', 'medium', 'low', 'all' (default: 'all')
+ * @param {string} options.search - Search term for filtering (default: '')
+ * @param {string} options.issueType - Issue type filter: 'bugs', 'all' (default: 'all')
+ * @param {Array} options.maintainerLogins - Maintainer usernames for community health scoring (default: [])
+ * @param {Array} options.labels - Label names to filter by (must have ALL labels) (default: [])
+ * @returns {Object} Analyzed issues with scores, stats, and pagination
  */
 export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
   const {

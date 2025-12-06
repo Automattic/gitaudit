@@ -10,6 +10,10 @@
  * - Example: "2025-12-04T10:26:49.123Z"
  */
 
+// Time constants for calculations
+export const MS_PER_DAY = 1000 * 60 * 60 * 24;
+export const MS_PER_MINUTE = 60 * 1000;
+
 /**
  * Convert any timestamp format to SQLite datetime format
  *

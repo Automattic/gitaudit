@@ -1,17 +1,20 @@
-// Stale issues detection algorithm
-// Higher score = more stale/needs attention
+/**
+ * Stale issues detection algorithm
+ * Higher score = more stale/needs attention
+ */
 
 import { getDefaultSettings } from '../settings.js';
-import { parseSqliteDate } from '../../utils/dates.js';
+import { parseSqliteDate, MS_PER_DAY } from '../../utils/dates.js';
+import { filterIssuesBySearch, filterIssuesByLevel } from '../../utils/issue-filters.js';
+import { calculateStats, paginateResults } from '../../utils/issue-stats.js';
 
 // Helper function to calculate days since date
 function daysSince(dateString) {
   const date = parseSqliteDate(dateString);
-  return (Date.now() - date) / (1000 * 60 * 60 * 24);
+  return (Date.now() - date) / MS_PER_DAY;
 }
 
 export function scoreStaleIssue(issue, settings = null) {
-  // Use defaults if no settings provided
   if (!settings) {
     settings = getDefaultSettings().stale;
   }
@@ -117,16 +120,22 @@ export function scoreStaleIssue(issue, settings = null) {
   };
 }
 
+/**
+ * Analyze stale issues from a set of issues
+ * @param {Array} issues - Issues to analyze
+ * @param {Object} settings - Stale scoring settings
+ * @param {Object} options - Pagination and filtering options
+ * @returns {Object} Analyzed issues with scores, stats, and pagination
+ */
 export function analyzeStaleIssues(issues, settings = null, options = {}) {
-  // Use defaults if no settings provided
   if (!settings) {
-    settings = getDefaultSettings().staleIssues;
+    settings = getDefaultSettings().stale;
   }
 
   const {
     page = 1,
     perPage = 20,
-    staleLevel = 'all',  // 'all', 'very-stale', 'moderately-stale', 'slightly-stale'
+    staleLevel = 'all',  // 'all', 'critical', 'high', 'medium'
     search = ''
   } = options;
 
@@ -147,72 +156,19 @@ export function analyzeStaleIssues(issues, settings = null, options = {}) {
   scoredIssues.sort((a, b) => b.score - a.score);
 
   // Filter by stale level
-  let filteredIssues = scoredIssues;
-  if (staleLevel !== 'all') {
-    if (staleLevel === 'very-stale') {
-      filteredIssues = scoredIssues.filter(i => i.score >= thresholds.veryStale);
-    } else if (staleLevel === 'moderately-stale') {
-      filteredIssues = scoredIssues.filter(
-        i => i.score >= thresholds.moderatelyStale && i.score < thresholds.veryStale
-      );
-    } else if (staleLevel === 'slightly-stale') {
-      filteredIssues = scoredIssues.filter(
-        i => i.score >= thresholds.slightlyStale && i.score < thresholds.moderatelyStale
-      );
-    }
-  }
+  let filteredIssues = filterIssuesByLevel(scoredIssues, staleLevel, thresholds);
 
-  // Apply search filter if present
-  if (search) {
-    const searchLower = search.toLowerCase();
-    filteredIssues = filteredIssues.filter(issue => {
-      // Search in title
-      if (issue.title.toLowerCase().includes(searchLower)) {
-        return true;
-      }
-
-      // Search in issue number (e.g., "#123")
-      if (searchLower.startsWith('#')) {
-        const numberSearch = searchLower.substring(1);
-        if (issue.number.toString().includes(numberSearch)) {
-          return true;
-        }
-      } else if (issue.number.toString().includes(searchLower)) {
-        return true;
-      }
-
-      // Search in labels
-      const labels = JSON.parse(issue.labels || '[]');
-      if (labels.some(label => label.toLowerCase().includes(searchLower))) {
-        return true;
-      }
-
-      return false;
-    });
-  }
-
-  // Calculate total before pagination
-  const totalItems = filteredIssues.length;
-  const totalPages = Math.ceil(totalItems / perPage);
-
-  // Apply pagination
-  const startIndex = (page - 1) * perPage;
-  const paginatedIssues = filteredIssues.slice(startIndex, startIndex + perPage);
+  // Apply search filter
+  filteredIssues = filterIssuesBySearch(filteredIssues, search);
 
   // Calculate stats for ALL issues (not just current page)
-  const stats = {
-    all: scoredIssues.length,
-    veryStale: scoredIssues.filter(i => i.score >= thresholds.veryStale).length,
-    moderatelyStale: scoredIssues.filter(
-      i => i.score >= thresholds.moderatelyStale && i.score < thresholds.veryStale
-    ).length,
-    slightlyStale: scoredIssues.filter(
-      i => i.score >= thresholds.slightlyStale && i.score < thresholds.moderatelyStale
-    ).length,
-  };
+  const stats = calculateStats(scoredIssues, thresholds);
+
+  // Apply pagination
+  const { paginatedItems, totalItems, totalPages } = paginateResults(filteredIssues, page, perPage);
 
   return {
-    issues: paginatedIssues,
+    issues: paginatedItems,
     totalItems,
     totalPages,
     stats,

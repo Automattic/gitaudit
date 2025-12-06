@@ -1,9 +1,14 @@
-// Important bugs scoring algorithm
-// Higher score = more important
+/**
+ * Important bugs scoring algorithm
+ * Higher score = more important
+ */
 
 import { analysisQueries } from '../../db/queries.js';
 import { getDefaultSettings } from '../settings.js';
-import { parseSqliteDate } from '../../utils/dates.js';
+import { parseSqliteDate, MS_PER_DAY } from '../../utils/dates.js';
+import { filterIssuesBySearch, filterIssuesByLevel } from '../../utils/issue-filters.js';
+import { calculateStats, paginateResults } from '../../utils/issue-stats.js';
+import { scaleSentimentScore } from '../../utils/sentiment-utils.js';
 
 // Helper function to check if issue is a bug
 export function isBugIssue(issue) {
@@ -22,7 +27,6 @@ export function isBugIssue(issue) {
 }
 
 export function scoreIssue(issue, settings = null) {
-  // Use defaults if no settings provided (backward compatibility)
   if (!settings) {
     settings = getDefaultSettings().bugs;
   }
@@ -71,7 +75,7 @@ export function scoreIssue(issue, settings = null) {
   // 2. Recent activity
   if (rules.recentActivity.enabled) {
     const updatedAt = parseSqliteDate(issue.updated_at);
-    const daysSinceUpdate = (Date.now() - updatedAt) / (1000 * 60 * 60 * 24);
+    const daysSinceUpdate = (Date.now() - updatedAt) / MS_PER_DAY;
     if (daysSinceUpdate <= rules.recentActivity.daysThreshold) {
       score += rules.recentActivity.points;
       metadata.recentActivity = rules.recentActivity.points;
@@ -123,8 +127,8 @@ export function scoreIssue(issue, settings = null) {
   if (rules.longstandingButActive.enabled) {
     const createdAt = parseSqliteDate(issue.created_at);
     const updatedAt = parseSqliteDate(issue.updated_at);
-    const daysSinceCreation = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
-    const daysSinceUpdate = (Date.now() - updatedAt) / (1000 * 60 * 60 * 24);
+    const daysSinceCreation = (Date.now() - createdAt) / MS_PER_DAY;
+    const daysSinceUpdate = (Date.now() - updatedAt) / MS_PER_DAY;
 
     if (daysSinceCreation > rules.longstandingButActive.ageThreshold &&
         daysSinceUpdate <= rules.longstandingButActive.activityThreshold) {
@@ -138,9 +142,7 @@ export function scoreIssue(issue, settings = null) {
   if (rules.sentimentAnalysis.enabled) {
     const sentimentAnalysis = analysisQueries.findByIssueAndType.get(issue.id, 'sentiment');
     if (sentimentAnalysis && sentimentAnalysis.score) {
-      // Scale score proportionally: (actual score / max possible score) * desired max points
-      // Sentiment score ranges from 0-30
-      const scaledScore = Math.round(sentimentAnalysis.score * (rules.sentimentAnalysis.maxPoints / 30));
+      const scaledScore = scaleSentimentScore(sentimentAnalysis.score, rules.sentimentAnalysis.maxPoints);
       score += scaledScore;
       metadata.sentimentScore = scaledScore;
       metadata.sentimentMetadata = JSON.parse(sentimentAnalysis.metadata);
@@ -153,8 +155,14 @@ export function scoreIssue(issue, settings = null) {
   };
 }
 
+/**
+ * Analyze important bugs from a set of issues
+ * @param {Array} issues - Issues to analyze
+ * @param {Object} settings - Bugs scoring settings
+ * @param {Object} options - Pagination and filtering options
+ * @returns {Object} Analyzed issues with scores, stats, and pagination
+ */
 export function analyzeImportantBugs(issues, settings = null, options = {}) {
-  // Use defaults if no settings provided (backward compatibility)
   if (!settings) {
     settings = getDefaultSettings().bugs;
   }
@@ -185,74 +193,22 @@ export function analyzeImportantBugs(issues, settings = null, options = {}) {
   scoredBugs.sort((a, b) => b.score - a.score);
 
   // Filter by priority level
-  let filteredBugs = scoredBugs;
-  if (priorityLevel !== 'all') {
-    if (priorityLevel === 'critical') {
-      filteredBugs = scoredBugs.filter(b => b.score >= thresholds.critical);
-    } else if (priorityLevel === 'high') {
-      filteredBugs = scoredBugs.filter(
-        b => b.score >= thresholds.high && b.score < thresholds.critical
-      );
-    } else if (priorityLevel === 'medium') {
-      filteredBugs = scoredBugs.filter(
-        b => b.score >= thresholds.medium && b.score < thresholds.high
-      );
-    }
-  }
+  let filteredBugs = filterIssuesByLevel(scoredBugs, priorityLevel, thresholds);
 
-  // Apply search filter if present
-  if (search) {
-    const searchLower = search.toLowerCase();
-    filteredBugs = filteredBugs.filter(bug => {
-      // Search in title
-      if (bug.title.toLowerCase().includes(searchLower)) {
-        return true;
-      }
-
-      // Search in issue number (e.g., "#123")
-      if (searchLower.startsWith('#')) {
-        const numberSearch = searchLower.substring(1);
-        if (bug.number.toString().includes(numberSearch)) {
-          return true;
-        }
-      } else if (bug.number.toString().includes(searchLower)) {
-        return true;
-      }
-
-      // Search in labels
-      const labels = JSON.parse(bug.labels || '[]');
-      if (labels.some(label => label.toLowerCase().includes(searchLower))) {
-        return true;
-      }
-
-      return false;
-    });
-  }
-
-  // Calculate total before pagination
-  const totalItems = filteredBugs.length;
-  const totalPages = Math.ceil(totalItems / perPage);
-
-  // Apply pagination
-  const startIndex = (page - 1) * perPage;
-  const paginatedBugs = filteredBugs.slice(startIndex, startIndex + perPage);
+  // Apply search filter
+  filteredBugs = filterIssuesBySearch(filteredBugs, search);
 
   // Calculate stats for ALL bugs (not just current page)
-  const stats = {
-    all: scoredBugs.length,
-    critical: scoredBugs.filter(b => b.score >= thresholds.critical).length,
-    high: scoredBugs.filter(
-      b => b.score >= thresholds.high && b.score < thresholds.critical
-    ).length,
-    medium: scoredBugs.filter(
-      b => b.score >= thresholds.medium && b.score < thresholds.high
-    ).length,
-  };
+  const stats = calculateStats(scoredBugs, thresholds);
+
+  // Apply pagination
+  const { paginatedItems, totalItems, totalPages } = paginateResults(filteredBugs, page, perPage);
 
   return {
-    bugs: paginatedBugs,
+    issues: paginatedItems,
     totalItems,
     totalPages,
     stats,
+    thresholds,
   };
 }
