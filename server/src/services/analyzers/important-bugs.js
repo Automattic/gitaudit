@@ -24,7 +24,7 @@ export function isBugIssue(issue) {
 export function scoreIssue(issue, settings = null) {
   // Use defaults if no settings provided (backward compatibility)
   if (!settings) {
-    settings = getDefaultSettings().importantBugs;
+    settings = getDefaultSettings().bugs;
   }
 
   const rules = settings.scoringRules;
@@ -156,7 +156,7 @@ export function scoreIssue(issue, settings = null) {
 export function analyzeImportantBugs(issues, settings = null, options = {}) {
   // Use defaults if no settings provided (backward compatibility)
   if (!settings) {
-    settings = getDefaultSettings().importantBugs;
+    settings = getDefaultSettings().bugs;
   }
 
   const {

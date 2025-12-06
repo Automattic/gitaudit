@@ -1,8 +1,9 @@
-import { useParams, Outlet, NavLink } from "react-router-dom";
+import { useParams, Outlet } from "react-router-dom";
 import { __experimentalHStack as HStack } from "@wordpress/components";
 import Logo from "./shared/logo";
 import UserMenu from "./shared/user-menu";
 import RefreshButton from "./shared/refresh-button";
+import SidebarNavLink from "./shared/sidebar-nav-link";
 
 function RepositoryLayout() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
@@ -52,74 +53,18 @@ function RepositoryLayout() {
 
         {/* Navigation Menu */}
         <nav style={{ paddingTop: "2rem", flex: 1 }}>
-          <NavLink
-            to={`/repos/${owner}/${repo}/bugs`}
-            style={({ isActive }: { isActive: boolean }) => ({
-              display: "block",
-              padding: "0.5rem 1.5rem",
-              color: isActive ? "var(--wp-admin-theme-color)" : "#50575e",
-              backgroundColor: "transparent",
-              textDecoration: "none",
-              fontSize: "0.875rem",
-              fontWeight: isActive ? 600 : 400,
-              borderLeft: isActive
-                ? "3px solid var(--wp-admin-theme-color)"
-                : "3px solid transparent",
-            })}
-          >
+          <SidebarNavLink to={`/repos/${owner}/${repo}/bugs`}>
             Important Bugs
-          </NavLink>
-          <NavLink
-            to={`/repos/${owner}/${repo}/stale`}
-            style={({ isActive }: { isActive: boolean }) => ({
-              display: "block",
-              padding: "0.5rem 1.5rem",
-              color: isActive ? "var(--wp-admin-theme-color)" : "#50575e",
-              backgroundColor: "transparent",
-              textDecoration: "none",
-              fontSize: "0.875rem",
-              fontWeight: isActive ? 600 : 400,
-              borderLeft: isActive
-                ? "3px solid var(--wp-admin-theme-color)"
-                : "3px solid transparent",
-            })}
-          >
+          </SidebarNavLink>
+          <SidebarNavLink to={`/repos/${owner}/${repo}/stale`}>
             Stale Issues
-          </NavLink>
-          <NavLink
-            to={`/repos/${owner}/${repo}/community`}
-            style={({ isActive }: { isActive: boolean }) => ({
-              display: "block",
-              padding: "0.5rem 1.5rem",
-              color: isActive ? "var(--wp-admin-theme-color)" : "#50575e",
-              backgroundColor: "transparent",
-              textDecoration: "none",
-              fontSize: "0.875rem",
-              fontWeight: isActive ? 600 : 400,
-              borderLeft: isActive
-                ? "3px solid var(--wp-admin-theme-color)"
-                : "3px solid transparent",
-            })}
-          >
+          </SidebarNavLink>
+          <SidebarNavLink to={`/repos/${owner}/${repo}/community`}>
             Community Health
-          </NavLink>
-          <NavLink
-            to={`/repos/${owner}/${repo}/settings`}
-            style={({ isActive }: { isActive: boolean }) => ({
-              display: "block",
-              padding: "0.5rem 1.5rem",
-              color: isActive ? "var(--wp-admin-theme-color)" : "#50575e",
-              backgroundColor: "transparent",
-              textDecoration: "none",
-              fontSize: "0.875rem",
-              fontWeight: isActive ? 600 : 400,
-              borderLeft: isActive
-                ? "3px solid var(--wp-admin-theme-color)"
-                : "3px solid transparent",
-            })}
-          >
+          </SidebarNavLink>
+          <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>
             Settings
-          </NavLink>
+          </SidebarNavLink>
         </nav>
 
         {/* User Menu */}

@@ -1,11 +1,11 @@
 import { settingsQueries } from '../db/queries.js';
 
 /**
- * Returns default settings for both important bugs and stale issues
+ * Returns default settings for bugs, stale, and community
  */
 export function getDefaultSettings() {
   return {
-    importantBugs: {
+    bugs: {
       scoringRules: {
         priorityLabels: {
           enabled: true,
@@ -41,7 +41,7 @@ export function getDefaultSettings() {
         medium: 50,
       },
     },
-    staleIssues: {
+    stale: {
       activityTimeRanges: [
         { days: 365, points: 50, name: 'extremelyStale' },
         { days: 180, points: 40, name: 'veryStale' },
@@ -80,12 +80,12 @@ export function getDefaultSettings() {
         },
       },
       thresholds: {
-        veryStale: 60,
-        moderatelyStale: 40,
-        slightlyStale: 20,
+        critical: 60,
+        high: 40,
+        medium: 20,
       },
     },
-    communityHealth: {
+    community: {
       scoringRules: {
         firstTimeContributor: {
           enabled: true,
@@ -120,42 +120,48 @@ export function getDefaultSettings() {
 function migrateSettings(settings) {
   const defaults = getDefaultSettings();
 
-  let importantBugs;
-  let staleIssues;
-  let communityHealth;
+  let bugs;
+  let stale;
+  let community;
 
-  // If already in new format, ensure all sections exist
-  if (settings.importantBugs || settings.staleIssues || settings.communityHealth) {
-    importantBugs = settings.importantBugs || defaults.importantBugs;
-    staleIssues = settings.staleIssues || defaults.staleIssues;
-    communityHealth = settings.communityHealth || defaults.communityHealth;
+  // Handle new format (bugs, stale, community)
+  if (settings.bugs || settings.stale || settings.community) {
+    bugs = settings.bugs || defaults.bugs;
+    stale = settings.stale || defaults.stale;
+    community = settings.community || defaults.community;
+  }
+  // Handle old format (importantBugs, staleIssues, communityHealth)
+  else if (settings.importantBugs || settings.staleIssues || settings.communityHealth) {
+    bugs = settings.importantBugs || defaults.bugs;
+    stale = settings.staleIssues || defaults.stale;
+    community = settings.communityHealth || defaults.community;
   } else {
-    // Old format: wrap in importantBugs, add staleIssues and communityHealth defaults
-    importantBugs = settings;
-    staleIssues = defaults.staleIssues;
-    communityHealth = defaults.communityHealth;
+    // Very old format: wrap in bugs, add stale and community defaults
+    bugs = settings;
+    stale = defaults.stale;
+    community = defaults.community;
   }
 
   // Migrate priorityLabels and lowPriorityLabels to include labels field if missing
-  if (importantBugs.scoringRules) {
-    if (importantBugs.scoringRules.priorityLabels && !importantBugs.scoringRules.priorityLabels.labels) {
-      importantBugs.scoringRules.priorityLabels.labels = defaults.importantBugs.scoringRules.priorityLabels.labels;
+  if (bugs.scoringRules) {
+    if (bugs.scoringRules.priorityLabels && !bugs.scoringRules.priorityLabels.labels) {
+      bugs.scoringRules.priorityLabels.labels = defaults.bugs.scoringRules.priorityLabels.labels;
     }
 
-    if (importantBugs.scoringRules.lowPriorityLabels && !importantBugs.scoringRules.lowPriorityLabels.labels) {
-      importantBugs.scoringRules.lowPriorityLabels.labels = defaults.importantBugs.scoringRules.lowPriorityLabels.labels;
+    if (bugs.scoringRules.lowPriorityLabels && !bugs.scoringRules.lowPriorityLabels.labels) {
+      bugs.scoringRules.lowPriorityLabels.labels = defaults.bugs.scoringRules.lowPriorityLabels.labels;
     }
 
     // Add lowPriorityLabels rule if it doesn't exist (for very old settings)
-    if (!importantBugs.scoringRules.lowPriorityLabels) {
-      importantBugs.scoringRules.lowPriorityLabels = defaults.importantBugs.scoringRules.lowPriorityLabels;
+    if (!bugs.scoringRules.lowPriorityLabels) {
+      bugs.scoringRules.lowPriorityLabels = defaults.bugs.scoringRules.lowPriorityLabels;
     }
   }
 
   return {
-    importantBugs,
-    staleIssues,
-    communityHealth,
+    bugs,
+    stale,
+    community,
   };
 }
 
@@ -421,29 +427,27 @@ function validateStaleIssuesSettings(staleSettings) {
     }
   }
 
-  // Validate thresholds (veryStale > moderatelyStale > slightlyStale >= 0)
-  const { veryStale, moderatelyStale, slightlyStale } = staleSettings.thresholds;
+  // Validate thresholds (critical > high > medium >= 0)
+  const { critical, high, medium } = staleSettings.thresholds;
 
-  if (typeof veryStale !== 'number' || veryStale < 0 || veryStale > 500) {
-    errors.push('staleIssues: thresholds.veryStale must be a number between 0 and 500');
+  if (typeof critical !== 'number' || critical < 0 || critical > 500) {
+    errors.push('staleIssues: thresholds.critical must be a number between 0 and 500');
   }
 
-  if (typeof moderatelyStale !== 'number' || moderatelyStale < 0 || moderatelyStale > 500) {
-    errors.push('staleIssues: thresholds.moderatelyStale must be a number between 0 and 500');
+  if (typeof high !== 'number' || high < 0 || high > 500) {
+    errors.push('staleIssues: thresholds.high must be a number between 0 and 500');
   }
 
-  if (typeof slightlyStale !== 'number' || slightlyStale < 0 || slightlyStale > 500) {
-    errors.push('staleIssues: thresholds.slightlyStale must be a number between 0 and 500');
+  if (typeof medium !== 'number' || medium < 0 || medium > 500) {
+    errors.push('staleIssues: thresholds.medium must be a number between 0 and 500');
   }
 
-  if (typeof veryStale === 'number' && typeof moderatelyStale === 'number' && veryStale <= moderatelyStale) {
-    errors.push('staleIssues: thresholds.veryStale must be greater than thresholds.moderatelyStale');
+  if (typeof critical === 'number' && typeof high === 'number' && critical <= high) {
+    errors.push('staleIssues: thresholds.critical must be greater than thresholds.high');
   }
 
-  if (typeof moderatelyStale === 'number' && typeof slightlyStale === 'number' && moderatelyStale <= slightlyStale) {
-    errors.push(
-      'staleIssues: thresholds.moderatelyStale must be greater than thresholds.slightlyStale'
-    );
+  if (typeof high === 'number' && typeof medium === 'number' && high <= medium) {
+    errors.push('staleIssues: thresholds.high must be greater than thresholds.medium');
   }
 
   return { valid: errors.length === 0, errors };
@@ -548,26 +552,26 @@ function validateCommunityHealthSettings(healthSettings) {
 }
 
 /**
- * Validates user-submitted settings for important bugs, stale issues, and community health
+ * Validates user-submitted settings for bugs, stale, and community
  * Returns { valid: boolean, errors: string[] }
  */
 export function validateSettings(settings) {
   const errors = [];
 
-  if (!settings.importantBugs || !settings.staleIssues || !settings.communityHealth) {
-    return { valid: false, errors: ['Missing required sections: importantBugs, staleIssues, or communityHealth'] };
+  if (!settings.bugs || !settings.stale || !settings.community) {
+    return { valid: false, errors: ['Missing required sections: bugs, stale, or community'] };
   }
 
-  // Validate important bugs
-  const bugValidation = validateImportantBugsSettings(settings.importantBugs);
+  // Validate bugs
+  const bugValidation = validateImportantBugsSettings(settings.bugs);
   errors.push(...bugValidation.errors);
 
   // Validate stale issues
-  const staleValidation = validateStaleIssuesSettings(settings.staleIssues);
+  const staleValidation = validateStaleIssuesSettings(settings.stale);
   errors.push(...staleValidation.errors);
 
   // Validate community health
-  const healthValidation = validateCommunityHealthSettings(settings.communityHealth);
+  const healthValidation = validateCommunityHealthSettings(settings.community);
   errors.push(...healthValidation.errors);
 
   return { valid: errors.length === 0, errors };

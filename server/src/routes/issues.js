@@ -193,7 +193,6 @@ router.get('/', authenticateToken, async (req, res) => {
   const perPage = parseInt(req.query.per_page) || 20;
   const scoreType = req.query.scoreType || 'all';
   const sortBy = req.query.sortBy || null;
-  const priority = req.query.priority || 'all';
   const level = req.query.level || 'all';
   const search = req.query.search || '';
   const issueType = req.query.issueType || 'all';
@@ -208,7 +207,7 @@ router.get('/', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Repository not found' });
     }
 
-    // Load repo's settings (both importantBugs, staleIssues, and communityHealth)
+    // Load repo's settings (bugs, stale, and community)
     const allSettings = loadRepoSettings(repo.id);
 
     // Get all open issues
@@ -216,7 +215,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     // Get maintainer logins from database for community health scoring
     let maintainerLogins = [];
-    if (scoreType === 'all' || scoreType === 'communityHealth') {
+    if (scoreType === 'all' || scoreType === 'community') {
       if (repo.maintainer_logins) {
         try {
           maintainerLogins = JSON.parse(repo.maintainer_logins);
@@ -229,7 +228,7 @@ router.get('/', authenticateToken, async (req, res) => {
     // Analyze with unified analyzer
     const { issues: analyzedIssues, totalItems, totalPages, thresholds } =
       analyzeIssuesWithAllScores(issues, allSettings, {
-        page, perPage, scoreType, sortBy, priority, level, search, issueType, maintainerLogins, labels
+        page, perPage, scoreType, sortBy, level, search, issueType, maintainerLogins, labels
       });
 
     // Format response

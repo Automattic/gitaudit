@@ -7,9 +7,9 @@ import { AuthProvider, useAuth } from './context/auth-context';
 import Login from './pages/login';
 import AuthCallback from './pages/auth-callback';
 import RepoSelector from './pages/repo-selector';
-import ImportantBugs from './pages/important-bugs';
-import StaleIssues from './pages/stale-issues';
-import CommunityHealth from './pages/community-health';
+import Bugs from './pages/bugs';
+import Stale from './pages/stale';
+import Community from './pages/community';
 import Settings from './pages/settings';
 import RepositoryLayout from './layouts/repository-layout';
 import AppLayout from './layouts/app-layout';
@@ -65,15 +65,15 @@ function App() {
               {/* Nested routes with tab parameters */}
               <Route path="bugs">
                 <Route index element={<Navigate to="all" replace />} />
-                <Route path=":priority" element={<ImportantBugs />} />
+                <Route path=":tabId" element={<Bugs />} />
               </Route>
               <Route path="stale">
                 <Route index element={<Navigate to="all" replace />} />
-                <Route path=":level" element={<StaleIssues />} />
+                <Route path=":tabId" element={<Stale />} />
               </Route>
               <Route path="community">
                 <Route index element={<Navigate to="all" replace />} />
-                <Route path=":priority" element={<CommunityHealth />} />
+                <Route path=":tabId" element={<Community />} />
               </Route>
               <Route path="settings">
                 <Route index element={<Navigate to="bugs" replace />} />

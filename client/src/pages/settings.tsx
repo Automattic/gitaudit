@@ -7,6 +7,7 @@ import StaleIssuesForm from './settings/stale-issues-form';
 import CommunityHealthForm from './settings/community-health-form';
 import { repoSettingsQueryOptions, useUpdateSettingsMutation, useResetSettingsMutation } from '@/data/queries/settings';
 import { RepoSettings } from '@/data/api/settings/types';
+import { getErrorMessage } from '@/utils/error-handling';
 import Page from '../components/page';
 import { Tabs } from '../utils/lock-unlock';
 
@@ -53,11 +54,7 @@ function Settings() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to save settings:', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to save settings'
-      );
+      setError(getErrorMessage(err, 'Failed to save settings'));
     }
   }
 
@@ -74,33 +71,29 @@ function Settings() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to reset settings:', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to reset settings'
-      );
+      setError(getErrorMessage(err, 'Failed to reset settings'));
     }
   }
 
   // Callbacks for child components
-  function handleImportantBugsChange(updatedImportantBugs: RepoSettings['importantBugs']) {
+  function handleImportantBugsChange(updatedBugs: RepoSettings['bugs']) {
     setLocalSettingsState((prev) => ({
       ...(prev ?? serverSettings!),
-      importantBugs: updatedImportantBugs,
+      bugs: updatedBugs,
     }));
   }
 
-  function handleStaleIssuesChange(updatedStaleIssues: RepoSettings['staleIssues']) {
+  function handleStaleIssuesChange(updatedStale: RepoSettings['stale']) {
     setLocalSettingsState((prev) => ({
       ...(prev ?? serverSettings!),
-      staleIssues: updatedStaleIssues,
+      stale: updatedStale,
     }));
   }
 
-  function handleCommunityHealthChange(updatedCommunityHealth: RepoSettings['communityHealth']) {
+  function handleCommunityHealthChange(updatedCommunity: RepoSettings['community']) {
     setLocalSettingsState((prev) => ({
       ...(prev ?? serverSettings!),
-      communityHealth: updatedCommunityHealth,
+      community: updatedCommunity,
     }));
   }
 
@@ -170,19 +163,19 @@ function Settings() {
       <div style={{ marginTop: '1.5rem' }}>
         {activeSection === "bugs" && (
           <ImportantBugsForm
-            settings={localSettings.importantBugs}
+            settings={localSettings.bugs}
             onChange={handleImportantBugsChange}
           />
         )}
         {activeSection === "stale" && (
           <StaleIssuesForm
-            settings={localSettings.staleIssues}
+            settings={localSettings.stale}
             onChange={handleStaleIssuesChange}
           />
         )}
         {activeSection === "community" && (
           <CommunityHealthForm
-            settings={localSettings.communityHealth}
+            settings={localSettings.community}
             onChange={handleCommunityHealthChange}
           />
         )}

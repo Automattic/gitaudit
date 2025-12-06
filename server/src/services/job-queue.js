@@ -387,7 +387,7 @@ async function processIssueFetchJob(job) {
   // Fetch and store maintainer logins for Community Health scoring
   try {
     const settings = loadRepoSettings(repoId);
-    const team = settings.communityHealth?.maintainerTeam;
+    const team = settings.community?.maintainerTeam;
 
     if (team && team.org && team.teamSlug) {
       console.log(`[${owner}/${repoName}] Fetching maintainer logins from ${team.org}/${team.teamSlug}...`);

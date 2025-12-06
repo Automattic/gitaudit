@@ -127,6 +127,12 @@ export function initializeDatabase() {
   // Clean up any stuck in_progress statuses from server crashes
   cleanupStuckStatuses();
 
+  // Rename scoreType keys in settings JSON
+  migrateScoreTypeKeys();
+
+  // Rename stale threshold keys to match priority levels
+  migrateStaleThresholdKeys();
+
   console.log('Database initialized successfully');
 }
 
@@ -528,6 +534,195 @@ function migrateToUserRepositoriesTable() {
       migrate();
       console.log(`Migrated ${existingRepos.length} repository relationships to user_repositories table`);
     }
+  }
+}
+
+// Migrate scoreType keys in repo_settings from camelCase to match route segments
+// importantBugs → bugs, staleIssues → stale, communityHealth → community
+function migrateScoreTypeKeys() {
+  try {
+    // Check if this migration has already run
+    const migrationName = 'rename_score_type_keys_2025_12';
+    const alreadyRun = db.prepare(`
+      SELECT COUNT(*) as count FROM migration_log WHERE migration_name = ?
+    `).get(migrationName);
+
+    if (alreadyRun.count > 0) {
+      // Migration already completed
+      return;
+    }
+
+    // Get all repo settings
+    const allSettings = db.prepare(`
+      SELECT id, settings FROM repo_settings
+    `).all();
+
+    if (allSettings.length === 0) {
+      // No settings to migrate, just mark as complete
+      db.prepare(`
+        INSERT INTO migration_log (migration_name) VALUES (?)
+      `).run(migrationName);
+      return;
+    }
+
+    console.log(`\n${'='.repeat(70)}`);
+    console.log('🔄 MIGRATING: Renaming scoreType keys in repo settings');
+    console.log(`   Found ${allSettings.length} repository setting(s) to process`);
+
+    // Prepare update statement
+    const updateStmt = db.prepare(`
+      UPDATE repo_settings SET settings = ? WHERE id = ?
+    `);
+
+    const migrate = db.transaction(() => {
+      let migratedCount = 0;
+
+      for (const row of allSettings) {
+        try {
+          const settings = JSON.parse(row.settings);
+          let modified = false;
+
+          // Rename importantBugs → bugs
+          if (settings.importantBugs) {
+            settings.bugs = settings.importantBugs;
+            delete settings.importantBugs;
+            modified = true;
+          }
+
+          // Rename staleIssues → stale
+          if (settings.staleIssues) {
+            settings.stale = settings.staleIssues;
+            delete settings.staleIssues;
+            modified = true;
+          }
+
+          // Rename communityHealth → community
+          if (settings.communityHealth) {
+            settings.community = settings.communityHealth;
+            delete settings.communityHealth;
+            modified = true;
+          }
+
+          if (modified) {
+            updateStmt.run(JSON.stringify(settings), row.id);
+            migratedCount++;
+          }
+        } catch (error) {
+          console.error(`   ⚠️  Failed to migrate settings for repo_settings id=${row.id}:`, error.message);
+        }
+      }
+
+      console.log(`   ✓ Updated ${migratedCount} repository setting(s)`);
+      console.log(`${'='.repeat(70)}\n`);
+    });
+
+    migrate();
+
+    // Mark this migration as complete
+    db.prepare(`
+      INSERT INTO migration_log (migration_name) VALUES (?)
+    `).run(migrationName);
+
+  } catch (error) {
+    console.error('Failed to migrate scoreType keys:', error);
+    // Don't throw - allow server to start even if migration fails
+  }
+}
+
+// Migrate stale threshold keys to match priority levels (critical, high, medium)
+// veryStale → critical, moderatelyStale → high, slightlyStale → medium
+function migrateStaleThresholdKeys() {
+  try {
+    // Check if this migration has already run
+    const migrationName = 'rename_stale_threshold_keys_2025_12';
+    const alreadyRun = db.prepare(`
+      SELECT COUNT(*) as count FROM migration_log WHERE migration_name = ?
+    `).get(migrationName);
+
+    if (alreadyRun.count > 0) {
+      // Migration already completed
+      return;
+    }
+
+    // Get all repo settings
+    const allSettings = db.prepare(`
+      SELECT id, settings FROM repo_settings
+    `).all();
+
+    if (allSettings.length === 0) {
+      // No settings to migrate, just mark as complete
+      db.prepare(`
+        INSERT INTO migration_log (migration_name) VALUES (?)
+      `).run(migrationName);
+      return;
+    }
+
+    console.log(`\n${'='.repeat(70)}`);
+    console.log('🔄 MIGRATING: Renaming stale threshold keys to match priority levels');
+    console.log(`   Found ${allSettings.length} repository setting(s) to process`);
+
+    // Prepare update statement
+    const updateStmt = db.prepare(`
+      UPDATE repo_settings SET settings = ? WHERE id = ?
+    `);
+
+    const migrate = db.transaction(() => {
+      let migratedCount = 0;
+
+      for (const row of allSettings) {
+        try {
+          const settings = JSON.parse(row.settings);
+          let modified = false;
+
+          // Update stale thresholds
+          if (settings.stale && settings.stale.thresholds) {
+            const thresholds = settings.stale.thresholds;
+
+            // Rename veryStale → critical
+            if (thresholds.veryStale !== undefined) {
+              thresholds.critical = thresholds.veryStale;
+              delete thresholds.veryStale;
+              modified = true;
+            }
+
+            // Rename moderatelyStale → high
+            if (thresholds.moderatelyStale !== undefined) {
+              thresholds.high = thresholds.moderatelyStale;
+              delete thresholds.moderatelyStale;
+              modified = true;
+            }
+
+            // Rename slightlyStale → medium
+            if (thresholds.slightlyStale !== undefined) {
+              thresholds.medium = thresholds.slightlyStale;
+              delete thresholds.slightlyStale;
+              modified = true;
+            }
+          }
+
+          if (modified) {
+            updateStmt.run(JSON.stringify(settings), row.id);
+            migratedCount++;
+          }
+        } catch (error) {
+          console.error(`   ⚠️  Failed to migrate settings for repo_settings id=${row.id}:`, error.message);
+        }
+      }
+
+      console.log(`   ✓ Updated ${migratedCount} repository setting(s)`);
+      console.log(`${'='.repeat(70)}\n`);
+    });
+
+    migrate();
+
+    // Mark this migration as complete
+    db.prepare(`
+      INSERT INTO migration_log (migration_name) VALUES (?)
+    `).run(migrationName);
+
+  } catch (error) {
+    console.error('Failed to migrate stale threshold keys:', error);
+    // Don't throw - allow server to start even if migration fails
   }
 }
 

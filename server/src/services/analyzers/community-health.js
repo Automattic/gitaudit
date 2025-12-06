@@ -73,7 +73,7 @@ function isFirstTimeContributor(issue) {
  */
 export function scoreCommunityHealth(issue, settings, maintainerLogins) {
   if (!settings) {
-    settings = getDefaultSettings().communityHealth;
+    settings = getDefaultSettings().community;
   }
 
   const rules = settings.scoringRules;
@@ -149,7 +149,7 @@ export function scoreCommunityHealth(issue, settings, maintainerLogins) {
  */
 export function analyzeCommunityHealth(issues, settings, maintainerLogins, options = {}) {
   if (!settings) {
-    settings = getDefaultSettings().communityHealth;
+    settings = getDefaultSettings().community;
   }
 
   const {

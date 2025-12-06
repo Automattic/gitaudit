@@ -30,7 +30,6 @@ export const queryKeys = {
         per_page: number;
         scoreType: string;
         issueType?: string;
-        priority?: string;
         level?: string;
         search?: string;
       }

@@ -11,7 +11,7 @@ import {
 } from './settings-helpers';
 import type { RepoSettings } from '@/data/api/settings/types';
 
-type CommunityHealthSettings = RepoSettings['communityHealth'];
+type CommunityHealthSettings = RepoSettings['community'];
 type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 interface FieldEditProps {

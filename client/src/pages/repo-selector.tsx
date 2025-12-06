@@ -10,6 +10,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { reposQueryOptions } from "@/data/queries/repos";
 import { Repository } from "@/data/api/repos/types";
+import { getErrorMessage } from "@/utils/error-handling";
 import AddRepositoryModal from "../components/add-repository-modal";
 import Page from "../components/page";
 import Loading from "../components/loading";
@@ -78,9 +79,7 @@ function RepoSelector() {
             status="error"
             isDismissible={false}
           >
-            {error instanceof Error
-              ? error.message
-              : "Failed to load repositories"}
+            {getErrorMessage(error, "Failed to load repositories")}
           </Notice>
         )}
 

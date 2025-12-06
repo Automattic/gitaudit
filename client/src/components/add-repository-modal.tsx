@@ -4,6 +4,7 @@ import { useDebounce } from '@wordpress/compose';
 import { useQuery } from '@tanstack/react-query';
 import { repoBrowseQueryOptions, repoSearchQueryOptions, useSaveRepoMutation } from '@/data/queries/repos';
 import { GitHubRepo } from '@/data/api/repos/types';
+import { getErrorMessage } from '@/utils/error-handling';
 import Loading from './loading';
 
 interface AddRepositoryModalProps {
@@ -77,7 +78,7 @@ function AddRepositoryModal({ onClose, onRepoAdded }: AddRepositoryModalProps) {
         {error && (
           <div style={{ marginBottom: '1rem' }}>
             <Notice status="error" isDismissible={false}>
-              {error instanceof Error ? error.message : 'Failed to fetch repositories'}
+              {getErrorMessage(error, 'Failed to fetch repositories')}
             </Notice>
           </div>
         )}
@@ -85,9 +86,7 @@ function AddRepositoryModal({ onClose, onRepoAdded }: AddRepositoryModalProps) {
         {saveRepoMutation.isError && (
           <div style={{ marginBottom: '1rem' }}>
             <Notice status="error" isDismissible={false}>
-              {saveRepoMutation.error instanceof Error
-                ? saveRepoMutation.error.message
-                : 'Failed to add repository'}
+              {getErrorMessage(saveRepoMutation.error, 'Failed to add repository')}
             </Notice>
           </div>
         )}

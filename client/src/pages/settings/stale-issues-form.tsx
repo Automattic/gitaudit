@@ -10,7 +10,7 @@ import {
 } from './settings-helpers';
 import type { RepoSettings } from '@/data/api/settings/types';
 
-type StaleIssuesSettings = RepoSettings['staleIssues'];
+type StaleIssuesSettings = RepoSettings['stale'];
 type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 interface FieldEditProps {
@@ -447,9 +447,9 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
 
       // Thresholds
       {
-        id: 'thresholds_veryStale',
+        id: 'thresholds_critical',
         type: 'integer' as const,
-        label: 'Very Stale',
+        label: 'Critical',
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
@@ -457,14 +457,14 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={500}
-            help="Minimum score for very stale classification"
+            help="Minimum score for critical classification"
           />
         ),
       },
       {
-        id: 'thresholds_moderatelyStale',
+        id: 'thresholds_high',
         type: 'integer' as const,
-        label: 'Moderately Stale',
+        label: 'High',
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
@@ -472,14 +472,14 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={500}
-            help="Minimum score for moderately stale classification"
+            help="Minimum score for high classification"
           />
         ),
       },
       {
-        id: 'thresholds_slightlyStale',
+        id: 'thresholds_medium',
         type: 'integer' as const,
-        label: 'Slightly Stale',
+        label: 'Medium',
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
@@ -487,7 +487,7 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={500}
-            help="Minimum score for slightly stale classification"
+            help="Minimum score for medium classification"
           />
         ),
       },

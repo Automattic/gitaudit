@@ -7,23 +7,13 @@ import { scoreCommunityHealth } from "./community-health.js";
 import { getDefaultSettings } from "../settings.js";
 
 /**
- * Classify priority level based on score and thresholds
+ * Classify level based on score and thresholds
  */
-function classifyPriority(score, thresholds) {
+function classifyLevel(score, thresholds) {
   if (score >= thresholds.critical) return "critical";
   if (score >= thresholds.high) return "high";
   if (score >= thresholds.medium) return "medium";
   return "low";
-}
-
-/**
- * Classify stale level based on score and thresholds
- */
-function classifyStaleLevel(score, thresholds) {
-  if (score >= thresholds.veryStale) return "veryStale";
-  if (score >= thresholds.moderatelyStale) return "moderatelyStale";
-  if (score >= thresholds.slightlyStale) return "slightlyStale";
-  return "fresh";
 }
 
 /**
@@ -33,10 +23,9 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
   const {
     page = 1,
     perPage = 20,
-    scoreType = "all", // 'importantBugs', 'staleIssues', 'communityHealth', 'all'
-    sortBy = null, // 'importantBugs.score', 'staleIssues.score', 'communityHealth.score'
-    priority = "all", // critical, high, medium, low, all
-    level = "all", // veryStale, moderatelyStale, slightlyStale, all
+    scoreType = "all", // 'bugs', 'stale', 'community', 'all'
+    sortBy = null, // 'bugs.score', 'stale.score', 'community.score'
+    level = "all", // critical, high, medium, low, all
     search = "",
     issueType = "all", // 'bugs', 'all' (can be extended for 'feature-requests', etc.)
     maintainerLogins = [], // Array of maintainer usernames for community health
@@ -53,38 +42,38 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
   const scoredIssues = issuesToScore.map((issue) => {
     const scores = [];
 
-    // Run importantBugs analyzer if requested
-    if (scoreType === "all" || scoreType === "importantBugs") {
+    // Run bugs analyzer if requested
+    if (scoreType === "all" || scoreType === "bugs") {
       const { score, metadata } = scoreImportantBug(
         issue,
-        settings.importantBugs
+        settings.bugs
       );
       scores.push({
-        type: "importantBugs",
+        type: "bugs",
         score,
         metadata,
       });
     }
 
-    // Run staleIssues analyzer if requested
-    if (scoreType === "all" || scoreType === "staleIssues") {
-      const { score, metadata } = scoreStaleIssue(issue, settings.staleIssues);
+    // Run stale analyzer if requested
+    if (scoreType === "all" || scoreType === "stale") {
+      const { score, metadata } = scoreStaleIssue(issue, settings.stale);
       scores.push({
-        type: "staleIssues",
+        type: "stale",
         score,
         metadata,
       });
     }
 
-    // Run communityHealth analyzer if requested
-    if (scoreType === "all" || scoreType === "communityHealth") {
+    // Run community analyzer if requested
+    if (scoreType === "all" || scoreType === "community") {
       const { score, metadata } = scoreCommunityHealth(
         issue,
-        settings.communityHealth,
+        settings.community,
         maintainerLogins
       );
       scores.push({
-        type: "communityHealth",
+        type: "community",
         score,
         metadata,
       });
@@ -93,43 +82,38 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
     return { ...issue, scores };
   });
 
-  // Apply filters based on scoreType
+  // Apply filters based on level
   let filteredIssues = scoredIssues;
 
-  // Filter by priority level (for importantBugs)
-  if (scoreType === "importantBugs" && priority !== "all") {
+  // Filter by level (for bugs)
+  if (scoreType === "bugs" && level !== "all") {
     filteredIssues = filteredIssues.filter((issue) => {
-      const bugScore = issue.scores.find((s) => s.type === "importantBugs");
+      const bugScore = issue.scores.find((s) => s.type === "bugs");
       if (!bugScore) return false;
       return (
-        classifyPriority(bugScore.score, settings.importantBugs.thresholds) ===
-        priority
+        classifyLevel(bugScore.score, settings.bugs.thresholds) === level
       );
     });
   }
 
-  // Filter by stale level (for staleIssues)
-  if (scoreType === "staleIssues" && level !== "all") {
+  // Filter by level (for stale)
+  if (scoreType === "stale" && level !== "all") {
     filteredIssues = filteredIssues.filter((issue) => {
-      const staleScore = issue.scores.find((s) => s.type === "staleIssues");
+      const staleScore = issue.scores.find((s) => s.type === "stale");
       if (!staleScore) return false;
       return (
-        classifyStaleLevel(
-          staleScore.score,
-          settings.staleIssues.thresholds
-        ) === level
+        classifyLevel(staleScore.score, settings.stale.thresholds) === level
       );
     });
   }
 
-  // Filter by priority level (for communityHealth)
-  if (scoreType === "communityHealth" && priority !== "all") {
+  // Filter by level (for community)
+  if (scoreType === "community" && level !== "all") {
     filteredIssues = filteredIssues.filter((issue) => {
-      const healthScore = issue.scores.find((s) => s.type === "communityHealth");
+      const healthScore = issue.scores.find((s) => s.type === "community");
       if (!healthScore) return false;
       return (
-        classifyPriority(healthScore.score, settings.communityHealth.thresholds) ===
-        priority
+        classifyLevel(healthScore.score, settings.community.thresholds) === level
       );
     });
   }
@@ -157,7 +141,7 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
   const sortByScoreType = sortBy
     ? sortBy.split(".")[0]
     : scoreType === "all"
-    ? "importantBugs"
+    ? "bugs"
     : scoreType;
 
   filteredIssues.sort((a, b) => {
@@ -176,9 +160,9 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
     totalItems: filteredIssues.length,
     totalPages: Math.ceil(filteredIssues.length / perPage),
     thresholds: {
-      importantBugs: settings.importantBugs.thresholds,
-      staleIssues: settings.staleIssues.thresholds,
-      communityHealth: settings.communityHealth.thresholds,
+      bugs: settings.bugs.thresholds,
+      stale: settings.stale.thresholds,
+      community: settings.community.thresholds,
     },
   };
 }

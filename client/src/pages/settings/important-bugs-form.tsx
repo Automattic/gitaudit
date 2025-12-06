@@ -11,7 +11,7 @@ import {
 } from './settings-helpers';
 import type { RepoSettings } from '@/data/api/settings/types';
 
-type ImportantBugsSettings = RepoSettings['importantBugs'];
+type ImportantBugsSettings = RepoSettings['bugs'];
 type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 interface FieldEditProps {

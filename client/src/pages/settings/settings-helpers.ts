@@ -1,9 +1,9 @@
 import type { RepoSettings } from '@/data/api/settings/types';
 
 // Type aliases for clarity
-type ImportantBugsSettings = RepoSettings['importantBugs'];
-type StaleIssuesSettings = RepoSettings['staleIssues'];
-type CommunityHealthSettings = RepoSettings['communityHealth'];
+type ImportantBugsSettings = RepoSettings['bugs'];
+type StaleIssuesSettings = RepoSettings['stale'];
+type CommunityHealthSettings = RepoSettings['community'];
 
 // Flattened settings type (for forms)
 type FlattenedSettings = Record<string, string | number | boolean | string[]>;
@@ -131,9 +131,9 @@ export function flattenStaleIssuesSettings(settings: StaleIssuesSettings): Flatt
   });
 
   // Thresholds
-  flat.thresholds_veryStale = settings.thresholds.veryStale;
-  flat.thresholds_moderatelyStale = settings.thresholds.moderatelyStale;
-  flat.thresholds_slightlyStale = settings.thresholds.slightlyStale;
+  flat.thresholds_critical = settings.thresholds.critical;
+  flat.thresholds_high = settings.thresholds.high;
+  flat.thresholds_medium = settings.thresholds.medium;
 
   return flat;
 }

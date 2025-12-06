@@ -64,9 +64,11 @@ function Login() {
         </p>
 
         {error && (
-          <Notice status="error" isDismissible={false}>
-            {errorMessages[error] || 'An error occurred during authentication'}
-          </Notice>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <Notice status="error" isDismissible={false}>
+              {errorMessages[error] || 'An error occurred during authentication'}
+            </Notice>
+          </div>
         )}
 
         <Button variant="primary" onClick={handleLogin}>

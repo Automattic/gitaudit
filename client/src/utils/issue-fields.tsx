@@ -30,13 +30,13 @@ export const getScoreColor = (score: number, thresholds: [number, number, number
 interface ScoreBadgeProps {
   score: number;
   metadata: Record<string, any>;
-  scoreType: 'importantBugs' | 'staleIssues' | 'communityHealth';
+  scoreType: 'bugs' | 'stale' | 'community';
   thresholds: [number, number, number];
 }
 
 const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps) => {
   const renderMetadata = () => {
-    if (scoreType === "importantBugs") {
+    if (scoreType === "bugs") {
       const items = [];
 
       if (metadata.priorityLabels) {
@@ -162,7 +162,7 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps)
           </div>
         </div>
       );
-    } else if (scoreType === "staleIssues") {
+    } else if (scoreType === "stale") {
       const items = [];
 
       // Base time range score - show as the primary staleness indicator
@@ -301,7 +301,7 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps)
           </div>
         </div>
       );
-    } else if (scoreType === "communityHealth") {
+    } else if (scoreType === "community") {
       const items = [];
 
       if (metadata.firstTimeContributor) {
@@ -440,7 +440,7 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps)
 // Shared field: Score badge
 export const createScoreField = (
   header: string,
-  scoreType: 'importantBugs' | 'staleIssues' | 'communityHealth',
+  scoreType: 'bugs' | 'stale' | 'community',
   thresholds: [number, number, number]
 ): Field<Issue> => ({
   id: "score",

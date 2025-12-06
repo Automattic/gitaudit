@@ -8,6 +8,7 @@ import {
   type View,
 } from "@wordpress/dataviews";
 import { Card, CardBody, Notice } from "@wordpress/components";
+import { getErrorMessage } from "@/utils/error-handling";
 import {
   issuesQueryOptions,
   useStartIssueFetchMutation,
@@ -25,15 +26,39 @@ import {
   createdAtField,
   assigneesField,
   milestoneField,
-} from "../utils/issue-fields.jsx";
-import { createRefreshIssueAction } from "../utils/issue-actions.jsx";
+} from "../utils/issue-fields";
+import { createRefreshIssueAction } from "../utils/issue-actions";
 import { fetchLabels } from "@/data/api/issues/fetchers";
 
-function ImportantBugs() {
-  const { owner, repo, priority } = useParams<{
+interface IssuesPageProps {
+  title: string;
+  description: string;
+  type: "bugs" | "stale" | "community";
+  scoreLabel: string;
+  defaultThresholds: { critical: number; high: number; medium: number };
+  extraFilters?: Record<string, unknown>;
+}
+
+// All pages use the same tabs
+const TABS = [
+  { id: "all", label: "All" },
+  { id: "critical", label: "Critical" },
+  { id: "high", label: "High" },
+  { id: "medium", label: "Medium" },
+];
+
+function IssuesPage({
+  title,
+  description,
+  type,
+  scoreLabel,
+  defaultThresholds,
+  extraFilters = {},
+}: IssuesPageProps) {
+  const { owner, repo, tabId } = useParams<{
     owner: string;
     repo: string;
-    priority: string;
+    tabId: string;
   }>();
   const navigate = useNavigate();
 
@@ -50,11 +75,9 @@ function ImportantBugs() {
     descriptionField: "labels",
   });
 
-  // Get activeTab from URL parameter with validation
-  const validPriorities = ["all", "critical", "high", "medium"] as const;
-  const activeTab = priority && validPriorities.includes(priority as any)
-    ? (priority as typeof validPriorities[number])
-    : "all";
+  // Get activeTab from URL parameter with validation (first tab is default)
+  const validTabIds = TABS.map((t) => t.id);
+  const activeTab = (tabId && validTabIds.includes(tabId) ? tabId : TABS[0].id) as "all" | "critical" | "high" | "medium";
 
   // Extract labels filter from view.filters
   const labelsFilter = useMemo(() => {
@@ -64,17 +87,22 @@ function ImportantBugs() {
     return labelsFilterObj?.value as string[] | undefined;
   }, [view.filters]);
 
-  // Data fetching with TanStack Query
-  const { data, isLoading, error, refetch } = useQuery(
-    issuesQueryOptions(owner!, repo!, {
+  // Build query params - always use level param
+  const queryParams = useMemo(() => {
+    return {
       page: view.page ?? 1,
       per_page: view.perPage ?? 20,
       search: view.search,
-      scoreType: "importantBugs",
-      issueType: "bugs",
-      priority: activeTab,
+      scoreType: type,
+      level: activeTab,
       labels: labelsFilter,
-    })
+      ...extraFilters,
+    };
+  }, [view.page, view.perPage, view.search, type, activeTab, labelsFilter, extraFilters]);
+
+  // Data fetching with TanStack Query
+  const { data, isLoading, error, refetch } = useQuery(
+    issuesQueryOptions(owner!, repo!, queryParams)
   );
 
   const startFetchMutation = useStartIssueFetchMutation(owner!, repo!);
@@ -88,22 +116,27 @@ function ImportantBugs() {
 
   // Tab click handler - navigate to new URL
   const handleTabClick = useCallback(
-    (priorityLevel: string) => {
-      navigate(`/repos/${owner}/${repo}/bugs/${priorityLevel}`);
+    (newTabId: string) => {
+      navigate(`/repos/${owner}/${repo}/${type}/${newTabId}`);
       setView((prev) => ({
         ...prev,
         page: 1, // Reset to first page
       }));
     },
-    [navigate, owner, repo]
+    [navigate, owner, repo, type]
   );
 
-  // Get thresholds with defaults
-  const importantBugsThresholds = thresholds?.importantBugs || {
-    critical: 120,
-    high: 80,
-    medium: 50,
-  };
+  // Get thresholds with defaults (all types now use critical/high/medium)
+  const scoreThresholds = thresholds?.[type] || defaultThresholds;
+
+  // Get threshold values as array for createScoreField
+  const thresholdValues = useMemo((): [number, number, number] => {
+    return [
+      scoreThresholds.critical,
+      scoreThresholds.high,
+      scoreThresholds.medium,
+    ];
+  }, [scoreThresholds]);
 
   // Create cached label fetcher using the new API endpoint
   const getLabelsElements = useCallback(async () => {
@@ -114,11 +147,7 @@ function ImportantBugs() {
   // Field definitions using shared utilities
   const fields: Field<Issue>[] = useMemo(
     () => [
-      createScoreField("Score", "importantBugs", [
-        importantBugsThresholds.critical,
-        importantBugsThresholds.high,
-        importantBugsThresholds.medium,
-      ]),
+      createScoreField(scoreLabel, type, thresholdValues),
       titleField,
       {
         ...labelsField,
@@ -131,7 +160,7 @@ function ImportantBugs() {
       assigneesField,
       milestoneField,
     ],
-    [importantBugsThresholds, getLabelsElements]
+    [scoreLabel, type, thresholdValues, getLabelsElements]
   );
 
   // Actions for DataViews
@@ -159,36 +188,34 @@ function ImportantBugs() {
 
   // Main view - always show page structure
   return (
-    <Page
-      title="Important Bugs"
-      description="Bugs scored by activity, labels, and sentiment."
-    >
+    <Page title={title} description={description}>
       <Card size="none">
         <CardBody>
           {/* Tabs - always visible */}
           <Tabs
             selectedTabId={activeTab}
-            onSelect={(tabId: string) => handleTabClick(tabId as string)}
+            onSelect={(tabId: string) => handleTabClick(tabId)}
           >
             <Tabs.TabList>
-              <Tabs.Tab tabId="all">All</Tabs.Tab>
-              <Tabs.Tab tabId="critical">Critical</Tabs.Tab>
-              <Tabs.Tab tabId="high">High</Tabs.Tab>
-              <Tabs.Tab tabId="medium">Medium</Tabs.Tab>
+              {TABS.map((tab) => (
+                <Tabs.Tab key={tab.id} tabId={tab.id}>
+                  {tab.label}
+                </Tabs.Tab>
+              ))}
             </Tabs.TabList>
           </Tabs>
 
           {/* Error notice */}
           {error && (
             <Notice status="error" isDismissible={false}>
-              {error instanceof Error ? error.message : "Failed to load issues"}
+              {getErrorMessage(error, "Failed to load issues")}
             </Notice>
           )}
 
           {/* Content area - conditional based on fetchStatus */}
           {fetchStatus === "not_started" ? (
             <NoIssuesPlaceholder
-              description="bugs"
+              description={description.toLowerCase()}
               onFetchClick={() => startFetchMutation.mutate()}
             />
           ) : (
@@ -213,4 +240,4 @@ function ImportantBugs() {
   );
 }
 
-export default ImportantBugs;
+export default IssuesPage;

@@ -13,7 +13,7 @@ function daysSince(dateString) {
 export function scoreStaleIssue(issue, settings = null) {
   // Use defaults if no settings provided
   if (!settings) {
-    settings = getDefaultSettings().staleIssues;
+    settings = getDefaultSettings().stale;
   }
 
   let score = 0;

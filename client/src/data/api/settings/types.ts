@@ -4,12 +4,6 @@ export interface ThresholdSettings {
   medium: number;
 }
 
-export interface StaleIssuesThresholds {
-  veryStale: number;
-  moderatelyStale: number;
-  slightlyStale: number;
-}
-
 export interface ImportantBugsSettings {
   thresholds: ThresholdSettings;
   scoringRules: {
@@ -18,7 +12,7 @@ export interface ImportantBugsSettings {
 }
 
 export interface StaleIssuesSettings {
-  thresholds: StaleIssuesThresholds;
+  thresholds: ThresholdSettings;
   activityTimeRanges: Array<{ days: number; points: number; name: string }>;
   bonusRules: {
     [key: string]: any;
@@ -37,7 +31,7 @@ export interface CommunityHealthSettings {
 }
 
 export interface RepoSettings {
-  importantBugs: ImportantBugsSettings;
-  staleIssues: StaleIssuesSettings;
-  communityHealth: CommunityHealthSettings;
+  bugs: ImportantBugsSettings;
+  stale: StaleIssuesSettings;
+  community: CommunityHealthSettings;
 }

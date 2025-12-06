@@ -29,8 +29,6 @@ export const createRefreshIssueAction = (owner: string, repo: string, onSuccess?
     try {
       await refreshSingleIssue(owner, repo, issue.number);
 
-      console.log(`Issue #${issue.number} refresh queued`);
-
       // Trigger callback to reload data
       if (onSuccess) {
         onSuccess();

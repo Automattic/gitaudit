@@ -15,11 +15,6 @@ export const fetchIssues = async (
     scoreType: params.scoreType,
   });
 
-  // Use 'priority' for importantBugs, 'level' for staleIssues
-  if (params.priority) {
-    queryParams.set('priority', params.priority);
-  }
-
   if (params.level) {
     queryParams.set('level', params.level);
   }

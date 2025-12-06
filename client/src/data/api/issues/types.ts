@@ -1,5 +1,5 @@
 export interface ScoreObject {
-  type: 'importantBugs' | 'staleIssues' | 'communityHealth';
+  type: 'bugs' | 'stale' | 'community';
   score: number;
   metadata: Record<string, unknown>;
 }
@@ -24,17 +24,17 @@ export interface IssuesResponse {
   totalItems: number;
   totalPages: number;
   thresholds?: {
-    importantBugs?: {
+    bugs?: {
       critical: number;
       high: number;
       medium: number;
     };
-    staleIssues?: {
-      veryStale: number;
-      moderatelyStale: number;
-      slightlyStale: number;
+    stale?: {
+      critical: number;
+      high: number;
+      medium: number;
     };
-    communityHealth?: {
+    community?: {
       critical: number;
       high: number;
       medium: number;
@@ -46,10 +46,9 @@ export interface IssuesResponse {
 export interface IssuesQueryParams {
   page: number;
   per_page: number;
-  scoreType: 'importantBugs' | 'staleIssues' | 'communityHealth';
+  scoreType: 'bugs' | 'stale' | 'community';
   issueType?: 'bugs' | 'stale';
-  priority?: 'all' | 'critical' | 'high' | 'medium';
-  level?: 'all' | 'veryStale' | 'moderatelyStale' | 'slightlyStale';
+  level?: 'all' | 'critical' | 'high' | 'medium';
   search?: string;
   labels?: string[];
 }
