@@ -173,8 +173,8 @@ function Settings() {
           <Tabs.Tab tabId="general">General</Tabs.Tab>
           <Tabs.Tab tabId="bugs">Important Bugs</Tabs.Tab>
           <Tabs.Tab tabId="stale">Stale Issues</Tabs.Tab>
-          <Tabs.Tab tabId="community">Community Health</Tabs.Tab>
           <Tabs.Tab tabId="features">Feature Requests</Tabs.Tab>
+          <Tabs.Tab tabId="community">Community Health</Tabs.Tab>
         </Tabs.TabList>
       </Tabs>
 

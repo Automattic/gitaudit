@@ -52,22 +52,26 @@ function RepositoryLayout() {
         </div>
 
         {/* Navigation Menu */}
-        <nav style={{ paddingTop: "2rem", flex: 1 }}>
-          <SidebarNavLink to={`/repos/${owner}/${repo}/bugs`}>
-            Important Bugs
-          </SidebarNavLink>
-          <SidebarNavLink to={`/repos/${owner}/${repo}/stale`}>
-            Stale Issues
-          </SidebarNavLink>
-          <SidebarNavLink to={`/repos/${owner}/${repo}/community`}>
-            Community Health
-          </SidebarNavLink>
-          <SidebarNavLink to={`/repos/${owner}/${repo}/features`}>
-            Feature Requests
-          </SidebarNavLink>
-          <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>
-            Settings
-          </SidebarNavLink>
+        <nav style={{ paddingTop: "2rem", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div>
+            <SidebarNavLink to={`/repos/${owner}/${repo}/bugs`}>
+              Important Bugs
+            </SidebarNavLink>
+            <SidebarNavLink to={`/repos/${owner}/${repo}/stale`}>
+              Stale Issues
+            </SidebarNavLink>
+            <SidebarNavLink to={`/repos/${owner}/${repo}/features`}>
+              Feature Requests
+            </SidebarNavLink>
+            <SidebarNavLink to={`/repos/${owner}/${repo}/community`}>
+              Community Health
+            </SidebarNavLink>
+          </div>
+          <div>
+            <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>
+              Settings
+            </SidebarNavLink>
+          </div>
         </nav>
 
         {/* User Menu */}
