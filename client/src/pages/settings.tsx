@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import ImportantBugsForm from './settings/important-bugs-form';
 import StaleIssuesForm from './settings/stale-issues-form';
 import CommunityHealthForm from './settings/community-health-form';
+import FeatureRequestForm from './settings/features-form';
 import { repoSettingsQueryOptions, useUpdateSettingsMutation, useResetSettingsMutation } from '@/data/queries/settings';
 import { RepoSettings } from '@/data/api/settings/types';
 import { getErrorMessage } from '@/utils/error-handling';
@@ -20,7 +21,7 @@ function Settings() {
   const navigate = useNavigate();
 
   // Validate section parameter with fallback
-  const validSections = ["bugs", "stale", "community"];
+  const validSections = ["bugs", "stale", "community", "features"];
   const activeSection = section && validSections.includes(section)
     ? section
     : "bugs";
@@ -97,6 +98,13 @@ function Settings() {
     }));
   }
 
+  function handleFeatureRequestChange(updatedFeatures: RepoSettings['features']) {
+    setLocalSettingsState((prev) => ({
+      ...(prev ?? serverSettings!),
+      features: updatedFeatures,
+    }));
+  }
+
   if (isLoading) {
     return (
       <Page title="Scoring Settings">
@@ -157,6 +165,7 @@ function Settings() {
           <Tabs.Tab tabId="bugs">Important Bugs</Tabs.Tab>
           <Tabs.Tab tabId="stale">Stale Issues</Tabs.Tab>
           <Tabs.Tab tabId="community">Community Health</Tabs.Tab>
+          <Tabs.Tab tabId="features">Feature Requests</Tabs.Tab>
         </Tabs.TabList>
       </Tabs>
 
@@ -177,6 +186,12 @@ function Settings() {
           <CommunityHealthForm
             settings={localSettings.community}
             onChange={handleCommunityHealthChange}
+          />
+        )}
+        {activeSection === "features" && (
+          <FeatureRequestForm
+            settings={localSettings.features}
+            onChange={handleFeatureRequestChange}
           />
         )}
       </div>

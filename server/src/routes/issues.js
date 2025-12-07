@@ -207,7 +207,7 @@ router.get('/', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Repository not found' });
     }
 
-    // Load repo's settings (bugs, stale, and community)
+    // Load repo's settings (bugs, stale, community, and features)
     const allSettings = loadRepoSettings(repo.id);
 
     // Get all open issues

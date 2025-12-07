@@ -30,7 +30,7 @@ export const getScoreColor = (score: number, thresholds: [number, number, number
 interface ScoreBadgeProps {
   score: number;
   metadata: Record<string, any>;
-  scoreType: 'bugs' | 'stale' | 'community';
+  scoreType: 'bugs' | 'stale' | 'community' | 'features';
   thresholds: [number, number, number];
 }
 
@@ -401,6 +401,176 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps)
           </div>
         </div>
       );
+    } else if (scoreType === "features") {
+      const items = [];
+
+      // Demand signals
+      if (metadata.reactionsScore) {
+        items.push({
+          label: "User reactions",
+          sublabel: `${metadata.reactionCount || 0} reactions`,
+          points: metadata.reactionsScore,
+        });
+      }
+
+      if (metadata.uniqueCommentersScore) {
+        items.push({
+          label: "Unique commenters",
+          sublabel: `${metadata.uniqueCommenters || 0} different people`,
+          points: metadata.uniqueCommentersScore,
+        });
+      }
+
+      if (metadata.meTooCommentsScore) {
+        items.push({
+          label: '"Me too" comments',
+          sublabel: `${metadata.meTooCount || 0} explicit requests`,
+          points: metadata.meTooCommentsScore,
+        });
+      }
+
+      // Engagement
+      if (metadata.activeDiscussionScore) {
+        items.push({
+          label: "Active discussion",
+          sublabel: `${metadata.commentsCount || 0} comments`,
+          points: metadata.activeDiscussionScore,
+        });
+      }
+
+      if (metadata.recentActivityScore) {
+        items.push({
+          label: "Recent activity",
+          sublabel: `Updated ${metadata.daysSinceUpdate || 0} days ago`,
+          points: metadata.recentActivityScore,
+        });
+      }
+
+      // Feasibility
+      if (metadata.milestoneScore) {
+        items.push({
+          label: "Has milestone",
+          sublabel: metadata.milestone || "Scheduled for release",
+          points: metadata.milestoneScore,
+        });
+      }
+
+      if (metadata.assigneeScore) {
+        items.push({
+          label: "Has assignee",
+          sublabel: `${metadata.assigneeCount || 1} assignee(s)`,
+          points: metadata.assigneeScore,
+        });
+      }
+
+      // User value
+      if (metadata.authorTypeScore) {
+        const authorTypeLabels = {
+          'team': 'Team member',
+          'contributor': 'Regular contributor',
+          'first-time': 'First-time contributor',
+        };
+        items.push({
+          label: "Author type",
+          sublabel: authorTypeLabels[metadata.authorType as keyof typeof authorTypeLabels] || metadata.authorType,
+          points: metadata.authorTypeScore,
+        });
+      }
+
+      if (metadata.sentimentScore) {
+        const intensity = (metadata.sentimentIntensity || 0) * 100;
+        const sentimentLabel = metadata.sentimentRaw > 0 ? "Positive" : metadata.sentimentRaw < 0 ? "Negative" : "Neutral";
+        items.push({
+          label: "Sentiment intensity",
+          sublabel: `${sentimentLabel} (${intensity.toFixed(0)}% intensity)`,
+          points: metadata.sentimentScore,
+        });
+      }
+
+      // Penalties
+      if (metadata.stalePenalty) {
+        items.push({
+          label: "⚠️ Stale feature",
+          sublabel: `Created ${metadata.daysSinceCreated || 0} days ago`,
+          points: metadata.stalePenalty,
+        });
+      }
+
+      if (metadata.rejectionPenalty) {
+        items.push({
+          label: "⚠️ Rejected",
+          sublabel: "Has rejection label",
+          points: metadata.rejectionPenalty,
+        });
+      }
+
+      if (metadata.vagueDescriptionPenalty) {
+        items.push({
+          label: "⚠️ Vague description",
+          sublabel: `Only ${metadata.bodyLength || 0} characters`,
+          points: metadata.vagueDescriptionPenalty,
+        });
+      }
+
+      return (
+        <div style={{ padding: "12px", minWidth: "280px" }}>
+          <div style={{ marginBottom: "12px", fontWeight: "600", fontSize: "0.95rem" }}>
+            Feature Priority Breakdown
+          </div>
+          {items.length === 0 ? (
+            <div style={{ fontSize: "0.85rem", color: "#666", fontStyle: "italic" }}>
+              No priority factors detected
+            </div>
+          ) : (
+            <div>
+              {items.map((item, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    padding: "8px 0",
+                    borderBottom: idx < items.length - 1 ? "1px solid #f0f0f0" : "none"
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "0.85rem", color: "#333", fontWeight: "500" }}>
+                      {item.label}
+                    </div>
+                    {item.sublabel && (
+                      <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "2px" }}>
+                        {item.sublabel}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: "0.85rem",
+                    fontWeight: "600",
+                    color: item.points < 0 ? "#d63638" : "var(--wp-admin-theme-color)",
+                    marginLeft: "12px",
+                    flexShrink: 0
+                  }}>
+                    {item.points > 0 ? '+' : ''}{item.points}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{
+            marginTop: "12px",
+            paddingTop: "12px",
+            borderTop: "2px solid #ddd",
+            fontSize: "0.9rem",
+            fontWeight: "600",
+            display: "flex",
+            justifyContent: "space-between"
+          }}>
+            <span>Total Score:</span>
+            <span style={{ color: "var(--wp-admin-theme-color)" }}>{score}</span>
+          </div>
+        </div>
+      );
     }
     return null;
   };
@@ -440,7 +610,7 @@ const ScoreBadge = ({ score, metadata, scoreType, thresholds }: ScoreBadgeProps)
 // Shared field: Score badge
 export const createScoreField = (
   header: string,
-  scoreType: 'bugs' | 'stale' | 'community',
+  scoreType: 'bugs' | 'stale' | 'community' | 'features',
   thresholds: [number, number, number]
 ): Field<Issue> => ({
   id: "score",

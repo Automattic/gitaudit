@@ -111,6 +111,73 @@ export function getDefaultSettings() {
         medium: 20,
       },
     },
+    features: {
+      detection: {
+        featureLabels: 'enhancement, feature, feature request, new feature, proposal, [type] enhancement, [type] feature',
+        rejectionLabels: 'wontfix, declined, rejected, out of scope, duplicate, invalid, priority low, priority: low, [priority] low, low priority',
+      },
+      scoringRules: {
+        reactions: {
+          enabled: true,
+        },
+        uniqueCommenters: {
+          enabled: true,
+        },
+        meTooComments: {
+          enabled: true,
+          points: 5,
+          minimumCount: 3,
+        },
+        activeDiscussion: {
+          enabled: true,
+        },
+        recentActivity: {
+          enabled: true,
+          recentThreshold: 30,    // days
+          recentPoints: 10,
+          moderateThreshold: 90,  // days
+          moderatePoints: 5,
+        },
+        hasMilestone: {
+          enabled: true,
+          points: 10,
+        },
+        hasAssignee: {
+          enabled: true,
+          points: 5,
+        },
+        authorType: {
+          enabled: true,
+          teamPoints: 5,
+          contributorPoints: 3,
+          firstTimePoints: 2,
+        },
+        sentimentAnalysis: {
+          enabled: true,
+          maxPoints: 10,
+        },
+        stalePenalty: {
+          enabled: true,
+          points: -10,
+          ageThreshold: 180,        // days since created
+          inactivityThreshold: 90,  // days since updated
+        },
+        rejectionPenalty: {
+          enabled: true,
+          points: -50,
+        },
+        vagueDescriptionPenalty: {
+          enabled: true,
+          points: -5,
+          lengthThreshold: 100,
+        },
+      },
+      thresholds: {
+        critical: 70,
+        high: 50,
+        medium: 30,
+      },
+    },
   };
 }
 
@@ -120,10 +187,11 @@ export function getDefaultSettings() {
 function migrateSettings(settings) {
   const defaults = getDefaultSettings();
 
-  // Settings should already be in new format (bugs, stale, community) after DB migration
+  // Settings should already be in new format (bugs, stale, community, features) after DB migration
   const bugs = settings.bugs || defaults.bugs;
   const stale = settings.stale || defaults.stale;
   const community = settings.community || defaults.community;
+  const features = settings.features || defaults.features;
 
   // Migrate priorityLabels and lowPriorityLabels to include labels field if missing
   if (bugs.scoringRules) {
@@ -145,6 +213,7 @@ function migrateSettings(settings) {
     bugs,
     stale,
     community,
+    features,
   };
 }
 

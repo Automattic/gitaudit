@@ -62,6 +62,9 @@ function RepositoryLayout() {
           <SidebarNavLink to={`/repos/${owner}/${repo}/community`}>
             Community Health
           </SidebarNavLink>
+          <SidebarNavLink to={`/repos/${owner}/${repo}/features`}>
+            Feature Requests
+          </SidebarNavLink>
           <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>
             Settings
           </SidebarNavLink>

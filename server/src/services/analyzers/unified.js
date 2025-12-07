@@ -4,6 +4,7 @@ import {
 } from "./bugs.js";
 import { scoreStaleIssue } from "./stale.js";
 import { scoreCommunityHealth } from "./community.js";
+import { scoreFeatureRequest, isFeatureRequest } from "./features.js";
 import { getDefaultSettings } from "../settings.js";
 
 /**
@@ -17,17 +18,17 @@ function classifyLevel(score, thresholds) {
 }
 
 /**
- * Analyze issues with all score types (bugs, stale, community)
+ * Analyze issues with all score types (bugs, stale, community, features)
  * @param {Array} issues - Issues to analyze
- * @param {Object} settings - Settings object containing bugs, stale, and community settings
+ * @param {Object} settings - Settings object containing bugs, stale, community, and features settings
  * @param {Object} options - Analysis options
  * @param {number} options.page - Page number for pagination (default: 1)
  * @param {number} options.perPage - Items per page (default: 20)
- * @param {string} options.scoreType - Score type to filter by: 'bugs', 'stale', 'community', 'all' (default: 'all')
- * @param {string} options.sortBy - Sort by specific score: 'bugs.score', 'stale.score', 'community.score' (default: null)
+ * @param {string} options.scoreType - Score type to filter by: 'bugs', 'stale', 'community', 'features', 'all' (default: 'all')
+ * @param {string} options.sortBy - Sort by specific score: 'bugs.score', 'stale.score', 'community.score', 'features.score' (default: null)
  * @param {string} options.level - Priority level: 'critical', 'high', 'medium', 'low', 'all' (default: 'all')
  * @param {string} options.search - Search term for filtering (default: '')
- * @param {string} options.issueType - Issue type filter: 'bugs', 'all' (default: 'all')
+ * @param {string} options.issueType - Issue type filter: 'bugs', 'features', 'all' (default: 'all')
  * @param {Array} options.maintainerLogins - Maintainer usernames for community health scoring (default: [])
  * @param {Array} options.labels - Label names to filter by (must have ALL labels) (default: [])
  * @returns {Object} Analyzed issues with scores, stats, and pagination
@@ -36,11 +37,11 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
   const {
     page = 1,
     perPage = 20,
-    scoreType = "all", // 'bugs', 'stale', 'community', 'all'
-    sortBy = null, // 'bugs.score', 'stale.score', 'community.score'
+    scoreType = "all", // 'bugs', 'stale', 'community', 'features', 'all'
+    sortBy = null, // 'bugs.score', 'stale.score', 'community.score', 'features.score'
     level = "all", // critical, high, medium, low, all
     search = "",
-    issueType = "all", // 'bugs', 'all' (can be extended for 'feature-requests', etc.)
+    issueType = "all", // 'bugs', 'features', 'all'
     maintainerLogins = [], // Array of maintainer usernames for community health
     labels = [], // Array of label names to filter by (must have ALL labels)
   } = options;
@@ -49,6 +50,8 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
   let issuesToScore = issues;
   if (issueType === "bugs") {
     issuesToScore = issues.filter(isBugIssue);
+  } else if (issueType === "features") {
+    issuesToScore = issues.filter(issue => isFeatureRequest(issue, settings.features));
   }
 
   // Score all issues with requested analyzers
@@ -92,6 +95,20 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
       });
     }
 
+    // Run features analyzer if requested
+    if (scoreType === "all" || scoreType === "features") {
+      const { score, metadata } = scoreFeatureRequest(
+        issue,
+        settings.features,
+        {} // TODO: Add uniqueCommentersMap and meTooComments
+      );
+      scores.push({
+        type: "features",
+        score,
+        metadata,
+      });
+    }
+
     return { ...issue, scores };
   });
 
@@ -127,6 +144,17 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
       if (!healthScore) return false;
       return (
         classifyLevel(healthScore.score, settings.community.thresholds) === level
+      );
+    });
+  }
+
+  // Filter by level (for features)
+  if (scoreType === "features" && level !== "all") {
+    filteredIssues = filteredIssues.filter((issue) => {
+      const featureScore = issue.scores.find((s) => s.type === "features");
+      if (!featureScore) return false;
+      return (
+        classifyLevel(featureScore.score, settings.features.thresholds) === level
       );
     });
   }
@@ -176,6 +204,7 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
       bugs: settings.bugs.thresholds,
       stale: settings.stale.thresholds,
       community: settings.community.thresholds,
+      features: settings.features.thresholds,
     },
   };
 }

@@ -430,16 +430,20 @@ async function processSentimentJob(job) {
   // INCREMENTAL: Find issues needing analysis (new or updated since last analysis)
   const staleIssues = analysisQueries.findStaleAnalyses.all('sentiment', repoId);
 
-  // Filter to only bug issues (same filter used in UI)
-  const issuesToAnalyze = staleIssues.filter(isBugIssue);
+  // Filter to bugs and features (sentiment is useful for both)
+  const { isFeatureRequest } = await import('./analyzers/features.js');
+  const issuesToAnalyze = staleIssues.filter(issue => isBugIssue(issue) || isFeatureRequest(issue));
+
+  const bugCount = staleIssues.filter(isBugIssue).length;
+  const featureCount = staleIssues.filter(isFeatureRequest).length;
 
   console.log(
-    `[${repo.owner}/${repo.name}] Found ${issuesToAnalyze.length} bug issues needing analysis ` +
-    `(${staleIssues.length} total issues, ${Math.round((issuesToAnalyze.length / staleIssues.length) * 100)}% are bugs)`
+    `[${repo.owner}/${repo.name}] Found ${issuesToAnalyze.length} issues needing analysis ` +
+    `(${bugCount} bugs, ${featureCount} features out of ${staleIssues.length} total)`
   );
 
   if (issuesToAnalyze.length === 0) {
-    console.log(`[${repo.owner}/${repo.name}] ✓ No bugs to analyze, skipping sentiment analysis`);
+    console.log(`[${repo.owner}/${repo.name}] ✓ No issues to analyze, skipping sentiment analysis`);
     return;
   }
 

@@ -10,6 +10,7 @@ import RepoSelector from './pages/repo-selector';
 import Bugs from './pages/bugs';
 import Stale from './pages/stale';
 import Community from './pages/community';
+import Features from './pages/features';
 import Settings from './pages/settings';
 import RepositoryLayout from './layouts/repository-layout';
 import AppLayout from './layouts/app-layout';
@@ -74,6 +75,10 @@ function App() {
               <Route path="community">
                 <Route index element={<Navigate to="all" replace />} />
                 <Route path=":tabId" element={<Community />} />
+              </Route>
+              <Route path="features">
+                <Route index element={<Navigate to="all" replace />} />
+                <Route path=":tabId" element={<Features />} />
               </Route>
               <Route path="settings">
                 <Route index element={<Navigate to="bugs" replace />} />

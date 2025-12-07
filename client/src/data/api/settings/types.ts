@@ -30,8 +30,20 @@ export interface CommunityHealthSettings {
   };
 }
 
+export interface FeatureRequestSettings {
+  thresholds: ThresholdSettings;
+  detection: {
+    featureLabels: string;
+    rejectionLabels: string;
+  };
+  scoringRules: {
+    [key: string]: any;
+  };
+}
+
 export interface RepoSettings {
   bugs: ImportantBugsSettings;
   stale: StaleIssuesSettings;
   community: CommunityHealthSettings;
+  features: FeatureRequestSettings;
 }

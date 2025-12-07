@@ -4,6 +4,7 @@ import type { RepoSettings } from '@/data/api/settings/types';
 type ImportantBugsSettings = RepoSettings['bugs'];
 type StaleIssuesSettings = RepoSettings['stale'];
 type CommunityHealthSettings = RepoSettings['community'];
+type FeatureRequestSettings = RepoSettings['features'];
 
 // Flattened settings type (for forms)
 type FlattenedSettings = Record<string, string | number | boolean | string[]>;
@@ -219,6 +220,108 @@ export function unflattenCommunityHealthSettings(
       updated.maintainerTeam[teamKey] = value;
     } else {
       // Parse rule name and property from key like 'firstTimeContributor_enabled'
+      const firstUnderscore = key.indexOf('_');
+      const ruleName = key.substring(0, firstUnderscore);
+      const propName = key.substring(firstUnderscore + 1);
+
+      if (updated.scoringRules[ruleName]) {
+        updated.scoringRules[ruleName][propName] = value;
+      }
+    }
+  });
+
+  return updated;
+}
+
+// ============================================================================
+// FEATURE REQUEST HELPERS
+// ============================================================================
+
+export function flattenFeatureRequestSettings(settings: FeatureRequestSettings): FlattenedSettings {
+  const rules = settings.scoringRules;
+  return {
+    // Detection
+    detection_featureLabels: settings.detection.featureLabels,
+    detection_rejectionLabels: settings.detection.rejectionLabels,
+
+    // Reactions
+    reactions_enabled: rules.reactions.enabled,
+
+    // Unique Commenters
+    uniqueCommenters_enabled: rules.uniqueCommenters.enabled,
+
+    // Me Too Comments
+    meTooComments_enabled: rules.meTooComments.enabled,
+    meTooComments_points: rules.meTooComments.points,
+    meTooComments_minimumCount: rules.meTooComments.minimumCount,
+
+    // Active Discussion
+    activeDiscussion_enabled: rules.activeDiscussion.enabled,
+
+    // Recent Activity
+    recentActivity_enabled: rules.recentActivity.enabled,
+    recentActivity_recentThreshold: rules.recentActivity.recentThreshold,
+    recentActivity_recentPoints: rules.recentActivity.recentPoints,
+    recentActivity_moderateThreshold: rules.recentActivity.moderateThreshold,
+    recentActivity_moderatePoints: rules.recentActivity.moderatePoints,
+
+    // Has Milestone
+    hasMilestone_enabled: rules.hasMilestone.enabled,
+    hasMilestone_points: rules.hasMilestone.points,
+
+    // Has Assignee
+    hasAssignee_enabled: rules.hasAssignee.enabled,
+    hasAssignee_points: rules.hasAssignee.points,
+
+    // Author Type
+    authorType_enabled: rules.authorType.enabled,
+    authorType_teamPoints: rules.authorType.teamPoints,
+    authorType_contributorPoints: rules.authorType.contributorPoints,
+    authorType_firstTimePoints: rules.authorType.firstTimePoints,
+
+    // Sentiment Analysis
+    sentimentAnalysis_enabled: rules.sentimentAnalysis.enabled,
+    sentimentAnalysis_maxPoints: rules.sentimentAnalysis.maxPoints,
+
+    // Stale Penalty
+    stalePenalty_enabled: rules.stalePenalty.enabled,
+    stalePenalty_points: rules.stalePenalty.points,
+    stalePenalty_ageThreshold: rules.stalePenalty.ageThreshold,
+    stalePenalty_inactivityThreshold: rules.stalePenalty.inactivityThreshold,
+
+    // Rejection Penalty
+    rejectionPenalty_enabled: rules.rejectionPenalty.enabled,
+    rejectionPenalty_points: rules.rejectionPenalty.points,
+
+    // Vague Description Penalty
+    vagueDescriptionPenalty_enabled: rules.vagueDescriptionPenalty.enabled,
+    vagueDescriptionPenalty_points: rules.vagueDescriptionPenalty.points,
+    vagueDescriptionPenalty_lengthThreshold: rules.vagueDescriptionPenalty.lengthThreshold,
+
+    // Thresholds
+    thresholds_critical: settings.thresholds.critical,
+    thresholds_high: settings.thresholds.high,
+    thresholds_medium: settings.thresholds.medium,
+  };
+}
+
+export function unflattenFeatureRequestSettings(
+  edits: Record<string, unknown>,
+  currentSettings: FeatureRequestSettings
+): FeatureRequestSettings {
+  // Deep clone to avoid mutation
+  const updated = JSON.parse(JSON.stringify(currentSettings));
+
+  // Apply all edits
+  Object.entries(edits).forEach(([key, value]) => {
+    if (key.startsWith('thresholds_')) {
+      const thresholdKey = key.replace('thresholds_', '');
+      updated.thresholds[thresholdKey] = value;
+    } else if (key.startsWith('detection_')) {
+      const detectionKey = key.replace('detection_', '');
+      updated.detection[detectionKey] = value;
+    } else {
+      // Parse rule name and property from key like 'reactions_enabled'
       const firstUnderscore = key.indexOf('_');
       const ruleName = key.substring(0, firstUnderscore);
       const propName = key.substring(firstUnderscore + 1);

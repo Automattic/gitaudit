@@ -1,5 +1,5 @@
 export interface ScoreObject {
-  type: 'bugs' | 'stale' | 'community';
+  type: 'bugs' | 'stale' | 'community' | 'features';
   score: number;
   metadata: Record<string, unknown>;
 }
@@ -39,6 +39,11 @@ export interface IssuesResponse {
       high: number;
       medium: number;
     };
+    features?: {
+      critical: number;
+      high: number;
+      medium: number;
+    };
   };
   fetchStatus: 'not_started' | 'in_progress' | 'completed' | 'failed';
 }
@@ -46,8 +51,8 @@ export interface IssuesResponse {
 export interface IssuesQueryParams {
   page: number;
   per_page: number;
-  scoreType: 'bugs' | 'stale' | 'community';
-  issueType?: 'bugs' | 'stale';
+  scoreType: 'bugs' | 'stale' | 'community' | 'features';
+  issueType?: 'bugs' | 'features';
   level?: 'all' | 'critical' | 'high' | 'medium';
   search?: string;
   labels?: string[];

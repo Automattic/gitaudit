@@ -33,7 +33,7 @@ import { fetchLabels } from "@/data/api/issues/fetchers";
 interface IssuesPageProps {
   title: string;
   description: string;
-  type: "bugs" | "stale" | "community";
+  type: "bugs" | "stale" | "community" | "features";
   scoreLabel: string;
   defaultThresholds: { critical: number; high: number; medium: number };
   extraFilters?: Record<string, unknown>;
