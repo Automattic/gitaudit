@@ -3,7 +3,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { fetchRepositoryIssues } from '../services/github.js';
 import { repoQueries, issueQueries, analysisQueries, transaction, settingsQueries } from '../db/queries.js';
 import { getDefaultSettings, validateSettings, loadRepoSettings } from '../services/settings.js';
-import { queueIssueFetch, queueSingleIssueRefresh, getQueueStatus } from '../services/job-queue.js';
+import { queueJob, getQueueStatus } from '../services/job-queue.js';
 import { graphql } from '@octokit/graphql';
 import { analyzeIssuesWithAllScores } from '../services/analyzers/unified.js';
 
@@ -50,15 +50,13 @@ router.post('/fetch', authenticateToken, async (req, res) => {
     // Get or create repository record
     const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
 
-    // Update status to in_progress
-    repoQueries.updateFetchStatus.run('in_progress', repo.id);
-
-    // Queue issue fetch job
-    await queueIssueFetch({
+    // Queue issue fetch job (orchestrator will update status when job starts)
+    queueJob({
+      type: 'issue-fetch',
       repoId: repo.id,
-      owner,
-      repoName,
-      accessToken: req.user.accessToken,
+      userId: req.user.id,
+      args: {},
+      priority: 50,
     });
 
     res.json({
@@ -78,15 +76,13 @@ router.post('/refresh', authenticateToken, async (req, res) => {
   try {
     const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
 
-    // Update status to in_progress
-    repoQueries.updateFetchStatus.run('in_progress', repo.id);
-
-    // Queue issue fetch job
-    await queueIssueFetch({
+    // Queue issue fetch job (orchestrator will update status when job starts)
+    queueJob({
+      type: 'issue-fetch',
       repoId: repo.id,
-      owner,
-      repoName,
-      accessToken: req.user.accessToken,
+      userId: req.user.id,
+      args: {},
+      priority: 50,
     });
 
     res.json({
@@ -108,10 +104,12 @@ router.post('/:issueNumber/refresh', authenticateToken, async (req, res) => {
     const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
 
     // Queue the refresh job
-    await queueSingleIssueRefresh({
+    queueJob({
+      type: 'single-issue-refresh',
       repoId: repo.id,
-      issueNumber: parseInt(issueNumber, 10),
-      accessToken: req.user.accessToken,
+      userId: req.user.id,
+      args: { issueNumber: parseInt(issueNumber, 10) },
+      priority: 100,
     });
 
     res.json({
@@ -254,7 +252,7 @@ router.get('/', authenticateToken, async (req, res) => {
       totalItems,
       totalPages,
       thresholds,
-      fetchStatus: repo.fetch_status || 'not_started'
+      fetchStatus: repo.status || 'not_started'
     });
   } catch (error) {
     console.error('Error analyzing issues:', error);

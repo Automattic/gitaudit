@@ -34,7 +34,7 @@ export function initializeDatabase() {
       name TEXT NOT NULL,
       github_id INTEGER NOT NULL,
       last_fetched DATETIME,
-      fetch_status TEXT DEFAULT 'not_started',
+      status TEXT DEFAULT 'not_started',
       UNIQUE(owner, name)
     )
   `);
@@ -124,6 +124,9 @@ export function initializeDatabase() {
   // Reset last_fetched to recover from bug where it was updated at job start
   resetLastFetchedToRecoverUpdates();
 
+  // Rename fetch_status to status (generic for all job types)
+  renameRepoFetchStatusToStatus();
+
   // Clean up any stuck in_progress statuses from server crashes
   cleanupStuckStatuses();
 
@@ -135,6 +138,9 @@ export function initializeDatabase() {
 
   // Add general settings section
   migrateToGeneralSettings();
+
+  // Create job_queue table for job persistence
+  createJobQueueTable();
 
   console.log('Database initialized successfully');
 }
@@ -298,12 +304,30 @@ function resetLastFetchedToRecoverUpdates() {
 function cleanupStuckStatuses() {
   const result = db.prepare(`
     UPDATE repositories
-    SET fetch_status = 'completed'
-    WHERE fetch_status = 'in_progress'
+    SET status = 'completed'
+    WHERE status = 'in_progress'
   `).run();
 
   if (result.changes > 0) {
     console.log(`Cleaned up ${result.changes} repositories stuck in 'in_progress' status`);
+  }
+}
+
+// Migration function to rename fetch_status to status (generic for all job types)
+function renameRepoFetchStatusToStatus() {
+  try {
+    // Check if the column needs renaming
+    const columns = db.prepare('PRAGMA table_info(repositories)').all();
+    const hasFetchStatus = columns.some(col => col.name === 'fetch_status');
+    const hasStatus = columns.some(col => col.name === 'status');
+
+    if (hasFetchStatus && !hasStatus) {
+      db.exec('ALTER TABLE repositories RENAME COLUMN fetch_status TO status');
+      console.log('Renamed fetch_status to status in repositories table');
+    }
+  } catch (error) {
+    console.error('Failed to rename fetch_status to status:', error);
+    // Don't throw - allow server to start even if migration fails
   }
 }
 
@@ -989,6 +1013,52 @@ function migrateToGeneralSettings() {
   } catch (error) {
     console.error('Failed to migrate to general settings:', error);
     // Don't throw - allow server to start even if migration fails
+  }
+}
+
+// Create job_queue table for persistent job queue
+function createJobQueueTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS job_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL,
+      repo_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      args TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'pending',
+      priority INTEGER DEFAULT 50,
+      error_message TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      started_at DATETIME,
+      completed_at DATETIME,
+      FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create indexes for better query performance
+  const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='job_queue'").all();
+  const indexNames = indexes.map(idx => idx.name);
+
+  if (!indexNames.includes('idx_job_queue_status')) {
+    db.exec('CREATE INDEX idx_job_queue_status ON job_queue(status, priority DESC, created_at ASC)');
+    console.log('Created idx_job_queue_status index');
+  }
+
+  if (!indexNames.includes('idx_job_queue_repo')) {
+    db.exec('CREATE INDEX idx_job_queue_repo ON job_queue(repo_id, status)');
+    console.log('Created idx_job_queue_repo index');
+  }
+
+  if (!indexNames.includes('idx_job_queue_job_id')) {
+    db.exec('CREATE INDEX idx_job_queue_job_id ON job_queue(job_id)');
+    console.log('Created idx_job_queue_job_id index');
+  }
+
+  if (!indexNames.includes('idx_job_queue_user')) {
+    db.exec('CREATE INDEX idx_job_queue_user ON job_queue(user_id)');
+    console.log('Created idx_job_queue_user index');
   }
 }
 

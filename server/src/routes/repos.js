@@ -85,21 +85,11 @@ router.get('/:owner/:repo/status', authenticateToken, async (req, res) => {
 
     const issueCount = issueQueries.countByRepo.get(repo.id);
     const analyzedIssues = analysisQueries.countByRepoAndType.get(repo.id, 'sentiment');
-
-    // Get current job status
     const currentJob = getCurrentJobForRepo(repo.id);
-
-    // Determine overall status
-    let overallStatus = repo.fetch_status;
-
-    // If fetch is completed but sentiment is processing, show in_progress
-    if (repo.fetch_status === 'completed' && currentJob === 'sentiment') {
-      overallStatus = 'in_progress';
-    }
 
     res.json({
       hasCachedData: issueCount.count > 0,
-      status: overallStatus,
+      status: repo.status,
       lastFetched: repo.last_fetched,
       issueCount: issueCount.count,
       currentJob: currentJob,

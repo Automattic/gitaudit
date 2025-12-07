@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { initializeDatabase } from './db/database.js';
+import { startJobRunner } from './services/job-queue.js';
 import authRoutes from './routes/auth.js';
 import reposRoutes from './routes/repos.js';
 import issuesRoutes from './routes/issues.js';
@@ -11,6 +12,9 @@ dotenv.config();
 
 // Initialize database
 initializeDatabase();
+
+// Start the job runner (after database is initialized)
+startJobRunner();
 
 // Create Express app
 const app = express();

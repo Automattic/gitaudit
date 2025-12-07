@@ -1,623 +1,287 @@
-import { issueQueries, repoQueries, analysisQueries, commentQueries, transaction } from '../db/queries.js';
-import { fetchRepositoryIssues, fetchIssueComments, fetchTeamMembers, fetchSingleIssue } from './github.js';
-import {
-  analyzeIssueSentiment,
-  analyzeCommentsSentiment,
-  calculateSentimentScore,
-  isSentimentAnalysisAvailable,
-} from './analyzers/sentiment.js';
-import { isBugIssue } from './analyzers/bugs.js';
-import { loadRepoSettings } from './settings.js';
-import { toSqliteDateTime, now, parseSqliteDate } from '../utils/dates.js';
-import { isRateLimitError } from '../utils/rate-limit-handler.js';
+import { randomUUID } from 'crypto';
+import { z } from 'zod';
+import { repoQueries, jobQueries, userQueries } from '../db/queries.js';
 
-// In-memory job queue with retry tracking
-const queue = [];
+// Job handlers with schemas
+import { issueFetchHandler, issueFetchSchema } from './jobs/issue-fetch.js';
+import { sentimentHandler, sentimentSchema } from './jobs/sentiment.js';
+import { singleIssueRefreshHandler, singleIssueRefreshSchema } from './jobs/single-issue-refresh.js';
+
+// Job queue configuration
 const MAX_CONCURRENT_REPOS = 5;
-// Map of repoId -> current job being processed for that repo
-const processingRepos = new Map();
+
+// Job runner state
+let jobRunnerActive = false;
 
 /**
- * Generate unique job ID for retry tracking
- * @param {object} job - The job object
- * @returns {string} Unique job identifier
+ * Trigger the job loop to process pending jobs
+ * This is the single place where we trigger job processing
  */
-function generateJobId(job) {
-  return `${job.type}-${job.repoId}-${job.issueNumber || 'all'}`;
+function triggerJobLoop() {
+  setImmediate(() => runJobLoop());
 }
 
 /**
- * Queue issue fetch for a repository
- * This is the entry point called from the /fetch endpoint
+ * Generic job queueing function
+ * Handles DB insertion and triggers processing
+ * @returns {boolean} true if job was queued, false if duplicate
  */
-export async function queueIssueFetch(jobData) {
-  const { repoId, owner, repoName, accessToken } = jobData;
+export function queueJob({ type, repoId, userId, args = {}, priority = 50 }) {
+  const argsJson = JSON.stringify(args);
 
-  const job = {
-    type: 'issue-fetch',
-    repoId,
-    owner,
-    repoName,
-    accessToken,
-    id: generateJobId({ type: 'issue-fetch', repoId }),
-  };
-
-  queue.push(job);
-
-  // Trigger processing (will check capacity internally)
-  processQueue();
-}
-
-/**
- * Queue sentiment analysis for a repository
- * Usually called automatically after issue fetch completes
- */
-export async function queueSentimentAnalysis(repoId, accessToken) {
-  const job = {
-    type: 'sentiment',
-    repoId,
-    accessToken,
-    id: generateJobId({ type: 'sentiment', repoId }),
-  };
-  queue.push(job);
-
-  // Trigger processing (will check capacity internally)
-  processQueue();
-}
-
-/**
- * Queue a single issue refresh job
- */
-export async function queueSingleIssueRefresh(jobData) {
-  const { repoId, issueNumber, accessToken } = jobData;
-
-  const job = {
-    type: 'single-issue-refresh',
-    repoId,
-    issueNumber,
-    accessToken,
-    id: generateJobId({ type: 'single-issue-refresh', repoId, issueNumber }),
-  };
-
-  queue.push(job);
-
-  processQueue();
-}
-
-/**
- * Process jobs from the queue, allowing multiple repos in parallel
- */
-async function processQueue() {
-  // Check if we're at max capacity
-  if (processingRepos.size >= MAX_CONCURRENT_REPOS) {
-    return;
+  // Check if an identical job is already pending or processing
+  const existingJob = jobQueries.findDuplicateJob.get(type, repoId, argsJson);
+  if (existingJob) {
+    console.log(`[JobQueue] Duplicate job already queued: ${type} for repo ${repoId}, skipping`);
+    return false;
   }
 
-  // Find next job for a repo that's not currently being processed
-  const availableJobIndex = queue.findIndex(job => !processingRepos.has(job.repoId));
-
-  if (availableJobIndex === -1) {
-    return;
-  }
-
-  // Remove job from queue
-  const job = queue.splice(availableJobIndex, 1)[0];
-
-  // Mark repo as being processed
-  processingRepos.set(job.repoId, job);
-
-  console.log(`[JobQueue] Starting: ${job.type} for ${job.owner || 'repo'}/${job.repoName || job.repoId}`);
-
-  // Process the job asynchronously
-  processJob(job).finally(() => {
-    // Remove from processing map when done
-    processingRepos.delete(job.repoId);
-
-    // Trigger processing of next jobs
-    processQueue();
-  });
-
-  // Immediately try to start more jobs if capacity available
-  setImmediate(() => processQueue());
-}
-
-/**
- * Process a single job (issue-fetch, sentiment, or single-issue-refresh)
- * Request-level retries are handled within the API call layer
- */
-async function processJob(job) {
-  try {
-    if (job.type === 'issue-fetch') {
-      await processIssueFetchJob(job);
-
-      // After issue fetch completes, automatically queue sentiment analysis (if AI provider is configured)
-      if (isSentimentAnalysisAvailable()) {
-        queue.push({
-          type: 'sentiment',
-          repoId: job.repoId,
-          accessToken: job.accessToken,
-          id: generateJobId({ type: 'sentiment', repoId: job.repoId }),
-        });
-
-        // Trigger processing for the sentiment job
-        setImmediate(() => processQueue());
-      }
-    } else if (job.type === 'sentiment') {
-      await processSentimentJob(job);
-    } else if (job.type === 'single-issue-refresh') {
-      await processSingleIssueRefreshJob(job);
-    }
-
-    console.log(`[JobQueue] ✓ Completed job: ${job.type} for repo ${job.repoId}`);
-  } catch (error) {
-    const isRateLimitErr = isRateLimitError(error);
-
-    console.error(
-      `[JobQueue] ✗ Job failed: ${job.type} for repo ${job.repoId}`,
-      error.message || error
-    );
-
-    // For rate limit errors, provide guidance for manual retry
-    if (isRateLimitErr) {
-      console.warn(
-        `[JobQueue] Rate limit error - job marked as failed. ` +
-        `The next fetch will resume from last checkpoint using the 'since' timestamp. ` +
-        `Please wait a few minutes before retrying to allow rate limits to reset.`
-      );
-    }
-
-    // Update repo status on failure (for all error types)
-    if (job.type === 'issue-fetch' || job.type === 'single-issue-refresh') {
-      repoQueries.updateFetchStatus.run('failed', job.repoId);
-    }
-  }
-}
-
-/**
- * Process issue fetch job
- * RESUMABLE: Uses ASC ordering + since filter for interrupted fetches
- */
-async function processIssueFetchJob(job) {
-  const { repoId, owner, repoName, accessToken } = job;
-
-  let hasNextPage = true;
-  let after = null;
-  let fetchedCount = 0;
-  let newCount = 0;
-  let updatedCount = 0;
-  let pageCount = 0;
-  const startTime = Date.now();
-
-  // Record the job start time - this will be stored in last_fetched at the end
-  // to ensure no gaps in incremental syncs
-  const jobStartTime = now();
-
-  // Get repo info for incremental sync
-  const repo = repoQueries.getById.get(repoId);
-
-  // Calculate 'since' timestamp for GitHub API filter
-  // - Full sync (since = null): fetches only OPEN issues
-  // - Incremental sync (since = timestamp): fetches OPEN + CLOSED to catch state changes
-  let since = null;
-  if (repo.needs_full_refetch) {
-    console.log(`[${owner}/${repoName}] Starting full refetch (populating author data)`);
-    since = null; // Force full sync
-  } else if (repo.last_fetched) {
-    // Use last successful fetch start time for incremental mode
-    // This ensures we catch ALL issues updated since last sync started
-    const lastFetchDate = parseSqliteDate(repo.last_fetched);
-    const sinceDate = new Date(lastFetchDate.getTime() - 60 * 1000); // 1 minute buffer for clock skew
-    since = sinceDate.toISOString();
-
-    console.log(
-      `[${owner}/${repoName}] Starting incremental fetch (since: ${since})`
-    );
-  } else {
-    console.log(`[${owner}/${repoName}] Starting full sync (first fetch)`);
-  }
-
-  while (hasNextPage) {
-    const pageStartTime = Date.now();
-    pageCount++;
-
-    // Fetch with ASC ordering and optional 'since' filter
-    const result = await fetchRepositoryIssues(accessToken, owner, repoName, 100, after, since);
-    const fetchTime = Date.now() - pageStartTime;
-
-    // Store issues in database
-    const dbStartTime = Date.now();
-    let pageNewCount = 0;
-    let pageUpdatedCount = 0;
-    const issuesNeedingComments = [];
-
-    const saveIssues = transaction(() => {
-      for (const issue of result.nodes) {
-        const labels = issue.labels.nodes.map(l => l.name);
-        const assignees = issue.assignees.nodes.map(a => a.login);
-        const comments = issue.comments.nodes;
-        const lastComment = comments.length > 0 ? comments[comments.length - 1] : null;
-
-        // Track if this is a new or updated issue
-        const existingIssue = issueQueries.findByGithubId.get(issue.databaseId);
-        const isNew = !existingIssue;
-        const isUpdated = existingIssue && new Date(issue.updatedAt) > parseSqliteDate(existingIssue.updated_at);
-
-        if (isNew) {
-          pageNewCount++;
-        } else if (isUpdated) {
-          pageUpdatedCount++;
-        }
-
-        issueQueries.upsert.run(
-          repoId,
-          issue.databaseId,
-          issue.number,
-          issue.title,
-          issue.body,
-          issue.state.toLowerCase(),
-          JSON.stringify(labels),
-          toSqliteDateTime(issue.createdAt),
-          toSqliteDateTime(issue.updatedAt),
-          toSqliteDateTime(issue.closedAt),
-          issue.comments.totalCount,
-          toSqliteDateTime(lastComment?.createdAt) || null,
-          lastComment?.author?.login || null,
-          JSON.stringify({ total: issue.reactions.totalCount }),
-          JSON.stringify(assignees),
-          issue.milestone?.title || null,
-          issue.issueType?.name || null,
-          issue.author?.login || null,
-          issue.authorAssociation || null
-        );
-
-        // Determine if this issue needs comment fetching
-        // Fetch if: (1) new issue, (2) updated issue, or (3) comments_fetched = false (migration)
-        const needsComments = isNew || isUpdated || (existingIssue && !existingIssue.comments_fetched);
-
-        if (needsComments) {
-          // Get the DB issue record to access its ID
-          const dbIssue = issueQueries.findByGithubId.get(issue.databaseId);
-          issuesNeedingComments.push({
-            id: dbIssue.id,
-            number: issue.number,
-            commentsCount: issue.comments.totalCount
-          });
-        }
-      }
-    });
-
-    saveIssues();
-    const dbTime = Date.now() - dbStartTime;
-
-    // Fetch and store comments for issues that need them
-    const commentsStartTime = Date.now();
-    let commentsFetchedCount = 0;
-    let totalCommentsSaved = 0;
-
-    for (const issueInfo of issuesNeedingComments) {
-      try {
-        // Skip if issue has no comments
-        if (issueInfo.commentsCount === 0) {
-          // Still mark as fetched
-          issueQueries.updateCommentsFetched?.run?.(issueInfo.id);
-          continue;
-        }
-
-        // Fetch comments from GitHub
-        const comments = await fetchIssueComments(accessToken, owner, repoName, issueInfo.number);
-
-        // Store comments in database
-        const storeComments = transaction(() => {
-          for (const comment of comments) {
-            if (comment.author && comment.author.login) {
-              commentQueries.insertOrUpdate.run(
-                issueInfo.id,
-                comment.databaseId || comment.id, // GitHub comment ID
-                comment.author.login,
-                comment.body,
-                toSqliteDateTime(comment.createdAt)
-              );
-            }
-          }
-
-          // Mark comments as fetched for this issue
-          issueQueries.updateCommentsFetched?.run?.(issueInfo.id);
-        });
-
-        storeComments();
-        commentsFetchedCount++;
-        totalCommentsSaved += comments.length;
-      } catch (error) {
-        const errorType = isRateLimitError(error) ? '[RateLimit]' : '[Error]';
-
-        console.error(
-          `[${owner}/${repoName}] ${errorType} Failed to fetch comments for issue #${issueInfo.number}:`,
-          error.message
-        );
-
-        // Don't mark as fetched if it failed - will retry next time
-        // For rate limit errors: Let them propagate to fail the job
-        // The `since`-based fetch will pick up this issue on next run
-        if (isRateLimitError(error)) {
-          console.warn(
-            `[${owner}/${repoName}] Rate limit during comment fetch for #${issueInfo.number}. ` +
-            `Job will be marked as failed. This issue will be retried on next fetch.`
-          );
-          throw error; // Propagate to fail the job gracefully
-        }
-        // Other errors: continue with other issues (soft failure)
-      }
-    }
-
-    const commentsTime = Date.now() - commentsStartTime;
-
-    if (issuesNeedingComments.length > 0) {
-      console.log(
-        `[${owner}/${repoName}] Comments: ${commentsFetchedCount}/${issuesNeedingComments.length} issues processed, ` +
-        `${totalCommentsSaved} comments saved | ${commentsTime}ms`
-      );
-    }
-
-    fetchedCount += result.nodes.length;
-    newCount += pageNewCount;
-    updatedCount += pageUpdatedCount;
-    hasNextPage = result.pageInfo.hasNextPage;
-    after = result.pageInfo.endCursor;
-
-    console.log(
-      `[${owner}/${repoName}] Page ${pageCount}: ` +
-      `fetched ${result.nodes.length} issues (${pageNewCount} new, ${pageUpdatedCount} updated, ${fetchedCount} total) | ` +
-      `API: ${fetchTime}ms, DB: ${dbTime}ms, Total: ${fetchTime + dbTime}ms` +
-      `${hasNextPage ? ' | More pages...' : ''}`
-    );
-  }
-
-  const totalTime = Date.now() - startTime;
-  const avgTimePerPage = pageCount > 0 ? Math.round(totalTime / pageCount) : 0;
-
-  // Update status to completed and store job start time
-  repoQueries.updateFetchStatusWithTime.run(jobStartTime, 'completed', repoId);
-
-  // Clear full refetch flag if it was set
-  if (repo.needs_full_refetch) {
-    repoQueries.clearFullRefetchFlag.run(repoId);
-    console.log(`[${owner}/${repoName}] Full refetch completed, flag cleared`);
-  }
-
-  // Fetch and store maintainer logins for Community Health scoring
-  try {
-    const settings = loadRepoSettings(repoId);
-    const team = settings.general?.maintainerTeam;
-
-    if (team && team.org && team.teamSlug) {
-      console.log(`[${owner}/${repoName}] Fetching maintainer logins from ${team.org}/${team.teamSlug}...`);
-      const maintainerLogins = await fetchTeamMembers(accessToken, team.org, team.teamSlug);
-
-      // Store in database
-      repoQueries.updateMaintainerLogins.run(JSON.stringify(maintainerLogins), repoId);
-      console.log(`[${owner}/${repoName}] ✓ Stored ${maintainerLogins.length} maintainer(s)`);
-    }
-  } catch (error) {
-    console.error(`[${owner}/${repoName}] Failed to fetch/store maintainer logins:`, error.message);
-    // Don't fail the entire job - maintainer detection is optional
-  }
-
-  console.log(
-    `[${owner}/${repoName}] ✓ Issue fetch completed: ` +
-    `${fetchedCount} issues fetched (${newCount} new, ${updatedCount} updated), ${pageCount} pages, ${Math.round(totalTime / 1000)}s total ` +
-    `(avg ${avgTimePerPage}ms/page)` +
-    `${since ? ' | Incremental update' : ' | Full sync'}`
-  );
-}
-
-/**
- * Process sentiment analysis for issues in a repo
- * INCREMENTAL: Only analyzes issues that changed since last analysis
- */
-async function processSentimentJob(job) {
-  const { repoId, accessToken } = job;
-  const startTime = Date.now();
-
-  // Get repo info (need owner/name for GitHub API)
-  const repo = repoQueries.getById.get(repoId);
-  if (!repo) {
-    console.error(`Repo ${repoId} not found`);
-    return;
-  }
-
-  console.log(`[${repo.owner}/${repo.name}] Starting sentiment analysis...`);
-
-  // Load settings for bug/feature label detection
-  const settings = loadRepoSettings(repoId);
-
-  // INCREMENTAL: Find issues needing analysis (new or updated since last analysis)
-  const staleIssues = analysisQueries.findStaleAnalyses.all('sentiment', repoId);
-
-  // Filter to bugs and features (sentiment is useful for both)
-  const { isFeatureRequest } = await import('./analyzers/features.js');
-  const issuesToAnalyze = staleIssues.filter(issue => isBugIssue(issue, settings.general) || isFeatureRequest(issue, settings.general));
-
-  const bugCount = staleIssues.filter(issue => isBugIssue(issue, settings.general)).length;
-  const featureCount = staleIssues.filter(issue => isFeatureRequest(issue, settings.general)).length;
-
-  console.log(
-    `[${repo.owner}/${repo.name}] Found ${issuesToAnalyze.length} issues needing analysis ` +
-    `(${bugCount} bugs, ${featureCount} features out of ${staleIssues.length} total)`
-  );
-
-  if (issuesToAnalyze.length === 0) {
-    console.log(`[${repo.owner}/${repo.name}] ✓ No issues to analyze, skipping sentiment analysis`);
-    return;
-  }
-
-  let analyzedCount = 0;
-  let totalCommentsFetched = 0;
-
-  for (const issue of issuesToAnalyze) {
-    try {
-      const issueStartTime = Date.now();
-
-      // 1. Analyze issue sentiment (title + body)
-      const issueSentiment = await analyzeIssueSentiment(issue);
-
-      // 2. Analyze comment sentiments (from cached data)
-      const commentsSentiments = await analyzeCommentsSentiment(issue.id);
-
-      totalCommentsFetched += commentsSentiments.length;
-
-      // 3. Calculate aggregate sentiment score
-      const { score, metadata } = calculateSentimentScore(
-        issueSentiment,
-        commentsSentiments
-      );
-
-      // 4. Store in issue_analysis table
-      analysisQueries.upsert.run(
-        issue.id,
-        'sentiment',
-        score,
-        JSON.stringify(metadata)
-      );
-
-      analyzedCount++;
-
-      // Progress update every 10 issues
-      if (analyzedCount % 10 === 0) {
-        const elapsed = Math.round((Date.now() - startTime) / 1000);
-        const avgTimePerIssue = Math.round((Date.now() - startTime) / analyzedCount);
-        const remaining = issuesToAnalyze.length - analyzedCount;
-        const eta = Math.round((remaining * avgTimePerIssue) / 1000);
-        console.log(
-          `[${repo.owner}/${repo.name}] Progress: ${analyzedCount}/${issuesToAnalyze.length} ` +
-          `(${Math.round((analyzedCount / issuesToAnalyze.length) * 100)}%) | ` +
-          `${elapsed}s elapsed, ~${eta}s remaining`
-        );
-      }
-    } catch (error) {
-      console.error(`[${repo.owner}/${repo.name}] Failed to analyze issue #${issue.number}:`, error);
-    }
-  }
-
-  const totalTime = Date.now() - startTime;
-  const avgTimePerIssue = Math.round(totalTime / analyzedCount);
-
-  console.log(
-    `[${repo.owner}/${repo.name}] ✓ Sentiment analysis completed: ` +
-    `${analyzedCount} bugs analyzed, ${totalCommentsFetched} comments processed | ` +
-    `${Math.round(totalTime / 1000)}s total (avg ${avgTimePerIssue}ms/issue)`
-  );
-}
-
-/**
- * Process single issue refresh job
- * Fetches one issue from GitHub, updates DB, and optionally triggers analysis
- */
-async function processSingleIssueRefreshJob(job) {
-  const { repoId, issueNumber, accessToken } = job;
-  const repo = repoQueries.getById.get(repoId);
-  const { owner, name: repoName } = repo;
-
-  console.log(`[${owner}/${repoName}] Refreshing issue #${issueNumber}...`);
+  // Generate unique job ID
+  const jobId = randomUUID();
 
   try {
-    // 1. Fetch single issue from GitHub
-    const issue = await fetchSingleIssue(accessToken, owner, repoName, issueNumber);
-
-    // 2. Upsert to database
-    const labels = issue.labels.nodes.map(l => l.name);
-    const assignees = issue.assignees.nodes.map(a => a.login);
-    const comments = issue.comments.nodes;
-    const lastComment = comments.length > 0 ? comments[comments.length - 1] : null;
-
-    issueQueries.upsert.run(
+    jobQueries.insert.run(
+      jobId,
+      type,
       repoId,
-      issue.databaseId,
-      issue.number,
-      issue.title,
-      issue.body,
-      issue.state.toLowerCase(),
-      JSON.stringify(labels),
-      toSqliteDateTime(issue.createdAt),
-      toSqliteDateTime(issue.updatedAt),
-      toSqliteDateTime(issue.closedAt),
-      issue.comments.totalCount,
-      toSqliteDateTime(lastComment?.createdAt) || null,
-      lastComment?.author?.login || null,
-      JSON.stringify({ total: issue.reactions.totalCount }),
-      JSON.stringify(assignees),
-      issue.milestone?.title || null,
-      issue.issueType?.name || null,
-      issue.author?.login || null,
-      issue.authorAssociation || null
+      userId,
+      argsJson,
+      'pending',
+      priority
     );
-
-    // 3. Fetch and update all comments
-    const allComments = await fetchIssueComments(accessToken, owner, repoName, issue.number);
-    const dbIssue = issueQueries.findByGithubId.get(issue.databaseId);
-
-    // Clear old comments and insert new ones
-    const updateComments = transaction(() => {
-      commentQueries.deleteByIssueId.run(dbIssue.id);
-      for (const comment of allComments) {
-        commentQueries.insertOrUpdate.run(
-          dbIssue.id,
-          comment.databaseId,
-          comment.author?.login || null,
-          comment.body,
-          toSqliteDateTime(comment.createdAt)
-        );
-      }
-    });
-    updateComments();
-
-    // Mark comments as fetched
-    issueQueries.updateCommentsFetched.run(dbIssue.id);
-
-    console.log(`[${owner}/${repoName}] ✓ Issue #${issueNumber} refreshed`);
-
-    // 4. Optionally trigger sentiment analysis if it's a bug
-    // The updated issue.updated_at will cause incremental analyzer to pick it up automatically
-    // But we can also trigger immediate analysis for this specific issue
-    if (isSentimentAnalysisAvailable()) {
-      const isBug = labels.some(label =>
-        label.toLowerCase().includes('bug') ||
-        label.toLowerCase().includes('[type] bug')
-      );
-
-      if (isBug) {
-        console.log(`[${owner}/${repoName}] Triggering sentiment analysis for issue #${issueNumber}...`);
-
-        const issueSentiment = await analyzeIssueSentiment(issue);
-        const commentsSentiment = await analyzeCommentsSentiment(dbIssue.id);
-        const result = calculateSentimentScore(issueSentiment, commentsSentiment, allComments.length);
-
-        // Store analysis
-        analysisQueries.upsert.run(
-          dbIssue.id,
-          'sentiment',
-          result.score,
-          JSON.stringify(result.metadata)
-        );
-
-        console.log(`[${owner}/${repoName}] ✓ Sentiment analysis completed for #${issueNumber} (score: ${result.score})`);
-      }
-    }
-
-    console.log(`[${owner}/${repoName}] ✓ Issue #${issueNumber} fully refreshed`);
-
+    console.log(`[JobQueue] Queued: ${type} for repo ${repoId} (${jobId})`);
+    triggerJobLoop();
+    return true;
   } catch (error) {
-    console.error(`[${owner}/${repoName}] ✗ Failed to refresh issue #${issueNumber}:`, error.message);
+    console.error(`[JobQueue] Failed to queue job: ${error.message}`);
     throw error;
   }
 }
 
 /**
- * Get queue status
+ * Job runner - event-driven loop that starts jobs up to capacity
+ * Exits when at capacity or no jobs available
+ * Retriggered by job completion or new job queuing
+ */
+async function runJobLoop() {
+  // Prevent multiple concurrent loops
+  if (jobRunnerActive) {
+    return;
+  }
+
+  jobRunnerActive = true;
+
+  try {
+    // Keep trying to start jobs until we hit capacity or run out of jobs
+    while (true) {
+      // Get currently processing jobs
+      const processingJobs = jobQueries.findProcessingJobs.all();
+
+      // Check if we're at max capacity
+      if (processingJobs.length >= MAX_CONCURRENT_REPOS) {
+        console.log(`[JobQueue] At capacity (${processingJobs.length}/${MAX_CONCURRENT_REPOS}), waiting for jobs to complete`);
+        break;
+      }
+
+      // Get repo IDs currently being processed
+      const processingRepoIds = processingJobs.map(j => j.repo_id);
+
+      // Find next pending job (excluding repos currently processing)
+      const job = jobQueries.findNextPendingJob(processingRepoIds);
+
+      if (!job) {
+        // No more jobs available
+        if (processingJobs.length === 0) {
+          console.log('[JobQueue] No pending or processing jobs, loop idle');
+        } else {
+          console.log(`[JobQueue] No pending jobs, ${processingJobs.length} job(s) still processing`);
+        }
+        break;
+      }
+
+      // Mark job as processing in database
+      try {
+        jobQueries.updateStarted.run(job.job_id);
+      } catch (error) {
+        console.error(`[JobQueue] Failed to mark job ${job.job_id} as processing:`, error.message);
+        break;
+      }
+
+      // Update repo status to in_progress
+      try {
+        repoQueries.updateStatus.run('in_progress', job.repo_id);
+      } catch (error) {
+        console.error(`[JobQueue] Failed to update repo status to in_progress:`, error.message);
+      }
+
+      console.log(`[JobQueue] Starting: ${job.type} for repo ${job.repo_id}`);
+
+      // Process the job asynchronously (don't await - run in parallel)
+      processJob(job);
+    }
+  } catch (error) {
+    console.error('[JobQueue] Error in job loop:', error);
+  } finally {
+    jobRunnerActive = false;
+  }
+}
+
+/**
+ * Job handler dispatch map with schemas
+ */
+const jobHandlers = {
+  'issue-fetch': { handler: issueFetchHandler, schema: issueFetchSchema },
+  'sentiment': { handler: sentimentHandler, schema: sentimentSchema },
+  'single-issue-refresh': { handler: singleIssueRefreshHandler, schema: singleIssueRefreshSchema },
+};
+
+/**
+ * Enrich job args with derived data from database
+ * Parses args JSON, fetches user for accessToken, fetches repo for owner/name
+ * @param {object} job - Job from database
+ * @returns {object} Enriched args with repoId, userId, accessToken, owner, repoName
+ */
+function enrichJobArgs(job) {
+  // Parse args JSON
+  const args = job.args ? JSON.parse(job.args) : {};
+
+  // Get user for access token
+  const user = userQueries.findById.get(job.user_id);
+  if (!user) {
+    throw new Error(`User not found for job ${job.job_id}`);
+  }
+
+  // Get repo for owner/name
+  const repo = repoQueries.getById.get(job.repo_id);
+  if (!repo) {
+    throw new Error(`Repository not found for job ${job.job_id}`);
+  }
+
+  // Return enriched args
+  return {
+    ...args,
+    repoId: job.repo_id,
+    userId: job.user_id,
+    accessToken: user.access_token,
+    owner: repo.owner,
+    repoName: repo.name,
+  };
+}
+
+/**
+ * Process a single job by dispatching to the appropriate handler
+ * Request-level retries are handled within the API call layer
+ */
+async function processJob(job) {
+  try {
+    const handlerConfig = jobHandlers[job.type];
+    if (!handlerConfig) {
+      throw new Error(`Unknown job type: ${job.type}`);
+    }
+
+    // Enrich and validate
+    const enrichedArgs = enrichJobArgs(job);
+    const validationResult = handlerConfig.schema.safeParse(enrichedArgs);
+    if (!validationResult.success) {
+      const errors = validationResult.error.flatten();
+      throw new Error(`Invalid args: ${JSON.stringify(errors.fieldErrors)}`);
+    }
+
+    // Call handler with validated, enriched args
+    await handlerConfig.handler(enrichedArgs);
+
+    console.log(`[JobQueue] ✓ Completed job: ${job.type} for repo ${job.repo_id}`);
+
+    // Mark job as completed in database
+    try {
+      jobQueries.updateCompleted.run(job.job_id);
+    } catch (error) {
+      console.error(`[JobQueue] Failed to mark job ${job.job_id} as completed:`, error.message);
+    }
+
+    // Generic repo status update on success
+    try {
+      repoQueries.updateStatus.run('completed', job.repo_id);
+    } catch (error) {
+      console.error(`[JobQueue] Failed to update repo status to completed:`, error.message);
+    }
+  } catch (error) {
+    console.error(
+      `[JobQueue] ✗ Job failed: ${job.type} for repo ${job.repo_id}`,
+      error.message || error
+    );
+
+    // Mark job as failed in database
+    try {
+      jobQueries.updateFailed.run(error.message || String(error), job.job_id);
+    } catch (dbError) {
+      console.error(`[JobQueue] Failed to mark job ${job.job_id} as failed:`, dbError.message);
+    }
+
+    // Generic repo status update on failure
+    try {
+      repoQueries.updateStatus.run('failed', job.repo_id);
+    } catch (dbError) {
+      console.error(`[JobQueue] Failed to update repo status to failed:`, dbError.message);
+    }
+  } finally {
+    // Job completed (success or failure) - trigger loop to process next job
+    triggerJobLoop();
+  }
+}
+
+/**
+ * Initialize the job runner on server startup
+ * Resets stuck jobs and starts processing if there are pending jobs
+ */
+export function startJobRunner() {
+  console.log('[JobQueue] Initializing job runner...');
+
+  try {
+    // Find jobs that were processing when server stopped (mark them as pending)
+    const processingJobs = jobQueries.findProcessingJobs.all();
+    if (processingJobs.length > 0) {
+      console.log(`[JobQueue] Found ${processingJobs.length} jobs stuck in 'processing' state, resetting to pending`);
+      for (const job of processingJobs) {
+        jobQueries.updateStatus.run('pending', job.job_id);
+      }
+    }
+
+    // Count pending jobs
+    const pendingJobs = jobQueries.findPendingJobs.all();
+    console.log(`[JobQueue] Found ${pendingJobs.length} pending job(s)`);
+
+    // Clean up old completed/failed jobs (older than 7 days)
+    const cleanupResult = jobQueries.deleteOldCompleted.run();
+    if (cleanupResult.changes > 0) {
+      console.log(`[JobQueue] Cleaned up ${cleanupResult.changes} old completed/failed job(s)`);
+    }
+
+    // Trigger job loop if there are pending jobs
+    if (pendingJobs.length > 0) {
+      console.log('[JobQueue] ✓ Job runner initialized, starting event loop');
+      triggerJobLoop();
+    } else {
+      console.log('[JobQueue] ✓ Job runner initialized (no pending jobs)');
+    }
+  } catch (error) {
+    console.error('[JobQueue] Failed to initialize job runner:', error);
+    // Don't throw - allow server to start even if initialization fails
+  }
+}
+
+/**
+ * Get queue status from database
  */
 export function getQueueStatus() {
+  const stats = jobQueries.countByStatus.all();
+  const statusMap = Object.fromEntries(stats.map(s => [s.status, s.count]));
+
   return {
-    queueLength: queue.length,
-    processingCount: processingRepos.size,
+    queueLength: statusMap.pending || 0,
+    processingCount: statusMap.processing || 0,
+    completedCount: statusMap.completed || 0,
+    failedCount: statusMap.failed || 0,
     maxConcurrent: MAX_CONCURRENT_REPOS,
   };
 }
@@ -627,6 +291,7 @@ export function getQueueStatus() {
  * Returns 'issue-fetch', 'sentiment', or null
  */
 export function getCurrentJobForRepo(repoId) {
-  const job = processingRepos.get(repoId);
+  const processingJobs = jobQueries.findProcessingJobs.all();
+  const job = processingJobs.find(j => j.repo_id === repoId);
   return job ? job.type : null;
 }

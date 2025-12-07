@@ -2,6 +2,10 @@ import db from './database.js';
 
 // User queries - using functions to avoid early execution
 export const userQueries = {
+  get findById() {
+    return db.prepare('SELECT * FROM users WHERE id = ?');
+  },
+
   get findByGithubId() {
     return db.prepare('SELECT * FROM users WHERE github_id = ?');
   },
@@ -40,18 +44,26 @@ export const repoQueries = {
     `);
   },
 
-  get updateFetchStatus() {
+  get updateStatus() {
     return db.prepare(`
       UPDATE repositories
-      SET fetch_status = ?
+      SET status = ?
       WHERE id = ?
     `);
   },
 
-  get updateFetchStatusWithTime() {
+  get updateStatusWithTime() {
     return db.prepare(`
       UPDATE repositories
-      SET last_fetched = ?, fetch_status = ?
+      SET last_fetched = ?, status = ?
+      WHERE id = ?
+    `);
+  },
+
+  get updateLastFetched() {
+    return db.prepare(`
+      UPDATE repositories
+      SET last_fetched = ?
       WHERE id = ?
     `);
   },
@@ -320,6 +332,135 @@ export const commentQueries = {
       SELECT COUNT(*) as count
       FROM issue_comments
       WHERE issue_id = ?
+    `);
+  },
+};
+
+// Job queue queries
+export const jobQueries = {
+  get insert() {
+    return db.prepare(`
+      INSERT INTO job_queue (job_id, type, repo_id, user_id, args, status, priority)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `);
+  },
+
+  get findPendingJobs() {
+    return db.prepare(`
+      SELECT * FROM job_queue
+      WHERE status = 'pending'
+      ORDER BY priority DESC, created_at ASC
+    `);
+  },
+
+  get findProcessingJobs() {
+    return db.prepare(`
+      SELECT * FROM job_queue
+      WHERE status = 'processing'
+      ORDER BY started_at ASC
+    `);
+  },
+
+  // Find next pending job that's not for a repo currently being processed
+  findNextPendingJob(excludeRepoIds = []) {
+    if (excludeRepoIds.length === 0) {
+      return db.prepare(`
+        SELECT * FROM job_queue
+        WHERE status = 'pending'
+        ORDER BY priority DESC, created_at ASC
+        LIMIT 1
+      `).get();
+    }
+
+    const placeholders = excludeRepoIds.map(() => '?').join(',');
+    return db.prepare(`
+      SELECT * FROM job_queue
+      WHERE status = 'pending'
+        AND repo_id NOT IN (${placeholders})
+      ORDER BY priority DESC, created_at ASC
+      LIMIT 1
+    `).get(...excludeRepoIds);
+  },
+
+  get findByJobId() {
+    return db.prepare(`
+      SELECT * FROM job_queue
+      WHERE job_id = ?
+    `);
+  },
+
+  get updateStatus() {
+    return db.prepare(`
+      UPDATE job_queue
+      SET status = ?
+      WHERE job_id = ?
+    `);
+  },
+
+  get updateStarted() {
+    return db.prepare(`
+      UPDATE job_queue
+      SET status = 'processing', started_at = CURRENT_TIMESTAMP
+      WHERE job_id = ?
+    `);
+  },
+
+  get updateCompleted() {
+    return db.prepare(`
+      UPDATE job_queue
+      SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+      WHERE job_id = ?
+    `);
+  },
+
+  get updateFailed() {
+    return db.prepare(`
+      UPDATE job_queue
+      SET status = 'failed', completed_at = CURRENT_TIMESTAMP, error_message = ?
+      WHERE job_id = ?
+    `);
+  },
+
+  get deleteByJobId() {
+    return db.prepare(`
+      DELETE FROM job_queue
+      WHERE job_id = ?
+    `);
+  },
+
+  get deleteOldCompleted() {
+    return db.prepare(`
+      DELETE FROM job_queue
+      WHERE status IN ('completed', 'failed')
+        AND completed_at < datetime('now', '-7 days')
+    `);
+  },
+
+  get countByStatus() {
+    return db.prepare(`
+      SELECT status, COUNT(*) as count
+      FROM job_queue
+      GROUP BY status
+    `);
+  },
+
+  get countByRepoAndStatus() {
+    return db.prepare(`
+      SELECT COUNT(*) as count
+      FROM job_queue
+      WHERE repo_id = ? AND status = ?
+    `);
+  },
+
+  get findDuplicateJob() {
+    return db.prepare(`
+      SELECT * FROM job_queue
+      WHERE type = ?
+        AND repo_id = ?
+        AND args = ?
+        AND status IN ('pending', 'processing')
+      LIMIT 1
     `);
   },
 };
