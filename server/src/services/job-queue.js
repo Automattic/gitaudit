@@ -387,7 +387,7 @@ async function processIssueFetchJob(job) {
   // Fetch and store maintainer logins for Community Health scoring
   try {
     const settings = loadRepoSettings(repoId);
-    const team = settings.community?.maintainerTeam;
+    const team = settings.general?.maintainerTeam;
 
     if (team && team.org && team.teamSlug) {
       console.log(`[${owner}/${repoName}] Fetching maintainer logins from ${team.org}/${team.teamSlug}...`);
@@ -427,15 +427,18 @@ async function processSentimentJob(job) {
 
   console.log(`[${repo.owner}/${repo.name}] Starting sentiment analysis...`);
 
+  // Load settings for bug/feature label detection
+  const settings = loadRepoSettings(repoId);
+
   // INCREMENTAL: Find issues needing analysis (new or updated since last analysis)
   const staleIssues = analysisQueries.findStaleAnalyses.all('sentiment', repoId);
 
   // Filter to bugs and features (sentiment is useful for both)
   const { isFeatureRequest } = await import('./analyzers/features.js');
-  const issuesToAnalyze = staleIssues.filter(issue => isBugIssue(issue) || isFeatureRequest(issue));
+  const issuesToAnalyze = staleIssues.filter(issue => isBugIssue(issue, settings.general) || isFeatureRequest(issue, settings.general));
 
-  const bugCount = staleIssues.filter(isBugIssue).length;
-  const featureCount = staleIssues.filter(isFeatureRequest).length;
+  const bugCount = staleIssues.filter(issue => isBugIssue(issue, settings.general)).length;
+  const featureCount = staleIssues.filter(issue => isFeatureRequest(issue, settings.general)).length;
 
   console.log(
     `[${repo.owner}/${repo.name}] Found ${issuesToAnalyze.length} issues needing analysis ` +

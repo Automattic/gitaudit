@@ -3,7 +3,6 @@ import { DataForm } from '@wordpress/dataviews';
 import {
   CheckboxControl,
   __experimentalNumberControl as NumberControl,
-  TextControl,
 } from '@wordpress/components';
 import {
   flattenFeatureRequestSettings,
@@ -44,34 +43,6 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
   // Field definitions
   const fields = useMemo(
     () => [
-      // Detection Settings
-      {
-        id: 'detection_featureLabels',
-        type: 'text' as const,
-        label: 'Feature Labels',
-        Edit: ({ data, field, onChange }: FieldEditProps) => (
-          <TextControl
-            label={field.label}
-            value={data[field.id]}
-            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
-            help="Comma-separated label patterns to identify feature requests"
-          />
-        ),
-      },
-      {
-        id: 'detection_rejectionLabels',
-        type: 'text' as const,
-        label: 'Rejection Labels',
-        Edit: ({ data, field, onChange }: FieldEditProps) => (
-          <TextControl
-            label={field.label}
-            value={data[field.id]}
-            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
-            help="Comma-separated label patterns that indicate rejection"
-          />
-        ),
-      },
-
       // Reactions
       {
         id: 'reactions_enabled',
@@ -602,20 +573,10 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
           ],
         },
         {
-          id: 'detection',
-          label: 'Feature Detection',
-          description:
-            'Configure how feature requests are identified and which labels indicate rejection.',
-          children: [
-            'detection_featureLabels',
-            'detection_rejectionLabels',
-          ],
-        },
-        {
           id: 'scoring-rules',
           label: 'Scoring Rules',
           description:
-            'Enable and configure individual scoring rules for feature prioritization.',
+            'Enable and configure individual scoring rules for feature prioritization. Feature labels and rejection labels are configured in the General settings tab.',
           children: [
             {
               id: 'demand-signals',

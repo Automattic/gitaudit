@@ -133,6 +133,9 @@ export function initializeDatabase() {
   // Rename stale threshold keys to match priority levels
   migrateStaleThresholdKeys();
 
+  // Add general settings section
+  migrateToGeneralSettings();
+
   console.log('Database initialized successfully');
 }
 
@@ -722,6 +725,269 @@ function migrateStaleThresholdKeys() {
 
   } catch (error) {
     console.error('Failed to migrate stale threshold keys:', error);
+    // Don't throw - allow server to start even if migration fails
+  }
+}
+
+// Add general settings section and migrate global label configuration
+// Creates: general.labels { bug, feature, highPriority, lowPriority }
+// Splits:  bugs.scoringRules.priorityLabels → general.labels.highPriority + bugs.scoringRules.highPriorityLabels
+//          bugs.scoringRules.lowPriorityLabels → general.labels.lowPriority + bugs.scoringRules.lowPriorityLabels
+// Moves:   features.detection.featureLabels → general.labels.feature
+//          community.maintainerTeam → general.maintainerTeam
+// Removes: features.detection (all labels moved to general)
+function migrateToGeneralSettings() {
+  try {
+    // Check if this migration has already run
+    const migrationName = 'add_general_settings_2025_12_v3';
+    const alreadyRun = db.prepare(`
+      SELECT COUNT(*) as count FROM migration_log WHERE migration_name = ?
+    `).get(migrationName);
+
+    if (alreadyRun.count > 0) {
+      // Migration already completed
+      return;
+    }
+
+    // Get all repo settings
+    const allSettings = db.prepare(`
+      SELECT id, settings FROM repo_settings
+    `).all();
+
+    if (allSettings.length === 0) {
+      // No settings to migrate, just mark as complete
+      db.prepare(`
+        INSERT INTO migration_log (migration_name) VALUES (?)
+      `).run(migrationName);
+      return;
+    }
+
+    console.log(`\n${'='.repeat(70)}`);
+    console.log('🔄 MIGRATING: Adding general settings section');
+    console.log(`   Found ${allSettings.length} repository setting(s) to process`);
+
+    // Prepare update statement
+    const updateStmt = db.prepare(`
+      UPDATE repo_settings SET settings = ? WHERE id = ?
+    `);
+
+    const migrate = db.transaction(() => {
+      let migratedCount = 0;
+
+      for (const row of allSettings) {
+        try {
+          const settings = JSON.parse(row.settings);
+
+          // Skip if already migrated to the new structure
+          if (settings.general?.labels?.highPriority !== undefined &&
+              settings.bugs?.scoringRules?.highPriorityLabels !== undefined) {
+            continue;
+          }
+
+          let modified = false;
+
+          // Get defaults for fallback values
+          const defaults = {
+            labels: {
+              bug: 'bug, defect, error, crash, broken, [type] bug',
+              feature: 'enhancement, feature, feature request, new feature, proposal, [type] enhancement, [type] feature',
+              highPriority: 'critical, high priority, urgent, severity: high, p0, p1, blocker, showstopper, priority high, priority: high, [priority] high',
+              lowPriority: 'priority low, priority: low, [priority] low, low priority'
+            },
+            highPriorityLabels: { enabled: true, points: 30 },
+            lowPriorityLabels: { enabled: true, points: -20 }
+          };
+
+          // Initialize general section if it doesn't exist
+          if (!settings.general) {
+            settings.general = {
+              labels: {
+                bug: '',
+                feature: '',
+                highPriority: '',
+                lowPriority: ''
+              },
+              maintainerTeam: { org: '', teamSlug: '' }
+            };
+            modified = true;
+          }
+
+          // Ensure labels object exists
+          if (!settings.general.labels) {
+            settings.general.labels = {
+              bug: '',
+              feature: '',
+              highPriority: '',
+              lowPriority: ''
+            };
+            modified = true;
+          }
+
+          // Add bug and feature labels if missing
+          if (!settings.general.labels.bug) {
+            settings.general.labels.bug = defaults.labels.bug;
+            modified = true;
+          }
+          if (!settings.general.labels.feature) {
+            settings.general.labels.feature = defaults.labels.feature;
+            modified = true;
+          }
+
+          // Ensure bugs.scoringRules exists
+          if (!settings.bugs) {
+            settings.bugs = { scoringRules: {}, thresholds: { critical: 120, high: 80, medium: 50 } };
+            modified = true;
+          }
+          if (!settings.bugs.scoringRules) {
+            settings.bugs.scoringRules = {};
+            modified = true;
+          }
+
+          // Migrate priority labels - SPLIT into labels (general) and enabled/points (bugs)
+          // Handle old priorityLabels from bugs.scoringRules
+          if (settings.bugs.scoringRules.priorityLabels) {
+            const priorityLabels = settings.bugs.scoringRules.priorityLabels;
+
+            // Move labels string to general.labels.highPriority
+            settings.general.labels.highPriority = priorityLabels.labels || defaults.labels.highPriority;
+
+            // Keep enabled/points in bugs.scoringRules.highPriorityLabels
+            settings.bugs.scoringRules.highPriorityLabels = {
+              enabled: priorityLabels.enabled ?? defaults.highPriorityLabels.enabled,
+              points: priorityLabels.points ?? defaults.highPriorityLabels.points
+            };
+
+            // Remove old priorityLabels
+            delete settings.bugs.scoringRules.priorityLabels;
+            modified = true;
+          }
+          // Handle old priorityLabels from general (incorrect previous migration)
+          else if (settings.general.priorityLabels) {
+            const priorityLabels = settings.general.priorityLabels;
+
+            // Move labels string to general.labels.highPriority
+            settings.general.labels.highPriority = priorityLabels.labels || defaults.labels.highPriority;
+
+            // Create highPriorityLabels in bugs.scoringRules with enabled/points
+            settings.bugs.scoringRules.highPriorityLabels = {
+              enabled: priorityLabels.enabled ?? defaults.highPriorityLabels.enabled,
+              points: priorityLabels.points ?? defaults.highPriorityLabels.points
+            };
+
+            // Remove old priorityLabels from general
+            delete settings.general.priorityLabels;
+            modified = true;
+          }
+          // No old settings - create with defaults
+          else if (!settings.general.labels.highPriority) {
+            settings.general.labels.highPriority = defaults.labels.highPriority;
+            settings.bugs.scoringRules.highPriorityLabels = defaults.highPriorityLabels;
+            modified = true;
+          }
+
+          // Migrate low priority labels - SPLIT into labels (general) and enabled/points (bugs)
+          // Handle old lowPriorityLabels that has all fields (labels, enabled, points)
+          if (settings.bugs.scoringRules.lowPriorityLabels?.labels !== undefined) {
+            const lowPriorityLabels = settings.bugs.scoringRules.lowPriorityLabels;
+
+            // Move labels string to general.labels.lowPriority
+            settings.general.labels.lowPriority = lowPriorityLabels.labels || defaults.labels.lowPriority;
+
+            // Keep only enabled/points in bugs.scoringRules.lowPriorityLabels
+            settings.bugs.scoringRules.lowPriorityLabels = {
+              enabled: lowPriorityLabels.enabled ?? defaults.lowPriorityLabels.enabled,
+              points: lowPriorityLabels.points ?? defaults.lowPriorityLabels.points
+            };
+
+            modified = true;
+          }
+          // Handle old lowPriorityLabels from general (incorrect previous migration)
+          else if (settings.general.lowPriorityLabels) {
+            const lowPriorityLabels = settings.general.lowPriorityLabels;
+
+            // Move labels string to general.labels.lowPriority
+            settings.general.labels.lowPriority = lowPriorityLabels.labels || defaults.labels.lowPriority;
+
+            // Create lowPriorityLabels in bugs.scoringRules with enabled/points
+            settings.bugs.scoringRules.lowPriorityLabels = {
+              enabled: lowPriorityLabels.enabled ?? defaults.lowPriorityLabels.enabled,
+              points: lowPriorityLabels.points ?? defaults.lowPriorityLabels.points
+            };
+
+            // Remove old lowPriorityLabels from general
+            delete settings.general.lowPriorityLabels;
+            modified = true;
+          }
+          // No old settings - create with defaults
+          else if (!settings.general.labels.lowPriority) {
+            settings.general.labels.lowPriority = defaults.labels.lowPriority;
+            settings.bugs.scoringRules.lowPriorityLabels = defaults.lowPriorityLabels;
+            modified = true;
+          }
+
+          // Migrate maintainer team from community to general
+          if (settings.community?.maintainerTeam) {
+            settings.general.maintainerTeam = settings.community.maintainerTeam;
+            delete settings.community.maintainerTeam;
+            modified = true;
+          }
+
+          // Ensure features section exists (without detection - labels are in general)
+          if (!settings.features) {
+            settings.features = {
+              scoringRules: {
+                reactions: { enabled: true },
+                uniqueCommenters: { enabled: true },
+                meTooComments: { enabled: true, points: 5, minimumCount: 3 },
+                activeDiscussion: { enabled: true },
+                recentActivity: { enabled: true, recentThreshold: 30, recentPoints: 10, moderateThreshold: 90, moderatePoints: 5 },
+                hasMilestone: { enabled: true, points: 10 },
+                hasAssignee: { enabled: true, points: 5 },
+                authorType: { enabled: true, teamPoints: 5, contributorPoints: 3, firstTimePoints: 2 },
+                sentimentAnalysis: { enabled: true, maxPoints: 10 },
+                stalePenalty: { enabled: true, points: -10, ageThreshold: 180, inactivityThreshold: 90 },
+                rejectionPenalty: { enabled: true, points: -50 },
+                vagueDescriptionPenalty: { enabled: true, points: -5, lengthThreshold: 100 },
+              },
+              thresholds: { critical: 70, high: 50, medium: 30 },
+            };
+            modified = true;
+          }
+
+          // Migrate featureLabels from features.detection to general.labels.feature
+          if (settings.features?.detection?.featureLabels) {
+            settings.general.labels.feature = settings.features.detection.featureLabels;
+            modified = true;
+          }
+
+          // Remove detection section from features (labels moved to general)
+          if (settings.features?.detection) {
+            delete settings.features.detection;
+            modified = true;
+          }
+
+          if (modified) {
+            updateStmt.run(JSON.stringify(settings), row.id);
+            migratedCount++;
+          }
+        } catch (error) {
+          console.error(`   ⚠️  Failed to migrate settings for repo_settings id=${row.id}:`, error.message);
+        }
+      }
+
+      console.log(`   ✓ Updated ${migratedCount} repository setting(s)`);
+      console.log(`${'='.repeat(70)}\n`);
+    });
+
+    migrate();
+
+    // Mark this migration as complete
+    db.prepare(`
+      INSERT INTO migration_log (migration_name) VALUES (?)
+    `).run(migrationName);
+
+  } catch (error) {
+    console.error('Failed to migrate to general settings:', error);
     // Don't throw - allow server to start even if migration fails
   }
 }

@@ -12,24 +12,22 @@ import { analysisQueries } from '../../db/queries.js';
 /**
  * Check if an issue is a feature request
  * @param {Object} issue - Issue to check
- * @param {Object} settings - Feature settings (optional, for custom labels)
+ * @param {Object} generalSettings - General settings (optional, for custom labels)
  * @returns {boolean}
  */
-export function isFeatureRequest(issue, settings = null) {
-  if (!settings) {
-    settings = getDefaultSettings().features;
-  }
-
+export function isFeatureRequest(issue, generalSettings = null) {
   // 1. Check GitHub's native issue type
   if (issue.issue_type && issue.issue_type.toLowerCase() === 'enhancement') {
     return true;
   }
 
-  // 2. Check for feature labels (configurable)
+  // 2. Check for feature labels from general settings
   const labels = JSON.parse(issue.labels || '[]');
 
-  // Parse configured feature keywords
-  const featureKeywords = settings.detection.featureLabels
+  // Get feature labels from general settings or use defaults
+  const defaults = getDefaultSettings();
+  const featureLabelString = generalSettings?.labels?.feature || defaults.general.labels.feature;
+  const featureKeywords = featureLabelString
     .split(',')
     .map(label => label.trim().toLowerCase())
     .filter(label => label.length > 0);
@@ -42,16 +40,19 @@ export function isFeatureRequest(issue, settings = null) {
 /**
  * Score a feature request based on demand, engagement, and feasibility
  * @param {Object} issue - Issue to score
- * @param {Object} settings - Feature scoring settings
+ * @param {Object} featuresSettings - Feature scoring settings
+ * @param {Object} generalSettings - General settings (for rejection labels)
  * @param {Object} options - Additional scoring data (uniqueCommentersMap, meTooComments)
  * @returns {Object} { score, metadata }
  */
-export function scoreFeatureRequest(issue, settings = null, options = {}) {
-  if (!settings) {
-    settings = getDefaultSettings().features;
+export function scoreFeatureRequest(issue, featuresSettings = null, generalSettings = null, options = {}) {
+  if (!featuresSettings || !generalSettings) {
+    const defaults = getDefaultSettings();
+    featuresSettings = featuresSettings || defaults.features;
+    generalSettings = generalSettings || defaults.general;
   }
 
-  const rules = settings.scoringRules;
+  const rules = featuresSettings.scoringRules;
   let score = 0;
   const metadata = {};
 
@@ -227,9 +228,9 @@ export function scoreFeatureRequest(issue, settings = null, options = {}) {
     }
   }
 
-  // B. Rejection Labels (-50 points)
+  // B. Rejection Labels (-50 points, uses general.labels.lowPriority)
   if (rules.rejectionPenalty.enabled) {
-    const rejectionKeywords = settings.detection.rejectionLabels
+    const rejectionKeywords = generalSettings.labels.lowPriority
       .split(',')
       .map(label => label.trim().toLowerCase())
       .filter(label => label.length > 0);
@@ -266,13 +267,16 @@ export function scoreFeatureRequest(issue, settings = null, options = {}) {
 /**
  * Analyze feature requests from a set of issues
  * @param {Array} issues - Issues to analyze
- * @param {Object} settings - Feature scoring settings
+ * @param {Object} featuresSettings - Feature scoring settings
+ * @param {Object} generalSettings - General settings (for rejection labels)
  * @param {Object} options - Pagination and filtering options
  * @returns {Object} Analyzed issues with scores, stats, and pagination
  */
-export function analyzeFeatureRequests(issues, settings = null, options = {}) {
-  if (!settings) {
-    settings = getDefaultSettings().features;
+export function analyzeFeatureRequests(issues, featuresSettings = null, generalSettings = null, options = {}) {
+  if (!featuresSettings || !generalSettings) {
+    const defaults = getDefaultSettings();
+    featuresSettings = featuresSettings || defaults.features;
+    generalSettings = generalSettings || defaults.general;
   }
 
   const {
@@ -282,10 +286,10 @@ export function analyzeFeatureRequests(issues, settings = null, options = {}) {
     search = ''
   } = options;
 
-  const thresholds = settings.thresholds;
+  const thresholds = featuresSettings.thresholds;
 
   // First, filter to only feature request issues
-  const featureIssues = issues.filter(issue => isFeatureRequest(issue, settings));
+  const featureIssues = issues.filter(issue => isFeatureRequest(issue, generalSettings));
 
   // Pre-compute unique commenters for all feature issues
   // TODO: This will be implemented when we add the batch query
@@ -297,7 +301,7 @@ export function analyzeFeatureRequests(issues, settings = null, options = {}) {
 
   // Score all feature requests
   const scoredFeatures = featureIssues.map(issue => {
-    const { score, metadata } = scoreFeatureRequest(issue, settings, {
+    const { score, metadata } = scoreFeatureRequest(issue, featuresSettings, generalSettings, {
       uniqueCommentersMap,
       meTooComments,
     });

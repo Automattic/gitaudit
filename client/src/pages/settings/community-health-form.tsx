@@ -3,7 +3,6 @@ import { DataForm } from '@wordpress/dataviews';
 import {
   CheckboxControl,
   __experimentalNumberControl as NumberControl,
-  TextControl,
 } from '@wordpress/components';
 import {
   flattenCommunityHealthSettings,
@@ -44,36 +43,6 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
   // Field definitions
   const fields = useMemo(
     () => [
-      // Maintainer Team Configuration
-      {
-        id: 'maintainerTeam_org',
-        type: 'text' as const,
-        label: 'GitHub Organization',
-        Edit: ({ data, field, onChange }: FieldEditProps) => (
-          <TextControl
-            label={field.label}
-            value={data[field.id]}
-            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
-            help="GitHub organization login (e.g., 'facebook')"
-            placeholder="organization-name"
-          />
-        ),
-      },
-      {
-        id: 'maintainerTeam_teamSlug',
-        type: 'text' as const,
-        label: 'Team Slug',
-        Edit: ({ data, field, onChange }: FieldEditProps) => (
-          <TextControl
-            label={field.label}
-            value={data[field.id]}
-            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
-            help="GitHub team slug (e.g., 'react-core')"
-            placeholder="team-slug"
-          />
-        ),
-      },
-
       // First-Time Contributor
       {
         id: 'firstTimeContributor_enabled',
@@ -254,24 +223,10 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
           ],
         },
         {
-          id: 'maintainer-team',
-          label: 'Maintainer Team Configuration',
-          description:
-            'Configure the GitHub team used to identify maintainers. Leave empty to disable maintainer-based scoring.',
-          layout: { type: 'card' as const },
-          children: [
-            {
-              id: 'team-fields',
-              layout: { type: 'row' as const, alignment: 'start' as const },
-              children: ['maintainerTeam_org', 'maintainerTeam_teamSlug'],
-            },
-          ],
-        },
-        {
           id: 'scoring-rules',
           label: 'Scoring Rules',
           description:
-            'Enable and configure individual scoring rules for community health detection.',
+            'Enable and configure individual scoring rules for community health detection. Maintainer team configuration is in the General settings tab.',
           children: [
             {
               id: 'first-time-contributor',

@@ -449,45 +449,45 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
       {
         id: 'thresholds_critical',
         type: 'integer' as const,
-        label: 'Critical',
+        label: 'Critical (minimum)',
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 60 })}
             min={0}
             max={500}
-            help="Minimum score for critical classification"
+            help="Minimum score for critical priority"
           />
         ),
       },
       {
         id: 'thresholds_high',
         type: 'integer' as const,
-        label: 'High',
+        label: 'High (minimum)',
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 40 })}
             min={0}
             max={500}
-            help="Minimum score for high classification"
+            help="Minimum score for high priority"
           />
         ),
       },
       {
         id: 'thresholds_medium',
         type: 'integer' as const,
-        label: 'Medium',
+        label: 'Medium (minimum)',
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
             value={data[field.id]}
-            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
+            onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 20 })}
             min={0}
             max={500}
-            help="Minimum score for medium classification"
+            help="Minimum score for medium priority"
           />
         ),
       },
@@ -504,16 +504,16 @@ function StaleIssuesForm({ settings, onChange }: StaleIssuesFormProps) {
           id: 'thresholds',
           label: 'Score Thresholds',
           description:
-            'Minimum scores for classification. Must be: Very Stale > Moderately Stale > Slightly Stale',
+            'Define the minimum scores required for each priority level.',
           layout: { type: 'card' as const },
           children: [
             {
               id: 'thresholds-fields',
               layout: { type: 'row' as const, alignment: 'start' as const },
               children: [
-                'thresholds_veryStale',
-                'thresholds_moderatelyStale',
-                'thresholds_slightlyStale',
+                'thresholds_critical',
+                'thresholds_high',
+                'thresholds_medium',
               ],
             },
           ],

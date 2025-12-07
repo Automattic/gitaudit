@@ -81,7 +81,7 @@ function App() {
                 <Route path=":tabId" element={<Features />} />
               </Route>
               <Route path="settings">
-                <Route index element={<Navigate to="bugs" replace />} />
+                <Route index element={<Navigate to="general" replace />} />
                 <Route path=":section" element={<Settings />} />
               </Route>
             </Route>

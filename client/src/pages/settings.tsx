@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Notice, Spinner } from '@wordpress/components';
 import { useQuery } from '@tanstack/react-query';
+import GeneralForm from './settings/general-form';
 import ImportantBugsForm from './settings/important-bugs-form';
 import StaleIssuesForm from './settings/stale-issues-form';
 import CommunityHealthForm from './settings/community-health-form';
@@ -21,10 +22,10 @@ function Settings() {
   const navigate = useNavigate();
 
   // Validate section parameter with fallback
-  const validSections = ["bugs", "stale", "community", "features"];
+  const validSections = ["general", "bugs", "stale", "community", "features"];
   const activeSection = section && validSections.includes(section)
     ? section
-    : "bugs";
+    : "general";
 
   // Fetch settings using TanStack Query
   const { data: serverSettings, isLoading } = useQuery(
@@ -77,6 +78,13 @@ function Settings() {
   }
 
   // Callbacks for child components
+  function handleGeneralChange(updatedGeneral: RepoSettings['general']) {
+    setLocalSettingsState((prev) => ({
+      ...(prev ?? serverSettings!),
+      general: updatedGeneral,
+    }));
+  }
+
   function handleImportantBugsChange(updatedBugs: RepoSettings['bugs']) {
     setLocalSettingsState((prev) => ({
       ...(prev ?? serverSettings!),
@@ -162,6 +170,7 @@ function Settings() {
         onSelect={(tabId: string) => navigate(`/repos/${owner}/${repo}/settings/${tabId}`)}
       >
         <Tabs.TabList>
+          <Tabs.Tab tabId="general">General</Tabs.Tab>
           <Tabs.Tab tabId="bugs">Important Bugs</Tabs.Tab>
           <Tabs.Tab tabId="stale">Stale Issues</Tabs.Tab>
           <Tabs.Tab tabId="community">Community Health</Tabs.Tab>
@@ -170,6 +179,12 @@ function Settings() {
       </Tabs>
 
       <div style={{ marginTop: '1.5rem' }}>
+        {activeSection === "general" && (
+          <GeneralForm
+            settings={localSettings.general}
+            onChange={handleGeneralChange}
+          />
+        )}
         {activeSection === "bugs" && (
           <ImportantBugsForm
             settings={localSettings.bugs}

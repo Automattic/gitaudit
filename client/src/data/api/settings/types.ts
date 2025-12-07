@@ -4,9 +4,30 @@ export interface ThresholdSettings {
   medium: number;
 }
 
+export interface GeneralSettings {
+  labels: {
+    bug: string;
+    feature: string;
+    highPriority: string;
+    lowPriority: string;
+  };
+  maintainerTeam: {
+    org: string;
+    teamSlug: string;
+  };
+}
+
 export interface ImportantBugsSettings {
   thresholds: ThresholdSettings;
   scoringRules: {
+    highPriorityLabels: {
+      enabled: boolean;
+      points: number;
+    };
+    lowPriorityLabels: {
+      enabled: boolean;
+      points: number;
+    };
     [key: string]: any;
   };
 }
@@ -24,24 +45,17 @@ export interface CommunityHealthSettings {
   scoringRules: {
     [key: string]: any;
   };
-  maintainerTeam: {
-    org: string;
-    teamSlug: string;
-  };
 }
 
 export interface FeatureRequestSettings {
   thresholds: ThresholdSettings;
-  detection: {
-    featureLabels: string;
-    rejectionLabels: string;
-  };
   scoringRules: {
     [key: string]: any;
   };
 }
 
 export interface RepoSettings {
+  general: GeneralSettings;
   bugs: ImportantBugsSettings;
   stale: StaleIssuesSettings;
   community: CommunityHealthSettings;

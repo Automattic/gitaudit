@@ -1,22 +1,26 @@
 import { settingsQueries } from '../db/queries.js';
 
 /**
- * Returns default settings for bugs, stale, and community
+ * Returns default settings for bugs, stale, community, and features
  */
 export function getDefaultSettings() {
   return {
+    general: {
+      labels: {
+        bug: 'bug, defect, error, crash, broken, [type] bug',
+        feature: 'enhancement, feature, feature request, new feature, proposal, [type] enhancement, [type] feature',
+        highPriority: 'critical, high priority, urgent, severity: high, p0, p1, blocker, showstopper, priority high, priority: high, [priority] high',
+        lowPriority: 'priority low, priority: low, [priority] low, low priority'
+      },
+      maintainerTeam: {
+        org: '',
+        teamSlug: ''
+      }
+    },
     bugs: {
       scoringRules: {
-        priorityLabels: {
-          enabled: true,
-          points: 30,
-          labels: 'critical, high priority, urgent, severity: high, p0, p1, blocker, showstopper, priority high, priority: high, [priority] high'
-        },
-        lowPriorityLabels: {
-          enabled: true,
-          points: -20,
-          labels: 'priority low, priority: low, [priority] low, low priority'
-        },
+        highPriorityLabels: { enabled: true, points: 30 },
+        lowPriorityLabels: { enabled: true, points: -20 },
         recentActivity: { enabled: true, points: 20, daysThreshold: 7 },
         highReactions: { enabled: true, points: 15, reactionThreshold: 5 },
         assigned: { enabled: true, points: 10 },
@@ -101,10 +105,6 @@ export function getDefaultSettings() {
           maxPoints: 30,
         },
       },
-      maintainerTeam: {
-        org: '', // e.g., 'facebook'
-        teamSlug: '', // e.g., 'react-core'
-      },
       thresholds: {
         critical: 60,
         high: 40,
@@ -112,10 +112,6 @@ export function getDefaultSettings() {
       },
     },
     features: {
-      detection: {
-        featureLabels: 'enhancement, feature, feature request, new feature, proposal, [type] enhancement, [type] feature',
-        rejectionLabels: 'wontfix, declined, rejected, out of scope, duplicate, invalid, priority low, priority: low, [priority] low, low priority',
-      },
       scoringRules: {
         reactions: {
           enabled: true,
@@ -187,33 +183,12 @@ export function getDefaultSettings() {
 function migrateSettings(settings) {
   const defaults = getDefaultSettings();
 
-  // Settings should already be in new format (bugs, stale, community, features) after DB migration
-  const bugs = settings.bugs || defaults.bugs;
-  const stale = settings.stale || defaults.stale;
-  const community = settings.community || defaults.community;
-  const features = settings.features || defaults.features;
-
-  // Migrate priorityLabels and lowPriorityLabels to include labels field if missing
-  if (bugs.scoringRules) {
-    if (bugs.scoringRules.priorityLabels && !bugs.scoringRules.priorityLabels.labels) {
-      bugs.scoringRules.priorityLabels.labels = defaults.bugs.scoringRules.priorityLabels.labels;
-    }
-
-    if (bugs.scoringRules.lowPriorityLabels && !bugs.scoringRules.lowPriorityLabels.labels) {
-      bugs.scoringRules.lowPriorityLabels.labels = defaults.bugs.scoringRules.lowPriorityLabels.labels;
-    }
-
-    // Add lowPriorityLabels rule if it doesn't exist (for very old settings)
-    if (!bugs.scoringRules.lowPriorityLabels) {
-      bugs.scoringRules.lowPriorityLabels = defaults.bugs.scoringRules.lowPriorityLabels;
-    }
-  }
-
   return {
-    bugs,
-    stale,
-    community,
-    features,
+    general: settings.general || defaults.general,
+    bugs: settings.bugs || defaults.bugs,
+    stale: settings.stale || defaults.stale,
+    community: settings.community || defaults.community,
+    features: settings.features || defaults.features,
   };
 }
 
@@ -232,7 +207,7 @@ function validateBugsSettings(bugSettings) {
 
   // Validate simple rules (0-200 points)
   const simpleRules = [
-    'priorityLabels',
+    'highPriorityLabels',
     'lowPriorityLabels',
     'recentActivity',
     'highReactions',
@@ -254,19 +229,6 @@ function validateBugsSettings(bugSettings) {
 
     if (typeof rules[rule].enabled !== 'boolean') {
       errors.push(`bugs: ${rule}.enabled must be a boolean`);
-    }
-  }
-
-  // Validate priorityLabels and lowPriorityLabels have labels field
-  if (rules.priorityLabels) {
-    if (typeof rules.priorityLabels.labels !== 'string' || rules.priorityLabels.labels.trim() === '') {
-      errors.push('bugs: priorityLabels.labels must be a non-empty string');
-    }
-  }
-
-  if (rules.lowPriorityLabels) {
-    if (typeof rules.lowPriorityLabels.labels !== 'string' || rules.lowPriorityLabels.labels.trim() === '') {
-      errors.push('bugs: lowPriorityLabels.labels must be a non-empty string');
     }
   }
 
@@ -511,8 +473,8 @@ function validateStaleSettings(staleSettings) {
 function validateCommunitySettings(healthSettings) {
   const errors = [];
 
-  if (!healthSettings.scoringRules || !healthSettings.maintainerTeam || !healthSettings.thresholds) {
-    errors.push('community: Missing required fields: scoringRules, maintainerTeam, or thresholds');
+  if (!healthSettings.scoringRules || !healthSettings.thresholds) {
+    errors.push('community: Missing required fields: scoringRules or thresholds');
     return { valid: false, errors };
   }
 
@@ -567,16 +529,6 @@ function validateCommunitySettings(healthSettings) {
     }
   }
 
-  // Validate maintainerTeam (org and teamSlug can be empty but must be strings)
-  const team = healthSettings.maintainerTeam;
-  if (typeof team.org !== 'string') {
-    errors.push('community: maintainerTeam.org must be a string');
-  }
-
-  if (typeof team.teamSlug !== 'string') {
-    errors.push('community: maintainerTeam.teamSlug must be a string');
-  }
-
   // Validate thresholds (critical > high > medium >= 0)
   const { critical, high, medium } = healthSettings.thresholds;
 
@@ -604,15 +556,65 @@ function validateCommunitySettings(healthSettings) {
 }
 
 /**
- * Validates user-submitted settings for bugs, stale, and community
+ * Validates general settings
+ */
+function validateGeneralSettings(generalSettings) {
+  const errors = [];
+
+  if (!generalSettings || typeof generalSettings !== 'object') {
+    errors.push('general: must be an object');
+    return { valid: false, errors };
+  }
+
+  // Validate labels object
+  const labels = generalSettings.labels;
+  if (!labels || typeof labels !== 'object') {
+    errors.push('general: labels must be an object');
+  } else {
+    if (typeof labels.bug !== 'string' || labels.bug.trim() === '') {
+      errors.push('general: labels.bug must be a non-empty string');
+    }
+    if (typeof labels.feature !== 'string' || labels.feature.trim() === '') {
+      errors.push('general: labels.feature must be a non-empty string');
+    }
+    if (typeof labels.highPriority !== 'string' || labels.highPriority.trim() === '') {
+      errors.push('general: labels.highPriority must be a non-empty string');
+    }
+    if (typeof labels.lowPriority !== 'string' || labels.lowPriority.trim() === '') {
+      errors.push('general: labels.lowPriority must be a non-empty string');
+    }
+  }
+
+  // Validate maintainerTeam (org and teamSlug can be empty but must be strings)
+  const maintainerTeam = generalSettings.maintainerTeam;
+  if (!maintainerTeam || typeof maintainerTeam !== 'object') {
+    errors.push('general: maintainerTeam must be an object');
+  } else {
+    if (typeof maintainerTeam.org !== 'string') {
+      errors.push('general: maintainerTeam.org must be string');
+    }
+    if (typeof maintainerTeam.teamSlug !== 'string') {
+      errors.push('general: maintainerTeam.teamSlug must be string');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Validates user-submitted settings for general, bugs, stale, community, and features
  * Returns { valid: boolean, errors: string[] }
  */
 export function validateSettings(settings) {
   const errors = [];
 
-  if (!settings.bugs || !settings.stale || !settings.community) {
-    return { valid: false, errors: ['Missing required sections: bugs, stale, or community'] };
+  if (!settings.general || !settings.bugs || !settings.stale || !settings.community) {
+    return { valid: false, errors: ['Missing required sections: general, bugs, stale, or community'] };
   }
+
+  // Validate general
+  const generalValidation = validateGeneralSettings(settings.general);
+  errors.push(...generalValidation.errors);
 
   // Validate bugs
   const bugValidation = validateBugsSettings(settings.bugs);
@@ -630,7 +632,7 @@ export function validateSettings(settings) {
 }
 
 /**
- * Helper to load repo settings with fallback to defaults and migration
+ * Helper to load repo settings with fallback to defaults
  */
 export function loadRepoSettings(repoId) {
   const repoSettings = settingsQueries.findByRepoId.get(repoId);
@@ -640,8 +642,7 @@ export function loadRepoSettings(repoId) {
   }
 
   try {
-    const parsed = JSON.parse(repoSettings.settings);
-    return migrateSettings(parsed);
+    return JSON.parse(repoSettings.settings);
   } catch (error) {
     console.error(`Failed to parse settings for repo ${repoId}:`, error);
     return getDefaultSettings();

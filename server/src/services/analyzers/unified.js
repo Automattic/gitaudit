@@ -62,7 +62,8 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
     if (scoreType === "all" || scoreType === "bugs") {
       const { score, metadata } = scoreImportantBug(
         issue,
-        settings.bugs
+        settings.bugs,
+        settings.general
       );
       scores.push({
         type: "bugs",
@@ -100,6 +101,7 @@ export function analyzeIssuesWithAllScores(issues, settings, options = {}) {
       const { score, metadata } = scoreFeatureRequest(
         issue,
         settings.features,
+        settings.general,
         {} // TODO: Add uniqueCommentersMap and meTooComments
       );
       scores.push({

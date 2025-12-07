@@ -11,27 +11,36 @@ import { calculateStats, paginateResults } from '../../utils/issue-stats.js';
 import { scaleSentimentScore } from '../../utils/sentiment-utils.js';
 
 // Helper function to check if issue is a bug
-export function isBugIssue(issue) {
+export function isBugIssue(issue, generalSettings = null) {
   // Check if issue has a bug type (GitHub's new issue types feature)
   if (issue.issue_type && issue.issue_type.toLowerCase() === 'bug') {
     return true;
   }
 
-  // Fallback to checking labels
+  // Fallback to checking labels from settings
   const labels = JSON.parse(issue.labels || '[]');
-  const bugLabels = ['bug', 'defect', 'error', 'crash', 'broken', '[type] bug'];
+
+  // Get bug labels from general settings or use defaults
+  const defaults = getDefaultSettings();
+  const bugLabelString = generalSettings?.labels?.bug || defaults.general.labels.bug;
+  const bugLabels = bugLabelString
+    .split(',')
+    .map(label => label.trim().toLowerCase())
+    .filter(label => label.length > 0);
 
   return labels.some(label =>
     bugLabels.some(bugKeyword => label.toLowerCase().includes(bugKeyword))
   );
 }
 
-export function scoreIssue(issue, settings = null) {
-  if (!settings) {
-    settings = getDefaultSettings().bugs;
+export function scoreIssue(issue, bugsSettings = null, generalSettings = null) {
+  if (!bugsSettings || !generalSettings) {
+    const defaults = getDefaultSettings();
+    bugsSettings = bugsSettings || defaults.bugs;
+    generalSettings = generalSettings || defaults.general;
   }
 
-  const rules = settings.scoringRules;
+  const rules = bugsSettings.scoringRules;
   let score = 0;
   const metadata = {};
 
@@ -40,9 +49,9 @@ export function scoreIssue(issue, settings = null) {
   const assignees = JSON.parse(issue.assignees || '[]');
   const reactions = JSON.parse(issue.reactions || '{}');
 
-  // 1. Priority/severity labels
-  if (rules.priorityLabels.enabled && rules.priorityLabels.labels) {
-    const priorityLabels = rules.priorityLabels.labels
+  // 1. High priority labels (enabled/points from bugs, labels from general)
+  if (rules.highPriorityLabels.enabled && generalSettings.labels.highPriority) {
+    const priorityLabels = generalSettings.labels.highPriority
       .split(',')
       .map(label => label.trim().toLowerCase())
       .filter(label => label.length > 0);
@@ -51,14 +60,14 @@ export function scoreIssue(issue, settings = null) {
       priorityLabels.some(priority => label.toLowerCase().includes(priority))
     );
     if (hasPriorityLabel) {
-      score += rules.priorityLabels.points;
-      metadata.priorityLabels = rules.priorityLabels.points;
+      score += rules.highPriorityLabels.points;
+      metadata.highPriorityLabels = rules.highPriorityLabels.points;
     }
   }
 
-  // 1b. Low priority labels (negative scoring)
-  if (rules.lowPriorityLabels && rules.lowPriorityLabels.enabled && rules.lowPriorityLabels.labels) {
-    const lowPriorityLabels = rules.lowPriorityLabels.labels
+  // 1b. Low priority labels (negative scoring, enabled/points from bugs, labels from general)
+  if (rules.lowPriorityLabels.enabled && generalSettings.labels.lowPriority) {
+    const lowPriorityLabels = generalSettings.labels.lowPriority
       .split(',')
       .map(label => label.trim().toLowerCase())
       .filter(label => label.length > 0);
@@ -158,13 +167,16 @@ export function scoreIssue(issue, settings = null) {
 /**
  * Analyze important bugs from a set of issues
  * @param {Array} issues - Issues to analyze
- * @param {Object} settings - Bugs scoring settings
+ * @param {Object} bugsSettings - Bugs scoring settings
+ * @param {Object} generalSettings - General settings (for priority labels)
  * @param {Object} options - Pagination and filtering options
  * @returns {Object} Analyzed issues with scores, stats, and pagination
  */
-export function analyzeImportantBugs(issues, settings = null, options = {}) {
-  if (!settings) {
-    settings = getDefaultSettings().bugs;
+export function analyzeImportantBugs(issues, bugsSettings = null, generalSettings = null, options = {}) {
+  if (!bugsSettings || !generalSettings) {
+    const defaults = getDefaultSettings();
+    bugsSettings = bugsSettings || defaults.bugs;
+    generalSettings = generalSettings || defaults.general;
   }
 
   const {
@@ -174,14 +186,14 @@ export function analyzeImportantBugs(issues, settings = null, options = {}) {
     search = ''
   } = options;
 
-  const thresholds = settings.thresholds;
+  const thresholds = bugsSettings.thresholds;
 
   // First, filter to only bug issues
-  const bugIssues = issues.filter(isBugIssue);
+  const bugIssues = issues.filter(issue => isBugIssue(issue, generalSettings));
 
   // Score all bug issues with custom settings
   const scoredBugs = bugIssues.map(issue => {
-    const { score, metadata } = scoreIssue(issue, settings);
+    const { score, metadata } = scoreIssue(issue, bugsSettings, generalSettings);
     return {
       ...issue,
       score,

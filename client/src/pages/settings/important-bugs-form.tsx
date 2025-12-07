@@ -3,7 +3,6 @@ import { DataForm } from '@wordpress/dataviews';
 import {
   CheckboxControl,
   __experimentalNumberControl as NumberControl,
-  TextControl,
 } from '@wordpress/components';
 import {
   flattenImportantBugsSettings,
@@ -44,21 +43,22 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
   // Field definitions
   const fields = useMemo(
     () => [
-      // Priority Labels
+      // High Priority Labels
       {
-        id: 'priorityLabels_enabled',
+        id: 'highPriorityLabels_enabled',
         type: 'text' as const,
         label: 'Enable',
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <CheckboxControl
-            label="Issues with priority labels (critical, urgent, high, p0, etc.)"
+            label="Issues with high priority labels"
             checked={data[field.id] as boolean}
             onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
+            help="Label keywords are configured in General settings"
           />
         ),
       },
       {
-        id: 'priorityLabels_points',
+        id: 'highPriorityLabels_points',
         type: 'integer' as const,
         label: 'Points',
         Edit: ({ data, field, onChange }: FieldEditProps) => (
@@ -68,22 +68,8 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
-            disabled={!data.priorityLabels_enabled}
-            help="Points added to score when labels match"
-          />
-        ),
-      },
-      {
-        id: 'priorityLabels_labels',
-        type: 'text' as const,
-        label: 'Labels (comma-separated)',
-        Edit: ({ data, field, onChange }: FieldEditProps) => (
-          <TextControl
-            label={field.label}
-            value={data[field.id]}
-            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
-            disabled={!data.priorityLabels_enabled}
-            help="Enter label patterns to match, separated by commas"
+            disabled={!data.highPriorityLabels_enabled}
+            help="Points added when issue has a high priority label"
           />
         ),
       },
@@ -98,6 +84,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             label="Issues with low priority labels (negative scoring)"
             checked={data[field.id] as boolean}
             onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
+            help="Label keywords are configured in General settings"
           />
         ),
       },
@@ -113,21 +100,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             min={-200}
             max={200}
             disabled={!data.lowPriorityLabels_enabled}
-            help="Points subtracted from score (use negative values)"
-          />
-        ),
-      },
-      {
-        id: 'lowPriorityLabels_labels',
-        type: 'text' as const,
-        label: 'Labels (comma-separated)',
-        Edit: ({ data, field, onChange }: FieldEditProps) => (
-          <TextControl
-            label={field.label}
-            value={data[field.id]}
-            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
-            disabled={!data.lowPriorityLabels_enabled}
-            help="Enter label patterns to match, separated by commas"
+            help="Points subtracted from score (typically negative)"
           />
         ),
       },
@@ -517,26 +490,28 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
             'Enable and configure individual scoring rules for bug prioritization.',
           children: [
             {
-              id: 'priority-labels',
-              label: 'Priority Labels',
+              id: 'high-priority-labels',
+              label: 'High Priority Labels',
+              description: 'Label keywords are defined in General settings.',
               children: [
-                'priorityLabels_enabled',
+                'highPriorityLabels_enabled',
                 {
-                  id: 'priority-labels-fields',
+                  id: 'high-priority-labels-fields',
                   layout: { type: 'row' as const, alignment: 'start' as const },
-                  children: ['priorityLabels_points', 'priorityLabels_labels'],
+                  children: ['highPriorityLabels_points'],
                 },
               ],
             },
             {
               id: 'low-priority-labels',
               label: 'Low Priority Labels',
+              description: 'Label keywords are defined in General settings.',
               children: [
                 'lowPriorityLabels_enabled',
                 {
                   id: 'low-priority-labels-fields',
                   layout: { type: 'row' as const, alignment: 'start' as const },
-                  children: ['lowPriorityLabels_points', 'lowPriorityLabels_labels'],
+                  children: ['lowPriorityLabels_points'],
                 },
               ],
             },

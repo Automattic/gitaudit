@@ -1,6 +1,7 @@
 import type { RepoSettings } from '@/data/api/settings/types';
 
 // Type aliases for clarity
+type GeneralSettings = RepoSettings['general'];
 type ImportantBugsSettings = RepoSettings['bugs'];
 type StaleIssuesSettings = RepoSettings['stale'];
 type CommunityHealthSettings = RepoSettings['community'];
@@ -10,21 +11,58 @@ type FeatureRequestSettings = RepoSettings['features'];
 type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 // ============================================================================
+// GENERAL SETTINGS HELPERS
+// ============================================================================
+
+export function flattenGeneralSettings(settings: GeneralSettings): FlattenedSettings {
+  return {
+    // Labels (only label strings, no enabled/points)
+    labels_bug: settings.labels.bug,
+    labels_feature: settings.labels.feature,
+    labels_highPriority: settings.labels.highPriority,
+    labels_lowPriority: settings.labels.lowPriority,
+
+    // Maintainer Team
+    maintainerTeam_org: settings.maintainerTeam.org,
+    maintainerTeam_teamSlug: settings.maintainerTeam.teamSlug,
+  };
+}
+
+export function unflattenGeneralSettings(
+  edits: Record<string, unknown>,
+  currentSettings: GeneralSettings
+): GeneralSettings {
+  // Deep clone to avoid mutation
+  const updated = JSON.parse(JSON.stringify(currentSettings));
+
+  // Apply all edits
+  Object.entries(edits).forEach(([key, value]) => {
+    if (key.startsWith('labels_')) {
+      const labelKey = key.replace('labels_', '');
+      updated.labels[labelKey] = value;
+    } else if (key.startsWith('maintainerTeam_')) {
+      const teamKey = key.replace('maintainerTeam_', '');
+      updated.maintainerTeam[teamKey] = value;
+    }
+  });
+
+  return updated;
+}
+
+// ============================================================================
 // IMPORTANT BUGS HELPERS
 // ============================================================================
 
 export function flattenImportantBugsSettings(settings: ImportantBugsSettings): FlattenedSettings {
   const rules = settings.scoringRules;
   return {
-    // Priority Labels
-    priorityLabels_enabled: rules.priorityLabels.enabled,
-    priorityLabels_points: rules.priorityLabels.points,
-    priorityLabels_labels: rules.priorityLabels.labels,
+    // High Priority Labels (enabled and points only, labels come from general)
+    highPriorityLabels_enabled: rules.highPriorityLabels.enabled,
+    highPriorityLabels_points: rules.highPriorityLabels.points,
 
-    // Low Priority Labels
+    // Low Priority Labels (enabled and points only, labels come from general)
     lowPriorityLabels_enabled: rules.lowPriorityLabels.enabled,
     lowPriorityLabels_points: rules.lowPriorityLabels.points,
-    lowPriorityLabels_labels: rules.lowPriorityLabels.labels,
 
     // Recent Activity
     recentActivity_enabled: rules.recentActivity.enabled,
@@ -192,10 +230,6 @@ export function flattenCommunityHealthSettings(settings: CommunityHealthSettings
     sentimentAnalysis_enabled: rules.sentimentAnalysis.enabled,
     sentimentAnalysis_maxPoints: rules.sentimentAnalysis.maxPoints,
 
-    // Maintainer Team
-    maintainerTeam_org: settings.maintainerTeam.org,
-    maintainerTeam_teamSlug: settings.maintainerTeam.teamSlug,
-
     // Thresholds
     thresholds_critical: settings.thresholds.critical,
     thresholds_high: settings.thresholds.high,
@@ -215,9 +249,6 @@ export function unflattenCommunityHealthSettings(
     if (key.startsWith('thresholds_')) {
       const thresholdKey = key.replace('thresholds_', '');
       updated.thresholds[thresholdKey] = value;
-    } else if (key.startsWith('maintainerTeam_')) {
-      const teamKey = key.replace('maintainerTeam_', '');
-      updated.maintainerTeam[teamKey] = value;
     } else {
       // Parse rule name and property from key like 'firstTimeContributor_enabled'
       const firstUnderscore = key.indexOf('_');
@@ -240,10 +271,6 @@ export function unflattenCommunityHealthSettings(
 export function flattenFeatureRequestSettings(settings: FeatureRequestSettings): FlattenedSettings {
   const rules = settings.scoringRules;
   return {
-    // Detection
-    detection_featureLabels: settings.detection.featureLabels,
-    detection_rejectionLabels: settings.detection.rejectionLabels,
-
     // Reactions
     reactions_enabled: rules.reactions.enabled,
 
@@ -317,9 +344,6 @@ export function unflattenFeatureRequestSettings(
     if (key.startsWith('thresholds_')) {
       const thresholdKey = key.replace('thresholds_', '');
       updated.thresholds[thresholdKey] = value;
-    } else if (key.startsWith('detection_')) {
-      const detectionKey = key.replace('detection_', '');
-      updated.detection[detectionKey] = value;
     } else {
       // Parse rule name and property from key like 'reactions_enabled'
       const firstUnderscore = key.indexOf('_');
