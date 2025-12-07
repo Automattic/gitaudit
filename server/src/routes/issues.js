@@ -37,6 +37,8 @@ async function getOrCreateRepo(owner, name, accessToken) {
 router.post('/fetch', authenticateToken, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
+  console.log(`[API] POST /fetch called for ${owner}/${repoName}, user ${req.user.id}`);
+
   try {
     // Check if repository is saved by this user (Option 1 validation)
     const savedRepo = repoQueries.checkIfSaved.get(req.user.id, owner, repoName);
@@ -50,8 +52,10 @@ router.post('/fetch', authenticateToken, async (req, res) => {
     // Get or create repository record
     const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
 
+    console.log(`[API] Queueing issue-fetch for repo ${repo.id}, user ${req.user.id}`);
+
     // Queue issue fetch job (orchestrator will update status when job starts)
-    queueJob({
+    const queued = queueJob({
       type: 'issue-fetch',
       repoId: repo.id,
       userId: req.user.id,
@@ -59,9 +63,12 @@ router.post('/fetch', authenticateToken, async (req, res) => {
       priority: 50,
     });
 
+    console.log(`[API] Queue result: ${queued}`);
+
     res.json({
       message: 'Issue fetch queued',
       repoId: repo.id,
+      queued,
     });
   } catch (error) {
     console.error('Error queueing issue fetch:', error);
