@@ -3,6 +3,12 @@
  *
  * Provides utilities for detecting, handling, and retrying GitHub API rate limit errors.
  * Implements exponential backoff with jitter and cooldown mechanisms.
+ *
+ * Handles multiple error types:
+ * - 429: Primary rate limit (API quota exceeded)
+ * - 403: Secondary rate limit (abuse detection)
+ * - 502/504: Server errors (temporary blocks/timeouts)
+ * - Null responses: Soft throttling (no error code, just empty response)
  */
 
 // Rate limiting configuration constants
@@ -19,6 +25,15 @@ let lastRateLimitTime = 0;
 let consecutiveRateLimits = 0;
 
 /**
+ * Check if an error is a null/undefined response from GitHub
+ * @param {Error} error - The error to check
+ * @returns {boolean} True if null response error
+ */
+export function isNullResponseError(error) {
+  return error?.isNullResponse === true;
+}
+
+/**
  * Check if an error is a GitHub rate limit error
  * @param {Error} error - The error to check
  * @returns {boolean} True if rate limit error
@@ -26,8 +41,17 @@ let consecutiveRateLimits = 0;
 export function isRateLimitError(error) {
   if (!error) return false;
 
-  // Check HTTP status codes (429 = rate limit, 403 = secondary rate limit)
-  if (error.status === 429 || error.status === 403) {
+  // Check for null/undefined responses (soft throttling)
+  if (isNullResponseError(error)) {
+    return true;
+  }
+
+  // Check HTTP status codes
+  // 429 = primary rate limit
+  // 403 = secondary rate limit
+  // 502 = bad gateway (often abuse detection after sustained API usage)
+  // 504 = gateway timeout (server didn't respond in time)
+  if (error.status === 429 || error.status === 403 || error.status === 502 || error.status === 504) {
     return true;
   }
 
@@ -60,6 +84,15 @@ export function isPrimaryRateLimit(error) {
     error.status === 429 ||
     (error.message && error.message.includes('API rate limit exceeded'))
   );
+}
+
+/**
+ * Check if error is a 5xx server error (502/504 - temporary block/timeout)
+ * @param {Error} error - The error to check
+ * @returns {boolean} True if 5xx error
+ */
+export function is5xxError(error) {
+  return error?.status === 502 || error?.status === 504;
 }
 
 /**
@@ -165,12 +198,29 @@ export async function withRetry(fn, context = '', maxAttempts = rateLimitConfig.
         throw error;
       }
 
-      const delay = calculateBackoffDelay(attempt);
-      const limitType = isPrimaryRateLimit(error) ? 'primary' : 'secondary';
+      // Determine error type and appropriate backoff
+      let limitType;
+      let delay;
+
+      if (isNullResponseError(error)) {
+        limitType = 'null response (soft throttle)';
+        // Use longer backoff for null responses (30s, 60s, 90s) - likely abuse detection
+        delay = calculateBackoffDelay(attempt, 30000);
+      } else if (is5xxError(error)) {
+        limitType = error.status === 502 ? '502 (bad gateway)' : '504 (timeout)';
+        // Use longer backoff for 5xx errors (30s, 60s, 90s)
+        delay = calculateBackoffDelay(attempt, 30000);
+      } else if (isPrimaryRateLimit(error)) {
+        limitType = 'primary';
+        delay = calculateBackoffDelay(attempt);
+      } else {
+        limitType = 'secondary';
+        delay = calculateBackoffDelay(attempt);
+      }
 
       console.warn(
         `[RateLimit] ${context} - Hit ${limitType} rate limit (attempt ${attempt + 1}/${maxAttempts}), ` +
-          `backing off for ${delay}ms`
+          `backing off for ${Math.round(delay / 1000)}s`
       );
 
       await sleep(delay);

@@ -9,9 +9,9 @@ import {
 } from "@wordpress/dataviews";
 import { Card, CardBody, Notice } from "@wordpress/components";
 import { getErrorMessage } from "@/utils/error-handling";
-import { issuesQueryOptions } from "@/data/queries/issues";
+import { prsQueryOptions } from "@/data/queries/prs";
 import { useFetchRepoDataMutation } from "@/data/queries/repos";
-import type { Issue } from "@/data/api/issues/types";
+import type { PR } from "@/data/api/prs/types";
 import Page from "../components/page";
 import { NoIssuesPlaceholder } from "../components/no-issues-placeholder";
 import { Tabs } from "../utils/lock-unlock";
@@ -19,23 +19,15 @@ import {
   createScoreField,
   titleField,
   labelsField,
+  reviewDecisionField,
+  reviewersField,
   commentsField,
   updatedAtField,
   createdAtField,
-  assigneesField,
-  milestoneField,
-} from "../utils/issue-fields";
-import { createRefreshIssueAction } from "../utils/issue-actions";
-import { fetchLabels } from "@/data/api/issues/fetchers";
-
-interface IssuesPageProps {
-  title: string;
-  description: string;
-  type: "bugs" | "stale" | "community" | "features";
-  scoreLabel: string;
-  defaultThresholds: { critical: number; high: number; medium: number };
-  extraFilters?: Record<string, unknown>;
-}
+  authorField,
+  changesField,
+} from "../utils/pr-fields";
+import { createRefreshPRAction } from "../utils/pr-actions";
 
 // All pages use the same tabs
 const TABS = [
@@ -45,14 +37,9 @@ const TABS = [
   { id: "medium", label: "Medium" },
 ];
 
-function IssuesPage({
-  title,
-  description,
-  type,
-  scoreLabel,
-  defaultThresholds,
-  extraFilters = {},
-}: IssuesPageProps) {
+const defaultThresholds = { critical: 80, high: 50, medium: 25 };
+
+function StalePRsPage() {
   const { owner, repo, tabId } = useParams<{
     owner: string;
     repo: string;
@@ -66,7 +53,7 @@ function IssuesPage({
     page: 1,
     perPage: 20,
     filters: [],
-    fields: ["score", "commentsCount", "updatedAt"],
+    fields: ["score", "reviewDecision", "commentsCount", "updatedAt"],
     layout: {},
     search: "",
     titleField: "title",
@@ -77,93 +64,73 @@ function IssuesPage({
   const validTabIds = TABS.map((t) => t.id);
   const activeTab = (tabId && validTabIds.includes(tabId) ? tabId : TABS[0].id) as "all" | "critical" | "high" | "medium";
 
-  // Extract labels filter from view.filters
-  const labelsFilter = useMemo(() => {
-    const labelsFilterObj = view.filters?.find(
-      (f) => f.field === "labels" && f.operator === "isAll"
-    );
-    return labelsFilterObj?.value as string[] | undefined;
-  }, [view.filters]);
-
-  // Build query params - always use level param
+  // Build query params
   const queryParams = useMemo(() => {
     return {
       page: view.page ?? 1,
       per_page: view.perPage ?? 20,
       search: view.search,
-      scoreType: type,
+      scoreType: 'stale-prs' as const,
       level: activeTab,
-      labels: labelsFilter,
-      ...extraFilters,
     };
-  }, [view.page, view.perPage, view.search, type, activeTab, labelsFilter, extraFilters]);
+  }, [view.page, view.perPage, view.search, activeTab]);
 
   // Data fetching with TanStack Query
   const { data, isLoading, error, refetch } = useQuery(
-    issuesQueryOptions(owner!, repo!, queryParams)
+    prsQueryOptions(owner!, repo!, queryParams)
   );
 
   const startFetchMutation = useFetchRepoDataMutation(owner!, repo!);
 
   // Destructure data with defaults
-  const issues = data?.issues ?? [];
+  const prs = data?.prs ?? [];
   const totalItems = data?.totalItems ?? 0;
   const totalPages = data?.totalPages ?? 0;
-  const thresholds = data?.thresholds;
+  const thresholds = data?.thresholds || defaultThresholds;
   const fetchStatus = data?.fetchStatus;
 
   // Tab click handler - navigate to new URL
   const handleTabClick = useCallback(
     (newTabId: string) => {
-      navigate(`/repos/${owner}/${repo}/${type}/${newTabId}`);
+      navigate(`/repos/${owner}/${repo}/stale-prs/${newTabId}`);
       setView((prev) => ({
         ...prev,
         page: 1, // Reset to first page
       }));
     },
-    [navigate, owner, repo, type]
+    [navigate, owner, repo]
   );
-
-  // Get thresholds with defaults (all types now use critical/high/medium)
-  const scoreThresholds = thresholds?.[type] || defaultThresholds;
 
   // Get threshold values as array for createScoreField
   const thresholdValues = useMemo((): [number, number, number] => {
     return [
-      scoreThresholds.critical,
-      scoreThresholds.high,
-      scoreThresholds.medium,
+      thresholds.critical,
+      thresholds.high,
+      thresholds.medium,
     ];
-  }, [scoreThresholds]);
-
-  // Create cached label fetcher using the new API endpoint
-  const getLabelsElements = useCallback(async () => {
-    const labels = await fetchLabels(owner!, repo!);
-    return labels.map((label) => ({ value: label, label }));
-  }, [owner, repo]);
+  }, [thresholds]);
 
   // Field definitions using shared utilities
-  const fields: Field<Issue>[] = useMemo(
+  const fields: Field<PR>[] = useMemo(
     () => [
-      createScoreField(scoreLabel, type, thresholdValues),
+      createScoreField("Staleness", thresholdValues),
       titleField,
-      {
-        ...labelsField,
-        getElements: getLabelsElements,
-      },
+      labelsField,
+      reviewDecisionField,
+      reviewersField,
       commentsField,
       updatedAtField,
       // Additional hidden fields (user can show via column selector)
       createdAtField,
-      assigneesField,
-      milestoneField,
+      authorField,
+      changesField,
     ],
-    [scoreLabel, type, thresholdValues, getLabelsElements]
+    [thresholdValues]
   );
 
   // Actions for DataViews
-  const actions: Action<Issue>[] = useMemo(
-    () => [createRefreshIssueAction(owner!, repo!, refetch)],
+  const actions: Action<PR>[] = useMemo(
+    () => [createRefreshPRAction(owner!, repo!, refetch)],
     [owner, repo, refetch]
   );
 
@@ -186,7 +153,10 @@ function IssuesPage({
 
   // Main view - always show page structure
   return (
-    <Page title={title} description={description}>
+    <Page
+      title="Stale Pull Requests"
+      description="Pull requests that haven't been updated or reviewed in a while"
+    >
       <Card size="none">
         <CardBody>
           {/* Tabs - always visible */}
@@ -206,19 +176,19 @@ function IssuesPage({
           {/* Error notice */}
           {error && (
             <Notice status="error" isDismissible={false}>
-              {getErrorMessage(error, "Failed to load issues")}
+              {getErrorMessage(error, "Failed to load PRs")}
             </Notice>
           )}
 
           {/* Content area - conditional based on fetchStatus */}
           {fetchStatus === "not_started" ? (
             <NoIssuesPlaceholder
-              description={description.toLowerCase()}
+              description="stale pull requests"
               onFetchClick={() => startFetchMutation.mutate()}
             />
           ) : (
             <DataViews
-              data={issues}
+              data={prs}
               fields={fields}
               actions={actions}
               view={view}
@@ -238,4 +208,4 @@ function IssuesPage({
   );
 }
 
-export default IssuesPage;
+export default StalePRsPage;

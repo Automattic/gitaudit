@@ -68,6 +68,11 @@ function RepositoryLayout() {
             </SidebarNavLink>
           </div>
           <div>
+            <SidebarNavLink to={`/repos/${owner}/${repo}/stale-prs`}>
+              Stale PRs
+            </SidebarNavLink>
+          </div>
+          <div>
             <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>
               Settings
             </SidebarNavLink>

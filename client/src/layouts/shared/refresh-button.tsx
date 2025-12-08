@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { Button, Spinner } from "@wordpress/components";
 import { update as updateIcon } from "@wordpress/icons";
 import { useQuery } from "@tanstack/react-query";
-import { repoStatusQueryOptions } from "@/data/queries/repos";
-import { useRefreshIssuesMutation } from "@/data/queries/issues";
+import { repoStatusQueryOptions, useFetchRepoDataMutation } from "@/data/queries/repos";
 
 interface RefreshButtonProps {
   owner: string;
@@ -16,7 +15,7 @@ function RefreshButton({ owner, repo }: RefreshButtonProps) {
 
   // Use TanStack Query for repo status with automatic polling
   const { data: statusData } = useQuery(repoStatusQueryOptions(owner, repo));
-  const refreshMutation = useRefreshIssuesMutation(owner, repo);
+  const refreshMutation = useFetchRepoDataMutation(owner, repo);
 
   const status = statusData?.status;
   const currentJob = statusData?.currentJob;
@@ -45,6 +44,7 @@ function RefreshButton({ owner, repo }: RefreshButtonProps) {
   const getStatusMessage = () => {
     if (status === "in_progress") {
       if (currentJob === "issue-fetch") return "Fetching issues...";
+      if (currentJob === "pr-fetch") return "Fetching PRs...";
       if (currentJob === "sentiment") return "Analyzing sentiment...";
       return "Pending...";
     }

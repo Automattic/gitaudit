@@ -465,6 +465,209 @@ export const jobQueries = {
   },
 };
 
+// Pull Request queries
+export const prQueries = {
+  get upsert() {
+    return db.prepare(`
+      INSERT INTO pull_requests (
+        repo_id, github_id, number, title, body, state, draft, labels,
+        created_at, updated_at, closed_at, merged_at, comments_count,
+        last_comment_at, last_comment_author, reactions, assignees, reviewers,
+        review_decision, mergeable_state, additions, deletions, changed_files,
+        author_login, author_association, head_ref_name, base_ref_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(github_id) DO UPDATE SET
+        title = excluded.title,
+        body = excluded.body,
+        state = excluded.state,
+        draft = excluded.draft,
+        labels = excluded.labels,
+        updated_at = excluded.updated_at,
+        closed_at = excluded.closed_at,
+        merged_at = excluded.merged_at,
+        comments_count = excluded.comments_count,
+        last_comment_at = excluded.last_comment_at,
+        last_comment_author = excluded.last_comment_author,
+        reactions = excluded.reactions,
+        assignees = excluded.assignees,
+        reviewers = excluded.reviewers,
+        review_decision = excluded.review_decision,
+        mergeable_state = excluded.mergeable_state,
+        additions = excluded.additions,
+        deletions = excluded.deletions,
+        changed_files = excluded.changed_files,
+        author_login = excluded.author_login,
+        author_association = excluded.author_association,
+        head_ref_name = excluded.head_ref_name,
+        base_ref_name = excluded.base_ref_name
+      RETURNING *
+    `);
+  },
+
+  get findByRepo() {
+    return db.prepare(`
+      SELECT * FROM pull_requests
+      WHERE repo_id = ?
+      ORDER BY updated_at DESC
+    `);
+  },
+
+  get findOpenByRepo() {
+    return db.prepare(`
+      SELECT * FROM pull_requests
+      WHERE repo_id = ? AND state = 'open'
+      ORDER BY updated_at DESC
+    `);
+  },
+
+  get countByRepo() {
+    return db.prepare(`
+      SELECT COUNT(*) as count FROM pull_requests WHERE repo_id = ?
+    `);
+  },
+
+  get findByGithubId() {
+    return db.prepare('SELECT * FROM pull_requests WHERE github_id = ?');
+  },
+
+  get getMostRecentUpdatedAt() {
+    return db.prepare(`
+      SELECT MAX(updated_at) as most_recent_updated_at
+      FROM pull_requests
+      WHERE repo_id = ?
+    `);
+  },
+
+  get updateCommentsFetched() {
+    return db.prepare(`
+      UPDATE pull_requests
+      SET comments_fetched = 1
+      WHERE id = ?
+    `);
+  },
+
+  get updatePRCount() {
+    return db.prepare(`
+      UPDATE repositories
+      SET pr_count = (
+        SELECT COUNT(*) FROM pull_requests WHERE repo_id = ?
+      )
+      WHERE id = ?
+    `);
+  },
+
+  get updateLastPRFetched() {
+    return db.prepare(`
+      UPDATE repositories
+      SET last_pr_fetched = ?
+      WHERE id = ?
+    `);
+  },
+};
+
+// PR Analysis queries
+export const prAnalysisQueries = {
+  get upsert() {
+    return db.prepare(`
+      INSERT INTO pr_analysis (pr_id, analysis_type, score, metadata)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(pr_id, analysis_type)
+      DO UPDATE SET
+        score = excluded.score,
+        metadata = excluded.metadata,
+        analyzed_at = CURRENT_TIMESTAMP
+    `);
+  },
+
+  get findByPRAndType() {
+    return db.prepare(`
+      SELECT * FROM pr_analysis
+      WHERE pr_id = ? AND analysis_type = ?
+    `);
+  },
+
+  get findByRepoAndType() {
+    return db.prepare(`
+      SELECT pa.*, pr.*
+      FROM pr_analysis pa
+      JOIN pull_requests pr ON pa.pr_id = pr.id
+      WHERE pr.repo_id = ? AND pa.analysis_type = ?
+      ORDER BY pa.score DESC
+    `);
+  },
+
+  get findStaleAnalyses() {
+    return db.prepare(`
+      SELECT pr.*, pa.analyzed_at
+      FROM pull_requests pr
+      LEFT JOIN pr_analysis pa ON pr.id = pa.pr_id AND pa.analysis_type = ?
+      WHERE pr.repo_id = ?
+        AND (pa.analyzed_at IS NULL OR pr.updated_at > pa.analyzed_at)
+    `);
+  },
+
+  get countByRepoAndType() {
+    return db.prepare(`
+      SELECT COUNT(*) as count
+      FROM pr_analysis pa
+      JOIN pull_requests pr ON pa.pr_id = pr.id
+      WHERE pr.repo_id = ? AND pa.analysis_type = ?
+    `);
+  },
+
+  get deleteByPR() {
+    return db.prepare(`
+      DELETE FROM pr_analysis
+      WHERE pr_id = ?
+    `);
+  },
+
+  get deleteByRepo() {
+    return db.prepare(`
+      DELETE FROM pr_analysis
+      WHERE pr_id IN (SELECT id FROM pull_requests WHERE repo_id = ?)
+    `);
+  },
+};
+
+// PR Comment queries
+export const prCommentQueries = {
+  get insertOrUpdate() {
+    return db.prepare(`
+      INSERT INTO pr_comments (pr_id, github_comment_id, comment_type, author, body, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(github_comment_id) DO UPDATE SET
+        author = excluded.author,
+        body = excluded.body,
+        created_at = excluded.created_at,
+        comment_type = excluded.comment_type
+    `);
+  },
+
+  get findByPRId() {
+    return db.prepare(`
+      SELECT * FROM pr_comments
+      WHERE pr_id = ?
+      ORDER BY created_at ASC
+    `);
+  },
+
+  get deleteByPRId() {
+    return db.prepare(`
+      DELETE FROM pr_comments
+      WHERE pr_id = ?
+    `);
+  },
+
+  get countByPRId() {
+    return db.prepare(`
+      SELECT COUNT(*) as count
+      FROM pr_comments
+      WHERE pr_id = ?
+    `);
+  },
+};
+
 // Helper function to run multiple operations in a transaction
 export function transaction(fn) {
   return db.transaction(fn);

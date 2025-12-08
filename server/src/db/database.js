@@ -142,6 +142,18 @@ export function initializeDatabase() {
   // Create job_queue table for job persistence
   createJobQueueTable();
 
+  // Create pull_requests table for PR audits
+  createPullRequestsTable();
+
+  // Create pr_analysis table for PR analysis results
+  createPRAnalysisTable();
+
+  // Create pr_comments table for PR comment caching
+  createPRCommentsTable();
+
+  // Add PR tracking columns to repositories table
+  migratePRTrackingColumns();
+
   console.log('Database initialized successfully');
 }
 
@@ -1059,6 +1071,146 @@ function createJobQueueTable() {
   if (!indexNames.includes('idx_job_queue_user')) {
     db.exec('CREATE INDEX idx_job_queue_user ON job_queue(user_id)');
     console.log('Created idx_job_queue_user index');
+  }
+}
+
+// Create pull_requests table for PR audits
+function createPullRequestsTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pull_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repo_id INTEGER NOT NULL,
+      github_id INTEGER NOT NULL UNIQUE,
+      number INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT,
+      state TEXT NOT NULL,
+      draft BOOLEAN DEFAULT 0,
+      labels TEXT,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      closed_at DATETIME,
+      merged_at DATETIME,
+      comments_count INTEGER DEFAULT 0,
+      last_comment_at DATETIME,
+      last_comment_author TEXT,
+      reactions TEXT,
+      assignees TEXT,
+      reviewers TEXT,
+      review_decision TEXT,
+      mergeable_state TEXT,
+      additions INTEGER DEFAULT 0,
+      deletions INTEGER DEFAULT 0,
+      changed_files INTEGER DEFAULT 0,
+      author_login TEXT,
+      author_association TEXT,
+      head_ref_name TEXT,
+      base_ref_name TEXT,
+      comments_fetched BOOLEAN DEFAULT 0,
+      FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create indexes for better query performance
+  const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='pull_requests'").all();
+  const indexNames = indexes.map(idx => idx.name);
+
+  if (!indexNames.includes('idx_prs_repo_state')) {
+    db.exec('CREATE INDEX idx_prs_repo_state ON pull_requests(repo_id, state)');
+    console.log('Created idx_prs_repo_state index');
+  }
+
+  if (!indexNames.includes('idx_prs_updated')) {
+    db.exec('CREATE INDEX idx_prs_updated ON pull_requests(updated_at)');
+    console.log('Created idx_prs_updated index');
+  }
+
+  if (!indexNames.includes('idx_prs_github_id')) {
+    db.exec('CREATE INDEX idx_prs_github_id ON pull_requests(github_id)');
+    console.log('Created idx_prs_github_id index');
+  }
+
+  if (!indexNames.includes('idx_prs_draft')) {
+    db.exec('CREATE INDEX idx_prs_draft ON pull_requests(repo_id, draft)');
+    console.log('Created idx_prs_draft index');
+  }
+
+  if (!indexNames.includes('idx_prs_review_decision')) {
+    db.exec('CREATE INDEX idx_prs_review_decision ON pull_requests(repo_id, review_decision)');
+    console.log('Created idx_prs_review_decision index');
+  }
+}
+
+// Create pr_analysis table for PR analysis results
+function createPRAnalysisTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pr_analysis (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pr_id INTEGER NOT NULL,
+      analysis_type TEXT NOT NULL,
+      score REAL,
+      metadata TEXT,
+      analyzed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (pr_id) REFERENCES pull_requests(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create unique index for upserts
+  const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='pr_analysis'").all();
+  const indexNames = indexes.map(idx => idx.name);
+
+  if (!indexNames.includes('idx_pr_analysis_pr_type_unique')) {
+    db.exec('CREATE UNIQUE INDEX idx_pr_analysis_pr_type_unique ON pr_analysis(pr_id, analysis_type)');
+    console.log('Created unique index idx_pr_analysis_pr_type_unique');
+  }
+}
+
+// Create pr_comments table for PR comment caching
+function createPRCommentsTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pr_comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pr_id INTEGER NOT NULL,
+      github_comment_id INTEGER NOT NULL,
+      comment_type TEXT NOT NULL,
+      author TEXT NOT NULL,
+      body TEXT,
+      created_at DATETIME NOT NULL,
+      FOREIGN KEY (pr_id) REFERENCES pull_requests(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create indexes for better query performance
+  const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='pr_comments'").all();
+  const indexNames = indexes.map(idx => idx.name);
+
+  if (!indexNames.includes('idx_pr_comments_pr_id')) {
+    db.exec('CREATE INDEX idx_pr_comments_pr_id ON pr_comments(pr_id)');
+    console.log('Created idx_pr_comments_pr_id index');
+  }
+
+  if (!indexNames.includes('idx_pr_comments_github_id')) {
+    db.exec('CREATE UNIQUE INDEX idx_pr_comments_github_id ON pr_comments(github_comment_id)');
+    console.log('Created unique idx_pr_comments_github_id index');
+  }
+}
+
+// Add PR tracking columns to repositories table
+function migratePRTrackingColumns() {
+  // Get existing columns
+  const columns = db.prepare('PRAGMA table_info(repositories)').all();
+  const columnNames = columns.map(col => col.name);
+
+  // Add last_pr_fetched column if it doesn't exist
+  if (!columnNames.includes('last_pr_fetched')) {
+    db.exec('ALTER TABLE repositories ADD COLUMN last_pr_fetched DATETIME');
+    console.log('Added last_pr_fetched column to repositories table');
+  }
+
+  // Add pr_count column if it doesn't exist
+  if (!columnNames.includes('pr_count')) {
+    db.exec('ALTER TABLE repositories ADD COLUMN pr_count INTEGER DEFAULT 0');
+    console.log('Added pr_count column to repositories table');
   }
 }
 

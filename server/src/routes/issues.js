@@ -1,107 +1,23 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { fetchRepositoryIssues } from '../services/github.js';
-import { repoQueries, issueQueries, analysisQueries, transaction, settingsQueries } from '../db/queries.js';
+import { repoQueries, issueQueries, analysisQueries, settingsQueries } from '../db/queries.js';
 import { getDefaultSettings, validateSettings, loadRepoSettings } from '../services/settings.js';
 import { queueJob, getQueueStatus } from '../services/job-queue.js';
-import { graphql } from '@octokit/graphql';
 import { analyzeIssuesWithAllScores } from '../services/analyzers/unified.js';
 
 const router = express.Router({ mergeParams: true });
-
-// Helper to get or create repository in DB
-async function getOrCreateRepo(owner, name, accessToken) {
-  let repo = repoQueries.findByOwnerAndName.get(owner, name);
-
-  if (!repo) {
-    // Fetch repo info from GitHub to get the database ID
-    const client = graphql.defaults({
-      headers: { authorization: `token ${accessToken}` },
-    });
-
-    const result = await client(`
-      query($owner: String!, $name: String!) {
-        repository(owner: $owner, name: $name) {
-          databaseId
-        }
-      }
-    `, { owner, name });
-
-    repo = repoQueries.create.get(owner, name, result.repository.databaseId);
-  }
-
-  return repo;
-}
-
-// Fetch issues from GitHub
-router.post('/fetch', authenticateToken, async (req, res) => {
-  const { owner, repo: repoName } = req.params;
-
-  try {
-    // Check if repository is saved by this user (Option 1 validation)
-    const savedRepo = repoQueries.checkIfSaved.get(req.user.id, owner, repoName);
-
-    if (!savedRepo) {
-      return res.status(403).json({
-        error: 'Repository not saved. Please add this repository to your list first.'
-      });
-    }
-
-    // Get or create repository record
-    const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
-
-    // Queue issue fetch job (orchestrator will update status when job starts)
-    queueJob({
-      type: 'issue-fetch',
-      repoId: repo.id,
-      userId: req.user.id,
-      args: {},
-      priority: 50,
-    });
-
-    res.json({
-      message: 'Issue fetch queued',
-      repoId: repo.id,
-    });
-  } catch (error) {
-    console.error('Error queueing issue fetch:', error);
-    res.status(500).json({ error: 'Failed to queue issue fetch' });
-  }
-});
-
-// Refresh issues
-router.post('/refresh', authenticateToken, async (req, res) => {
-  const { owner, repo: repoName } = req.params;
-
-  try {
-    const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
-
-    // Queue issue fetch job (orchestrator will update status when job starts)
-    queueJob({
-      type: 'issue-fetch',
-      repoId: repo.id,
-      userId: req.user.id,
-      args: {},
-      priority: 50,
-    });
-
-    res.json({
-      message: 'Issue refresh queued',
-      repoId: repo.id,
-    });
-  } catch (error) {
-    console.error(`[API] Error queueing issue refresh for ${owner}/${repoName}:`, error);
-    res.status(500).json({ error: 'Failed to queue issue refresh' });
-  }
-});
 
 // Refresh single issue
 router.post('/:issueNumber/refresh', authenticateToken, async (req, res) => {
   const { owner, repo: repoName, issueNumber } = req.params;
 
   try {
-    // Get or create repository
-    const repo = await getOrCreateRepo(owner, repoName, req.user.accessToken);
+    // Get repository
+    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
+
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
 
     // Queue the refresh job
     queueJob({

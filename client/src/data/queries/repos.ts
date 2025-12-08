@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchRepos, fetchRepoBrowse, fetchRepoSearch, fetchRepoStatus } from '../api/repos/fetchers';
-import { saveRepo, deleteRepo } from '../api/repos/mutators';
+import { saveRepo, deleteRepo, fetchRepoData } from '../api/repos/mutators';
 import { queryKeys } from './query-keys';
 import { SaveRepoRequest } from '../api/repos/types';
 
@@ -69,6 +69,21 @@ export const useDeleteRepoMutation = () => {
     mutationFn: (repoId: number) => deleteRepo(repoId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.repos.list() });
+    },
+  });
+};
+
+/**
+ * Mutation for fetching repository data (issues and PRs) from GitHub
+ */
+export const useFetchRepoDataMutation = (owner: string, repo: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => fetchRepoData(owner, repo),
+    onSuccess: () => {
+      // Invalidate status to trigger refetch and start polling
+      queryClient.invalidateQueries({ queryKey: queryKeys.repos.status(owner, repo) });
     },
   });
 };

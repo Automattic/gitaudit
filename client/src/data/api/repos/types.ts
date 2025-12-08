@@ -50,7 +50,7 @@ export interface GitHubReposResponse {
 
 export interface RepoStatus {
   status: 'not_started' | 'in_progress' | 'completed' | 'failed';
-  currentJob?: 'issue-fetch' | 'sentiment' | null;
+  currentJob?: 'issue-fetch' | 'pr-fetch' | 'sentiment' | null;
   progress?: {
     current: number;
     total: number;

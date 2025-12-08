@@ -6,6 +6,7 @@ type ImportantBugsSettings = RepoSettings['bugs'];
 type StaleIssuesSettings = RepoSettings['stale'];
 type CommunityHealthSettings = RepoSettings['community'];
 type FeatureRequestSettings = RepoSettings['features'];
+type StalePRsSettings = RepoSettings['stalePRs'];
 
 // Flattened settings type (for forms)
 type FlattenedSettings = Record<string, string | number | boolean | string[]>;
@@ -352,6 +353,89 @@ export function unflattenFeatureRequestSettings(
 
       if (updated.scoringRules[ruleName]) {
         updated.scoringRules[ruleName][propName] = value;
+      }
+    }
+  });
+
+  return updated;
+}
+
+// ============================================================================
+// STALE PRS HELPERS
+// ============================================================================
+
+export function flattenStalePRsSettings(settings: StalePRsSettings): FlattenedSettings {
+  const flat: Record<string, any> = {};
+
+  // Activity ranges (4 ranges)
+  settings.activityTimeRanges.forEach((range: { days: number; points: number; name: string }, idx: number) => {
+    flat[`activityRange_${idx}_days`] = range.days;
+    flat[`activityRange_${idx}_points`] = range.points;
+    flat[`activityRange_${idx}_name`] = range.name;
+  });
+
+  // Bonus rules
+  const rules = settings.bonusRules;
+
+  // Review Status
+  flat.reviewStatus_enabled = rules.reviewStatus.enabled;
+  flat.reviewStatus_noReviewsPoints = rules.reviewStatus.noReviewsPoints;
+  flat.reviewStatus_changesRequestedPoints = rules.reviewStatus.changesRequestedPoints;
+  flat.reviewStatus_approvedNotMergedPoints = rules.reviewStatus.approvedNotMergedPoints;
+
+  // Draft Penalty
+  flat.draftPenalty_enabled = rules.draftPenalty.enabled;
+  flat.draftPenalty_points = rules.draftPenalty.points;
+
+  // Abandoned by Contributor
+  flat.abandonedByContributor_enabled = rules.abandonedByContributor.enabled;
+  flat.abandonedByContributor_points = rules.abandonedByContributor.points;
+  flat.abandonedByContributor_daysThreshold = rules.abandonedByContributor.daysThreshold;
+
+  // Merge Conflicts
+  flat.mergeConflicts_enabled = rules.mergeConflicts.enabled;
+  flat.mergeConflicts_points = rules.mergeConflicts.points;
+
+  // High Interest but Stale
+  flat.highInterestButStale_enabled = rules.highInterestButStale.enabled;
+  flat.highInterestButStale_points = rules.highInterestButStale.points;
+  flat.highInterestButStale_reactionThreshold = rules.highInterestButStale.reactionThreshold;
+  flat.highInterestButStale_commentsThreshold = rules.highInterestButStale.commentsThreshold;
+  flat.highInterestButStale_daysThreshold = rules.highInterestButStale.daysThreshold;
+
+  // Thresholds
+  flat.thresholds_critical = settings.thresholds.critical;
+  flat.thresholds_high = settings.thresholds.high;
+  flat.thresholds_medium = settings.thresholds.medium;
+
+  return flat;
+}
+
+export function unflattenStalePRsSettings(
+  edits: Record<string, unknown>,
+  currentSettings: StalePRsSettings
+): StalePRsSettings {
+  // Deep clone to avoid mutation
+  const updated = JSON.parse(JSON.stringify(currentSettings));
+
+  // Apply all edits
+  Object.entries(edits).forEach(([key, value]) => {
+    if (key.startsWith('activityRange_')) {
+      const parts = key.split('_');
+      const idx = parseInt(parts[1]);
+      const prop = parts[2];
+      updated.activityTimeRanges[idx][prop] = value;
+    } else if (key.startsWith('thresholds_')) {
+      const thresholdKey = key.replace('thresholds_', '');
+      updated.thresholds[thresholdKey] = value;
+    } else {
+      // Bonus rules
+      const firstUnderscore = key.indexOf('_');
+      const ruleName = key.substring(0, firstUnderscore);
+      const propName = key.substring(firstUnderscore + 1);
+
+      if (updated.bonusRules[ruleName]) {
+        updated.bonusRules[ruleName][propName] = value;
       }
     }
   });

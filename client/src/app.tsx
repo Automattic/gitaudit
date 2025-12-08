@@ -9,6 +9,7 @@ import AuthCallback from './pages/auth-callback';
 import RepoSelector from './pages/repo-selector';
 import Bugs from './pages/bugs';
 import Stale from './pages/stale';
+import StalePRs from './pages/stale-prs';
 import Community from './pages/community';
 import Features from './pages/features';
 import Settings from './pages/settings';
@@ -79,6 +80,10 @@ function App() {
               <Route path="features">
                 <Route index element={<Navigate to="all" replace />} />
                 <Route path=":tabId" element={<Features />} />
+              </Route>
+              <Route path="stale-prs">
+                <Route index element={<Navigate to="all" replace />} />
+                <Route path=":tabId" element={<StalePRs />} />
               </Route>
               <Route path="settings">
                 <Route index element={<Navigate to="general" replace />} />

@@ -7,6 +7,7 @@ import ImportantBugsForm from './settings/important-bugs-form';
 import StaleIssuesForm from './settings/stale-issues-form';
 import CommunityHealthForm from './settings/community-health-form';
 import FeatureRequestForm from './settings/features-form';
+import StalePRsForm from './settings/stale-prs-form';
 import { repoSettingsQueryOptions, useUpdateSettingsMutation, useResetSettingsMutation } from '@/data/queries/settings';
 import { RepoSettings } from '@/data/api/settings/types';
 import { getErrorMessage } from '@/utils/error-handling';
@@ -22,7 +23,7 @@ function Settings() {
   const navigate = useNavigate();
 
   // Validate section parameter with fallback
-  const validSections = ["general", "bugs", "stale", "community", "features"];
+  const validSections = ["general", "bugs", "stale", "community", "features", "stalePRs"];
   const activeSection = section && validSections.includes(section)
     ? section
     : "general";
@@ -113,6 +114,13 @@ function Settings() {
     }));
   }
 
+  function handleStalePRsChange(updatedStalePRs: RepoSettings['stalePRs']) {
+    setLocalSettingsState((prev) => ({
+      ...(prev ?? serverSettings!),
+      stalePRs: updatedStalePRs,
+    }));
+  }
+
   if (isLoading) {
     return (
       <Page title="Scoring Settings">
@@ -175,6 +183,7 @@ function Settings() {
           <Tabs.Tab tabId="stale">Stale Issues</Tabs.Tab>
           <Tabs.Tab tabId="features">Feature Requests</Tabs.Tab>
           <Tabs.Tab tabId="community">Community Health</Tabs.Tab>
+          <Tabs.Tab tabId="stalePRs">Stale PRs</Tabs.Tab>
         </Tabs.TabList>
       </Tabs>
 
@@ -207,6 +216,12 @@ function Settings() {
           <FeatureRequestForm
             settings={localSettings.features}
             onChange={handleFeatureRequestChange}
+          />
+        )}
+        {activeSection === "stalePRs" && (
+          <StalePRsForm
+            settings={localSettings.stalePRs}
+            onChange={handleStalePRsChange}
           />
         )}
       </div>

@@ -36,6 +36,23 @@ export const queryKeys = {
     ) => [...queryKeys.issues.repo(owner, repo), 'list', params] as const,
   },
 
+  // PRs keys
+  prs: {
+    all: () => ['prs'] as const,
+    repo: (owner: string, repo: string) => [...queryKeys.prs.all(), owner, repo] as const,
+    list: (
+      owner: string,
+      repo: string,
+      params: {
+        page: number;
+        per_page: number;
+        scoreType?: string;
+        level?: string;
+        search?: string;
+      }
+    ) => [...queryKeys.prs.repo(owner, repo), 'list', params] as const,
+  },
+
   // Settings keys
   settings: {
     all: () => ['settings'] as const,

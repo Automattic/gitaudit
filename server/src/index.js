@@ -6,6 +6,7 @@ import { startJobRunner } from './services/job-queue.js';
 import authRoutes from './routes/auth.js';
 import reposRoutes from './routes/repos.js';
 import issuesRoutes from './routes/issues.js';
+import prRoutes from './routes/pull-requests.js';
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +41,7 @@ app.get('/health', (req, res) => {
 app.use('/auth', authRoutes);
 app.use('/api/repos', reposRoutes);
 app.use('/api/repos/:owner/:repo/issues', issuesRoutes);
+app.use('/api/repos/:owner/:repo/prs', prRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

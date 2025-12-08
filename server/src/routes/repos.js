@@ -1,9 +1,9 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories } from '../services/github.js';
-import { repoQueries, issueQueries, analysisQueries, transaction } from '../db/queries.js';
+import { repoQueries, issueQueries, analysisQueries, prQueries, transaction } from '../db/queries.js';
 import { toSqliteDateTime } from '../utils/dates.js';
-import { getCurrentJobForRepo } from '../services/job-queue.js';
+import { getCurrentJobForRepo, queueJob } from '../services/job-queue.js';
 
 const router = express.Router();
 
@@ -67,6 +67,54 @@ router.get('/search', authenticateToken, async (req, res) => {
   }
 });
 
+// Unified fetch endpoint - schedules both issue and PR fetching
+router.post('/:owner/:repo/fetch', authenticateToken, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+
+  try {
+    // Check if repository is saved by this user
+    const savedRepo = repoQueries.checkIfSaved.get(req.user.id, owner, repoName);
+
+    if (!savedRepo) {
+      return res.status(403).json({
+        error: 'Repository not saved. Please add this repository to your list first.'
+      });
+    }
+
+    // Get repository record (must exist since it's saved)
+    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
+
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    // Queue both issue-fetch and pr-fetch jobs
+    queueJob({
+      type: 'issue-fetch',
+      repoId: repo.id,
+      userId: req.user.id,
+      args: {},
+      priority: 50,
+    });
+
+    queueJob({
+      type: 'pr-fetch',
+      repoId: repo.id,
+      userId: req.user.id,
+      args: {},
+      priority: 50,
+    });
+
+    res.json({
+      message: 'Data fetch queued (issues and PRs)',
+      repoId: repo.id,
+    });
+  } catch (error) {
+    console.error('Error queueing data fetch:', error);
+    res.status(500).json({ error: 'Failed to queue data fetch' });
+  }
+});
+
 // Get repository status (for polling background jobs)
 router.get('/:owner/:repo/status', authenticateToken, async (req, res) => {
   const { owner, repo: repoName } = req.params;
@@ -77,6 +125,7 @@ router.get('/:owner/:repo/status', authenticateToken, async (req, res) => {
     if (!repo) {
       return res.json({
         hasCachedData: false,
+        hasCachedPRs: false,
         status: 'not_started',
         currentJob: null,
         sentiment: { totalIssues: 0, analyzedIssues: 0, progress: 0 }
@@ -84,14 +133,18 @@ router.get('/:owner/:repo/status', authenticateToken, async (req, res) => {
     }
 
     const issueCount = issueQueries.countByRepo.get(repo.id);
+    const prCount = prQueries.countByRepo.get(repo.id);
     const analyzedIssues = analysisQueries.countByRepoAndType.get(repo.id, 'sentiment');
     const currentJob = getCurrentJobForRepo(repo.id);
 
     res.json({
       hasCachedData: issueCount.count > 0,
+      hasCachedPRs: prCount.count > 0,
       status: repo.status,
       lastFetched: repo.last_fetched,
+      lastPRFetched: repo.last_pr_fetched,
       issueCount: issueCount.count,
+      prCount: prCount.count,
       currentJob: currentJob,
       sentiment: {
         totalIssues: issueCount.count,

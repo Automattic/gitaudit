@@ -4,8 +4,10 @@ import { repoQueries, jobQueries, userQueries } from '../db/queries.js';
 
 // Job handlers with schemas
 import { issueFetchHandler, issueFetchSchema } from './jobs/issue-fetch.js';
+import { prFetchHandler, prFetchSchema } from './jobs/pr-fetch.js';
 import { sentimentHandler, sentimentSchema } from './jobs/sentiment.js';
 import { singleIssueRefreshHandler, singleIssueRefreshSchema } from './jobs/single-issue-refresh.js';
+import { singlePRRefreshHandler, singlePRRefreshSchema } from './jobs/single-pr-refresh.js';
 
 // Job queue configuration
 const MAX_CONCURRENT_REPOS = 5;
@@ -131,8 +133,10 @@ async function runJobLoop() {
  */
 const jobHandlers = {
   'issue-fetch': { handler: issueFetchHandler, schema: issueFetchSchema },
+  'pr-fetch': { handler: prFetchHandler, schema: prFetchSchema },
   'sentiment': { handler: sentimentHandler, schema: sentimentSchema },
   'single-issue-refresh': { handler: singleIssueRefreshHandler, schema: singleIssueRefreshSchema },
+  'single-pr-refresh': { handler: singlePRRefreshHandler, schema: singlePRRefreshSchema },
 };
 
 /**

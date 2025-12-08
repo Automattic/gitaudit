@@ -174,6 +174,47 @@ export function getDefaultSettings() {
         medium: 30,
       },
     },
+    stalePRs: {
+      activityTimeRanges: [
+        { days: 180, points: 50, name: 'extremelyStale' },
+        { days: 90, points: 40, name: 'veryStale' },
+        { days: 60, points: 30, name: 'moderatelyStale' },
+        { days: 30, points: 20, name: 'slightlyStale' },
+      ],
+      bonusRules: {
+        reviewStatus: {
+          enabled: true,
+          noReviewsPoints: 20,
+          changesRequestedPoints: 30,
+          approvedNotMergedPoints: 15,
+        },
+        draftPenalty: {
+          enabled: true,
+          points: -10,  // Negative = reduce score for draft PRs
+        },
+        abandonedByContributor: {
+          enabled: true,
+          points: 20,
+          daysThreshold: 90,
+        },
+        mergeConflicts: {
+          enabled: true,
+          points: 30,
+        },
+        highInterestButStale: {
+          enabled: true,
+          points: 10,
+          reactionThreshold: 5,
+          commentsThreshold: 10,
+          daysThreshold: 90,
+        },
+      },
+      thresholds: {
+        critical: 125,
+        high: 100,
+        medium: 70,
+      },
+    },
   };
 }
 
@@ -189,6 +230,7 @@ function migrateSettings(settings) {
     stale: settings.stale || defaults.stale,
     community: settings.community || defaults.community,
     features: settings.features || defaults.features,
+    stalePRs: settings.stalePRs || defaults.stalePRs,
   };
 }
 

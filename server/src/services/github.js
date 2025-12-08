@@ -127,11 +127,34 @@ export function createGitHubClient(accessToken) {
       operation +
       (variables?.owner && variables?.repo ? ` (${variables.owner}/${variables.repo})` : '');
 
-    // Apply retry logic around rate-limited call
-    return withRetry(
-      () => rateLimitedCall(() => client(query, variables), context),
-      context
-    );
+    try {
+      // Apply retry logic around rate-limited call with validation
+      const result = await withRetry(
+        async () => {
+          const data = await rateLimitedCall(() => client(query, variables), context);
+
+          // Validate response is not null/undefined (inside retry loop)
+          if (data === null || data === undefined) {
+            console.error(`[GitHub] API returned null/undefined for: ${context}`);
+            console.error(`[GitHub] Variables:`, variables);
+            const error = new Error(`GitHub API returned null/undefined response`);
+            error.isNullResponse = true; // Mark for retry logic
+            throw error;
+          }
+
+          return data;
+        },
+        context
+      );
+
+      return result;
+    } catch (error) {
+      // Log error details for debugging
+      console.error(`[GitHub] API call failed: ${context}`);
+      console.error(`[GitHub] Error status: ${error.status || 'N/A'}`);
+      console.error(`[GitHub] Error message: ${error.message}`);
+      throw error;
+    }
   };
 }
 
@@ -437,6 +460,253 @@ export async function fetchIssueComments(accessToken, owner, repo, issueNumber) 
   }
 
   return allComments;
+}
+
+/**
+ * Fetch repository pull requests
+ * @param {string} accessToken - GitHub access token
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} first - Number of PRs to fetch per page (default: 100)
+ * @param {string} after - Pagination cursor
+ * @param {Array<string>} states - PR states to fetch (e.g., ['OPEN', 'CLOSED', 'MERGED'])
+ * @returns {Promise<Object>} PRs response with pageInfo and nodes
+ */
+export async function fetchRepositoryPullRequests(accessToken, owner, repo, first = 100, after = null, states = ['OPEN']) {
+  // Validate states parameter
+  if (!Array.isArray(states) || states.length === 0) {
+    throw new Error('states must be a non-empty array');
+  }
+
+  const validStates = ['OPEN', 'CLOSED', 'MERGED'];
+  const invalidStates = states.filter(state => !validStates.includes(state));
+  if (invalidStates.length > 0) {
+    throw new Error(`Invalid PR states: ${invalidStates.join(', ')}. Valid states: ${validStates.join(', ')}`);
+  }
+
+  const client = createGitHubClient(accessToken);
+
+  const query = `
+    query($owner: String!, $repo: String!, $first: Int!, $after: String, $states: [PullRequestState!]) {
+      repository(owner: $owner, name: $repo) {
+        pullRequests(first: $first, after: $after, states: $states, orderBy: {field: UPDATED_AT, direction: ASC}) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            id
+            databaseId
+            number
+            title
+            body
+            state
+            isDraft
+            createdAt
+            updatedAt
+            closedAt
+            mergedAt
+            author {
+              login
+            }
+            authorAssociation
+            labels(first: 20) {
+              nodes {
+                name
+                color
+              }
+            }
+            comments(last: 2) {
+              totalCount
+              nodes {
+                createdAt
+                author {
+                  login
+                }
+              }
+            }
+            reactions {
+              totalCount
+            }
+            assignees(first: 10) {
+              nodes {
+                login
+              }
+            }
+            reviewRequests(first: 10) {
+              nodes {
+                requestedReviewer {
+                  ... on User {
+                    login
+                  }
+                }
+              }
+            }
+            reviewDecision
+            mergeable
+            additions
+            deletions
+            changedFiles
+            headRefName
+            baseRefName
+          }
+        }
+      }
+    }
+  `;
+
+  const variables = { owner, repo, first, after, states };
+
+  const result = await client(query, variables);
+
+  if (!result || !result.repository) {
+    console.error(`[GitHub] fetchRepositoryPullRequests - Invalid response structure:`, result);
+    throw new Error(`Invalid GraphQL response: missing repository field`);
+  }
+
+  return result.repository.pullRequests;
+}
+
+/**
+ * Fetch issue comments for a pull request (matches fetchIssueComments pattern)
+ * @param {string} accessToken - GitHub access token
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - PR number
+ * @returns {Promise<Array>} Array of comment objects
+ */
+export async function fetchPRIssueComments(accessToken, owner, repo, prNumber) {
+  const client = createGitHubClient(accessToken);
+
+  const query = `
+    query($owner: String!, $repo: String!, $prNumber: Int!, $first: Int!, $after: String) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          comments(first: $first, after: $after) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              databaseId
+              body
+              author {
+                login
+              }
+              createdAt
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  // Fetch up to 100 comments (paginate if needed)
+  let allComments = [];
+  let hasNextPage = true;
+  let after = null;
+
+  while (hasNextPage && allComments.length < 100) {
+    const result = await client(query, { owner, repo, prNumber, first: 100, after });
+
+    if (!result || !result.repository || !result.repository.pullRequest) {
+      console.error(`[GitHub] fetchPRIssueComments - Invalid response structure for PR #${prNumber}:`, result);
+      throw new Error(`Invalid GraphQL response for PR #${prNumber}: missing pullRequest field`);
+    }
+
+    const pr = result.repository.pullRequest;
+
+    // Add issue comments
+    allComments = allComments.concat(pr.comments.nodes);
+
+    // Check pagination
+    hasNextPage = pr.comments.pageInfo.hasNextPage;
+    after = pr.comments.pageInfo.endCursor;
+  }
+
+  return allComments;
+}
+
+/**
+ * Fetch a single PR with all details
+ * @param {string} accessToken - GitHub access token
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - PR number
+ * @returns {Promise<Object>} PR object with all fields
+ */
+export async function fetchSinglePR(accessToken, owner, repo, prNumber) {
+  const client = createGitHubClient(accessToken);
+
+  const query = `
+    query($owner: String!, $repo: String!, $prNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          id
+          databaseId
+          number
+          title
+          body
+          state
+          isDraft
+          createdAt
+          updatedAt
+          closedAt
+          mergedAt
+          author {
+            login
+          }
+          authorAssociation
+          labels(first: 20) {
+            nodes {
+              name
+              color
+            }
+          }
+          comments(first: 2, orderBy: {field: UPDATED_AT, direction: DESC}) {
+            totalCount
+            nodes {
+              createdAt
+              author {
+                login
+              }
+            }
+          }
+          reactions {
+            totalCount
+          }
+          assignees(first: 10) {
+            nodes {
+              login
+            }
+          }
+          reviewers: reviews(first: 10) {
+            nodes {
+              author {
+                login
+              }
+            }
+          }
+          reviewDecision
+          mergeable
+          mergeStateStatus
+          additions
+          deletions
+          changedFiles
+          headRefName
+          baseRefName
+        }
+      }
+    }
+  `;
+
+  const result = await client(query, { owner, repo, prNumber });
+
+  if (!result.repository?.pullRequest) {
+    throw new Error(`PR #${prNumber} not found in ${owner}/${repo}`);
+  }
+
+  return result.repository.pullRequest;
 }
 
 /**
