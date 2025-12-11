@@ -684,7 +684,8 @@ export function loadRepoSettings(repoId) {
   }
 
   try {
-    return JSON.parse(repoSettings.settings);
+    const parsed = JSON.parse(repoSettings.settings);
+    return migrateSettings(parsed);
   } catch (error) {
     console.error(`Failed to parse settings for repo ${repoId}:`, error);
     return getDefaultSettings();
