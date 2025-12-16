@@ -442,3 +442,34 @@ export function unflattenStalePRsSettings(
 
   return updated;
 }
+
+// ============================================================================
+// LLM SETTINGS HELPERS
+// ============================================================================
+
+type LLMSettings = RepoSettings['llm'];
+
+export function flattenLLMSettings(settings: LLMSettings): FlattenedSettings {
+  return {
+    llm_enabled: settings.enabled,
+    llm_provider: settings.provider,
+    llm_apiKey: settings.apiKey,
+    llm_model: settings.model,
+  };
+}
+
+export function unflattenLLMSettings(
+  edits: Record<string, unknown>,
+  currentSettings: LLMSettings
+): LLMSettings {
+  const updated = JSON.parse(JSON.stringify(currentSettings));
+
+  Object.entries(edits).forEach(([key, value]) => {
+    if (key.startsWith('llm_')) {
+      const propName = key.replace('llm_', '');
+      updated[propName] = value;
+    }
+  });
+
+  return updated;
+}

@@ -4,6 +4,7 @@ import {
   analyzeIssueSentiment,
   analyzeCommentsSentiment,
   calculateSentimentScore,
+  isSentimentAnalysisAvailable,
 } from '../analyzers/sentiment.js';
 import { isBugIssue } from '../analyzers/bugs.js';
 import { loadRepoSettings } from '../settings.js';
@@ -30,6 +31,12 @@ export async function sentimentHandler(enrichedArgs) {
   const startTime = Date.now();
 
   console.log(`[${owner}/${repoName}] Starting sentiment analysis...`);
+
+  // Check if LLM is configured for this repository
+  if (!isSentimentAnalysisAvailable(repoId)) {
+    console.log(`[${owner}/${repoName}] ✗ Sentiment analysis not available: LLM not configured`);
+    return;
+  }
 
   // Load settings for bug/feature label detection
   const settings = loadRepoSettings(repoId);
@@ -62,10 +69,10 @@ export async function sentimentHandler(enrichedArgs) {
       const issueStartTime = Date.now();
 
       // 1. Analyze issue sentiment (title + body)
-      const issueSentiment = await analyzeIssueSentiment(issue);
+      const issueSentiment = await analyzeIssueSentiment(repoId, issue);
 
       // 2. Analyze comment sentiments (from cached data)
-      const commentsSentiments = await analyzeCommentsSentiment(issue.id);
+      const commentsSentiments = await analyzeCommentsSentiment(repoId, issue.id);
 
       totalCommentsFetched += commentsSentiments.length;
 

@@ -194,6 +194,72 @@ router.get('/settings', authenticateToken, async (req, res) => {
   }
 });
 
+// Validate LLM API key with a test call
+router.post('/settings/validate-llm', authenticateToken, async (req, res) => {
+  const { provider, apiKey, model } = req.body;
+
+  try {
+    // Validate inputs
+    if (!provider || !['anthropic', 'openai'].includes(provider)) {
+      return res.status(400).json({
+        error: 'Invalid provider. Must be "anthropic" or "openai"'
+      });
+    }
+
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+      return res.status(400).json({ error: 'API key is required' });
+    }
+
+    // Import AI SDK
+    const { generateText } = await import('ai');
+    const { createAnthropic } = await import('@ai-sdk/anthropic');
+    const { createOpenAI } = await import('@ai-sdk/openai');
+
+    // Create provider and determine model
+    let providerInstance;
+    let modelName;
+
+    if (provider === 'anthropic') {
+      providerInstance = createAnthropic({ apiKey });
+      modelName = model || 'claude-3-haiku-20240307';
+    } else {
+      providerInstance = createOpenAI({ apiKey });
+      modelName = model || 'gpt-3.5-turbo';
+    }
+
+    // Make minimal test call (5 tokens)
+    await generateText({
+      model: providerInstance(modelName),
+      prompt: 'Test',
+      maxTokens: 5,
+    });
+
+    res.json({
+      valid: true,
+      message: 'API key is valid',
+      model: modelName
+    });
+
+  } catch (error) {
+    console.error('LLM validation error:', error);
+
+    let errorMessage = 'API key validation failed';
+    if (error.message?.includes('API key')) {
+      errorMessage = 'Invalid API key';
+    } else if (error.message?.includes('model')) {
+      errorMessage = 'Invalid model name';
+    } else if (error.message?.includes('rate limit')) {
+      errorMessage = 'Rate limit exceeded. Try again in a moment.';
+    }
+
+    res.status(400).json({
+      valid: false,
+      error: errorMessage,
+      details: error.message
+    });
+  }
+});
+
 // Save repo's scoring settings
 router.put('/settings', authenticateToken, async (req, res) => {
   const { owner, repo: repoName } = req.params;

@@ -257,7 +257,7 @@ export async function issueFetchHandler(enrichedArgs) {
   );
 
   // Auto-queue sentiment analysis after successful issue fetch (if AI provider is configured)
-  if (isSentimentAnalysisAvailable()) {
+  if (isSentimentAnalysisAvailable(repoId)) {
     queueJob({
       type: 'sentiment',
       repoId,

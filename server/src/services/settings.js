@@ -215,6 +215,12 @@ export function getDefaultSettings() {
         medium: 70,
       },
     },
+    llm: {
+      enabled: false,
+      provider: 'anthropic',  // 'anthropic' | 'openai'
+      apiKey: '',
+      model: '',  // Empty = use provider default
+    },
   };
 }
 
@@ -231,6 +237,7 @@ function migrateSettings(settings) {
     community: settings.community || defaults.community,
     features: settings.features || defaults.features,
     stalePRs: settings.stalePRs || defaults.stalePRs,
+    llm: settings.llm || defaults.llm,
   };
 }
 
@@ -644,14 +651,50 @@ function validateGeneralSettings(generalSettings) {
 }
 
 /**
+ * Validates LLM settings
+ */
+function validateLLMSettings(llmSettings) {
+  const errors = [];
+
+  // Type validation
+  if (!llmSettings || typeof llmSettings !== 'object') {
+    errors.push('llm: must be an object');
+    return { valid: false, errors };
+  }
+
+  if (typeof llmSettings.enabled !== 'boolean') {
+    errors.push('llm: enabled must be boolean');
+  }
+
+  if (!['anthropic', 'openai'].includes(llmSettings.provider)) {
+    errors.push('llm: provider must be "anthropic" or "openai"');
+  }
+
+  if (typeof llmSettings.apiKey !== 'string') {
+    errors.push('llm: apiKey must be a string');
+  }
+
+  if (typeof llmSettings.model !== 'string') {
+    errors.push('llm: model must be a string');
+  }
+
+  // If enabled, API key required
+  if (llmSettings.enabled && llmSettings.apiKey.trim() === '') {
+    errors.push('llm: apiKey is required when LLM is enabled');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
  * Validates user-submitted settings for general, bugs, stale, community, and features
  * Returns { valid: boolean, errors: string[] }
  */
 export function validateSettings(settings) {
   const errors = [];
 
-  if (!settings.general || !settings.bugs || !settings.stale || !settings.community) {
-    return { valid: false, errors: ['Missing required sections: general, bugs, stale, or community'] };
+  if (!settings.general || !settings.bugs || !settings.stale || !settings.community || !settings.llm) {
+    return { valid: false, errors: ['Missing required sections: general, bugs, stale, community, or llm'] };
   }
 
   // Validate general
@@ -669,6 +712,10 @@ export function validateSettings(settings) {
   // Validate community
   const healthValidation = validateCommunitySettings(settings.community);
   errors.push(...healthValidation.errors);
+
+  // Validate LLM
+  const llmValidation = validateLLMSettings(settings.llm);
+  errors.push(...llmValidation.errors);
 
   return { valid: errors.length === 0, errors };
 }

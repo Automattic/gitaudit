@@ -79,11 +79,8 @@ function Settings() {
   }
 
   // Callbacks for child components
-  function handleGeneralChange(updatedGeneral: RepoSettings['general']) {
-    setLocalSettingsState((prev) => ({
-      ...(prev ?? serverSettings!),
-      general: updatedGeneral,
-    }));
+  function handleGeneralChange(updatedSettings: RepoSettings) {
+    setLocalSettingsState(updatedSettings);
   }
 
   function handleImportantBugsChange(updatedBugs: RepoSettings['bugs']) {
@@ -190,7 +187,7 @@ function Settings() {
       <div style={{ marginTop: '1.5rem' }}>
         {activeSection === "general" && (
           <GeneralForm
-            settings={localSettings.general}
+            settings={localSettings}
             onChange={handleGeneralChange}
           />
         )}

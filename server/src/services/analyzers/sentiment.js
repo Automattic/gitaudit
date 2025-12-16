@@ -2,22 +2,35 @@ import { generateText } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { commentQueries } from '../../db/queries.js';
+import { loadRepoSettings } from '../settings.js';
 
 /**
- * Check if sentiment analysis is available (AI provider configured)
+ * Check if sentiment analysis is available for a repository
+ * @param {number} repoId - Repository ID
  */
-export function isSentimentAnalysisAvailable() {
-  return !!process.env.AI_API_KEY;
+export function isSentimentAnalysisAvailable(repoId) {
+  const settings = loadRepoSettings(repoId);
+  return settings.llm.enabled && settings.llm.apiKey.trim() !== '';
 }
 
-// Get AI provider from environment
-function getAIProvider() {
-  const provider = process.env.AI_PROVIDER || 'anthropic'; // default
-  const apiKey = process.env.AI_API_KEY;
+/**
+ * Get AI provider instance for a repository
+ * @param {number} repoId - Repository ID
+ * @throws {Error} If LLM is not configured for the repository
+ */
+function getAIProvider(repoId) {
+  const settings = loadRepoSettings(repoId);
 
-  if (!apiKey) {
-    throw new Error('AI_API_KEY environment variable not set');
+  if (!settings.llm.enabled) {
+    throw new Error(`LLM is not enabled for repository ${repoId}`);
   }
+
+  const apiKey = settings.llm.apiKey;
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error(`LLM API key not configured for repository ${repoId}`);
+  }
+
+  const provider = settings.llm.provider || 'anthropic';
 
   switch (provider) {
     case 'anthropic':
@@ -29,17 +42,34 @@ function getAIProvider() {
   }
 }
 
-function getModelName() {
-  return process.env.AI_MODEL || 'claude-3-haiku-20240307'; // fast, cheap model
+/**
+ * Get model name for a repository
+ * @param {number} repoId - Repository ID
+ */
+function getModelName(repoId) {
+  const settings = loadRepoSettings(repoId);
+
+  // If custom model specified, use it
+  if (settings.llm.model && settings.llm.model.trim() !== '') {
+    return settings.llm.model;
+  }
+
+  // Provider-specific defaults
+  const provider = settings.llm.provider || 'anthropic';
+  return provider === 'anthropic'
+    ? 'claude-3-haiku-20240307'
+    : 'gpt-3.5-turbo';
 }
 
 /**
  * Analyze sentiment of a single text (issue or comment)
  * Returns: { score: -1 to 1, label: 'negative'|'neutral'|'positive', reasoning: string }
+ * @param {number} repoId - Repository ID
+ * @param {string} text - Text to analyze
  */
-export async function analyzeSentiment(text) {
-  const provider = getAIProvider();
-  const model = getModelName();
+export async function analyzeSentiment(repoId, text) {
+  const provider = getAIProvider(repoId);
+  const model = getModelName(repoId);
 
   const prompt = `Analyze the sentiment and urgency of this GitHub issue or comment.
 
@@ -97,18 +127,21 @@ OUTPUT (valid JSON only):`;
 
 /**
  * Analyze sentiment for an issue (title + body)
+ * @param {number} repoId - Repository ID
+ * @param {Object} issue - Issue object with title and body
  */
-export async function analyzeIssueSentiment(issue) {
+export async function analyzeIssueSentiment(repoId, issue) {
   const text = `Title: ${issue.title}\n\nBody: ${issue.body || 'No description'}`;
-  return analyzeSentiment(text);
+  return analyzeSentiment(repoId, text);
 }
 
 /**
  * Analyze sentiment for all comments of an issue (from cached data)
  * Returns array of sentiment results
+ * @param {number} repoId - Repository ID
  * @param {number} issueId - Database issue ID
  */
-export async function analyzeCommentsSentiment(issueId) {
+export async function analyzeCommentsSentiment(repoId, issueId) {
   // Read comments from cached database
   const comments = commentQueries.findByIssueId.all(issueId);
 
@@ -116,7 +149,7 @@ export async function analyzeCommentsSentiment(issueId) {
 
   // Batch process comments (avoid rate limits)
   for (const comment of comments) {
-    const sentiment = await analyzeSentiment(comment.body);
+    const sentiment = await analyzeSentiment(repoId, comment.body);
     results.push(sentiment);
 
     // Small delay to avoid AI API rate limits

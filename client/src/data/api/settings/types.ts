@@ -62,6 +62,13 @@ export interface StalePRsSettings {
   };
 }
 
+export interface LLMSettings {
+  enabled: boolean;
+  provider: 'anthropic' | 'openai';
+  apiKey: string;
+  model: string;
+}
+
 export interface RepoSettings {
   general: GeneralSettings;
   bugs: ImportantBugsSettings;
@@ -69,4 +76,5 @@ export interface RepoSettings {
   community: CommunityHealthSettings;
   features: FeatureRequestSettings;
   stalePRs: StalePRsSettings;
+  llm: LLMSettings;
 }

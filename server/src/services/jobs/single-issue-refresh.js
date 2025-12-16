@@ -92,7 +92,7 @@ export async function singleIssueRefreshHandler(enrichedArgs) {
     // 4. Optionally trigger sentiment analysis if it's a bug
     // The updated issue.updated_at will cause incremental analyzer to pick it up automatically
     // But we can also trigger immediate analysis for this specific issue
-    if (isSentimentAnalysisAvailable()) {
+    if (isSentimentAnalysisAvailable(repoId)) {
       const isBug = labels.some(label =>
         label.toLowerCase().includes('bug') ||
         label.toLowerCase().includes('[type] bug')
@@ -101,8 +101,8 @@ export async function singleIssueRefreshHandler(enrichedArgs) {
       if (isBug) {
         console.log(`[${owner}/${repoName}] Triggering sentiment analysis for issue #${issueNumber}...`);
 
-        const issueSentiment = await analyzeIssueSentiment(issue);
-        const commentsSentiment = await analyzeCommentsSentiment(dbIssue.id);
+        const issueSentiment = await analyzeIssueSentiment(repoId, issue);
+        const commentsSentiment = await analyzeCommentsSentiment(repoId, dbIssue.id);
         const result = calculateSentimentScore(issueSentiment, commentsSentiment, allComments.length);
 
         // Store analysis
