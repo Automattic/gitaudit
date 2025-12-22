@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { DataForm } from '@wordpress/dataviews';
 import {
   TextControl,
@@ -17,6 +17,7 @@ import {
 } from './settings-helpers';
 import { validateLLMApiKey } from '@/data/api/settings/fetchers';
 import type { RepoSettings } from '@/data/api/settings/types';
+import { API_KEY_SENTINEL, isApiKeySet, isApiKeyEmpty } from '@/data/api/settings/constants';
 
 type GeneralSettings = RepoSettings['general'];
 type FlattenedSettings = Record<string, string | number | boolean | string[]>;
@@ -35,6 +36,24 @@ function ApiKeyField({ data, field, onChange }: FieldEditProps) {
     success: boolean;
     message: string;
   } | null>(null);
+  // Track if user wants to change the key
+  const [isChanging, setIsChanging] = useState(false);
+  const apiKeyValue = data.llm_apiKey as string;
+  const isSet = isApiKeySet(apiKeyValue);
+  const prevApiKeyValueRef = useRef(apiKeyValue);
+
+  // Reset isChanging when value changes FROM non-sentinel TO sentinel (after save)
+  useEffect(() => {
+    const prevValue = prevApiKeyValueRef.current;
+
+    // Only reset if value changed from something else to sentinel
+    if (apiKeyValue === API_KEY_SENTINEL && prevValue !== API_KEY_SENTINEL) {
+      setIsChanging(false);
+      setValidationResult(null);
+    }
+
+    prevApiKeyValueRef.current = apiKeyValue;
+  }, [apiKeyValue]);
 
   const handleValidate = async () => {
     const apiKey = data.llm_apiKey as string;
@@ -43,7 +62,8 @@ function ApiKeyField({ data, field, onChange }: FieldEditProps) {
 
     if (!owner || !repo) return;
 
-    if (!apiKey || apiKey.trim() === '') {
+    // Allow validating with sentinel (will test existing key)
+    if (!isSet && isApiKeyEmpty(apiKey)) {
       setValidationResult({
         success: false,
         message: 'Please enter an API key first',
@@ -77,33 +97,103 @@ function ApiKeyField({ data, field, onChange }: FieldEditProps) {
     }
   };
 
+  const handleClearKey = () => {
+    // Don't change the value yet, just show the input field
+    // Value will be updated when user actually types
+    setIsChanging(true);
+    setValidationResult(null);
+  };
+
+  const handleChange = (value: string | boolean | undefined) => {
+    // When user types, update the value
+    onChange({ [field.id]: value });
+    if (!isChanging) {
+      setIsChanging(true);
+    }
+    if (validationResult) {
+      setValidationResult(null);
+    }
+  };
+
+  const handleCancel = () => {
+    onChange({ [field.id]: API_KEY_SENTINEL });
+    setIsChanging(false);
+    setValidationResult(null);
+  };
+
   return (
     <div>
-      <TextControl
-        label={field.label}
-        type="password"
-        value={data[field.id] as string}
-        onChange={(value: string | boolean | undefined) => {
-          onChange({ [field.id]: value });
-          // Clear validation result when user types
-          if (validationResult) {
-            setValidationResult(null);
-          }
-        }}
-        help="Your API key is stored securely in the database."
-        placeholder="sk-..."
-        disabled={!data.llm_enabled}
-      />
-      <div style={{ marginTop: '0.5rem' }}>
+      {isSet && !isChanging ? (
+        // Show "already set" indicator
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+            {field.label}
+          </label>
+          <div
+            style={{
+              padding: '0.5rem',
+              backgroundColor: '#f0f0f0',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span style={{ color: '#666', fontFamily: 'monospace' }}>
+              API Key: {API_KEY_SENTINEL}
+            </span>
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={handleClearKey}
+              disabled={!data.llm_enabled}
+            >
+              Change Key
+            </Button>
+          </div>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+            Your API key is securely stored. Click "Change Key" to update it.
+          </p>
+        </div>
+      ) : (
+        // Show input field
+        <TextControl
+          label={field.label}
+          type="password"
+          value={isSet ? '' : apiKeyValue || ''}
+          onChange={handleChange}
+          help="Your API key is stored securely in the database."
+          placeholder="sk-..."
+          disabled={!data.llm_enabled}
+        />
+      )}
+
+      <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
         <Button
           variant="secondary"
           onClick={handleValidate}
           isBusy={validating}
-          disabled={!data.llm_enabled || validating || !data.llm_apiKey}
+          disabled={
+            !data.llm_enabled ||
+            validating ||
+            (!isSet && isApiKeyEmpty(apiKeyValue))
+          }
         >
-          {validating ? 'Validating...' : 'Test API Key'}
+          {validating
+            ? 'Validating...'
+            : isSet && !isChanging
+            ? 'Test Saved Key'
+            : 'Test API Key'}
         </Button>
+
+        {isChanging && isSet && (
+          <Button variant="tertiary" onClick={handleCancel}>
+            Cancel
+          </Button>
+        )}
       </div>
+
       {validationResult && (
         <div style={{ marginTop: '0.75rem' }}>
           <Notice

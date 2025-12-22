@@ -65,6 +65,11 @@ export interface StalePRsSettings {
 export interface LLMSettings {
   enabled: boolean;
   provider: 'anthropic' | 'openai';
+  /**
+   * API key for the LLM provider.
+   * - When reading: Will be "***SET***" if a key exists, empty string if not set
+   * - When writing: Provide actual key to update, "***SET***" or omit to preserve existing
+   */
   apiKey: string;
   model: string;
 }

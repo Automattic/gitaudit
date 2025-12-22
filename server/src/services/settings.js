@@ -1,6 +1,56 @@
 import { settingsQueries } from '../db/queries.js';
 
 /**
+ * Sentinel value to indicate API key is set without exposing the actual value
+ */
+export const API_KEY_SENTINEL = '***SET***';
+
+/**
+ * Masks the LLM API key in settings for safe transmission to client
+ * @param {Object} settings - The settings object
+ * @returns {Object} Settings with masked API key
+ */
+export function maskApiKey(settings) {
+  if (settings.llm && settings.llm.apiKey && settings.llm.apiKey.trim() !== '') {
+    return {
+      ...settings,
+      llm: {
+        ...settings.llm,
+        apiKey: API_KEY_SENTINEL,
+      },
+    };
+  }
+  return settings;
+}
+
+/**
+ * Merges incoming settings with existing settings, preserving API key when sentinel is provided
+ * @param {Object} incomingSettings - The new settings from the client
+ * @param {Object} existingSettings - The current settings from the database
+ * @returns {Object} Merged settings with API key preserved if appropriate
+ */
+export function mergeSettingsPreservingApiKey(incomingSettings, existingSettings) {
+  // If apiKey is missing or is the sentinel value, preserve existing
+  if (incomingSettings.llm) {
+    const shouldPreserveKey =
+      !incomingSettings.llm.hasOwnProperty('apiKey') ||
+      incomingSettings.llm.apiKey === API_KEY_SENTINEL;
+
+    if (shouldPreserveKey && existingSettings.llm && existingSettings.llm.apiKey) {
+      return {
+        ...incomingSettings,
+        llm: {
+          ...incomingSettings.llm,
+          apiKey: existingSettings.llm.apiKey,
+        },
+      };
+    }
+  }
+
+  return incomingSettings;
+}
+
+/**
  * Returns default settings for bugs, stale, community, and features
  */
 export function getDefaultSettings() {
@@ -678,8 +728,8 @@ function validateLLMSettings(llmSettings) {
     errors.push('llm: model must be a string');
   }
 
-  // If enabled, API key required
-  if (llmSettings.enabled && llmSettings.apiKey.trim() === '') {
+  // If enabled, API key required (but accept sentinel value as valid)
+  if (llmSettings.enabled && llmSettings.apiKey.trim() === '' && llmSettings.apiKey !== API_KEY_SENTINEL) {
     errors.push('llm: apiKey is required when LLM is enabled');
   }
 

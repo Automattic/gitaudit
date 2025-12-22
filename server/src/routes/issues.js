@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { repoQueries, issueQueries, analysisQueries, settingsQueries } from '../db/queries.js';
-import { getDefaultSettings, validateSettings, loadRepoSettings } from '../services/settings.js';
+import { getDefaultSettings, validateSettings, loadRepoSettings, maskApiKey, mergeSettingsPreservingApiKey, API_KEY_SENTINEL } from '../services/settings.js';
 import { queueJob, getQueueStatus } from '../services/job-queue.js';
 import { analyzeIssuesWithAllScores } from '../services/analyzers/unified.js';
 
@@ -187,7 +187,11 @@ router.get('/settings', authenticateToken, async (req, res) => {
     }
 
     const settings = loadRepoSettings(repo.id);
-    res.json(settings);
+
+    // Mask the API key before sending to client
+    const maskedSettings = maskApiKey(settings);
+
+    res.json(maskedSettings);
   } catch (error) {
     console.error('Error fetching settings:', error);
     res.status(500).json({ error: 'Failed to fetch settings' });
@@ -196,6 +200,7 @@ router.get('/settings', authenticateToken, async (req, res) => {
 
 // Validate LLM API key with a test call
 router.post('/settings/validate-llm', authenticateToken, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
   const { provider, apiKey, model } = req.body;
 
   try {
@@ -206,7 +211,23 @@ router.post('/settings/validate-llm', authenticateToken, async (req, res) => {
       });
     }
 
-    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+    // If sentinel value provided, load actual API key from database
+    let actualApiKey = apiKey;
+    if (apiKey === API_KEY_SENTINEL) {
+      const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
+      if (!repo) {
+        return res.status(400).json({ error: 'Repository not found' });
+      }
+
+      const settings = loadRepoSettings(repo.id);
+      if (!settings.llm || !settings.llm.apiKey || settings.llm.apiKey.trim() === '') {
+        return res.status(400).json({ error: 'No API key is currently saved' });
+      }
+
+      actualApiKey = settings.llm.apiKey;
+    }
+
+    if (!actualApiKey || typeof actualApiKey !== 'string' || actualApiKey.trim() === '') {
       return res.status(400).json({ error: 'API key is required' });
     }
 
@@ -220,10 +241,10 @@ router.post('/settings/validate-llm', authenticateToken, async (req, res) => {
     let modelName;
 
     if (provider === 'anthropic') {
-      providerInstance = createAnthropic({ apiKey });
+      providerInstance = createAnthropic({ apiKey: actualApiKey });
       modelName = model || 'claude-3-haiku-20240307';
     } else {
-      providerInstance = createOpenAI({ apiKey });
+      providerInstance = createOpenAI({ apiKey: actualApiKey });
       modelName = model || 'gpt-3.5-turbo';
     }
 
@@ -270,10 +291,16 @@ router.put('/settings', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Repository not found' });
     }
 
-    const settings = req.body;
+    const incomingSettings = req.body;
 
-    // Validate settings
-    const validation = validateSettings(settings);
+    // Load existing settings to preserve API key if needed
+    const existingSettings = loadRepoSettings(repo.id);
+
+    // Merge settings, preserving API key when sentinel is provided or omitted
+    const mergedSettings = mergeSettingsPreservingApiKey(incomingSettings, existingSettings);
+
+    // Validate settings (now with preserved API key)
+    const validation = validateSettings(mergedSettings);
     if (!validation.valid) {
       return res.status(400).json({
         error: 'Invalid settings',
@@ -282,8 +309,13 @@ router.put('/settings', authenticateToken, async (req, res) => {
     }
 
     // Save settings
-    const result = settingsQueries.upsert.get(repo.id, JSON.stringify(settings));
-    res.json(JSON.parse(result.settings));
+    const result = settingsQueries.upsert.get(repo.id, JSON.stringify(mergedSettings));
+
+    // Return masked settings to client
+    const savedSettings = JSON.parse(result.settings);
+    const maskedSettings = maskApiKey(savedSettings);
+
+    res.json(maskedSettings);
   } catch (error) {
     console.error('Error saving settings:', error);
     res.status(500).json({ error: 'Failed to save settings' });
