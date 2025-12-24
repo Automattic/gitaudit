@@ -40,3 +40,58 @@ export function authenticateToken(req, res, next) {
     return res.status(403).json({ error: 'Invalid or expired token', details: error.message });
   }
 }
+
+/**
+ * Middleware to verify user has admin permission for the repository
+ * Must be used AFTER authenticateToken middleware
+ * Expects req.params to contain owner and repo
+ */
+export async function requireRepositoryAdmin(req, res, next) {
+  // Ensure user is authenticated first
+  if (!req.user || !req.user.accessToken) {
+    console.error('[Auth] requireRepositoryAdmin called without authenticated user');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const { owner, repo } = req.params;
+
+  // Validate required parameters
+  if (!owner || !repo) {
+    console.error('[Auth] Missing owner or repo in request params');
+    return res.status(400).json({ error: 'Repository owner and name are required' });
+  }
+
+  try {
+    // Import GitHub service
+    const { checkRepositoryAdminPermission } = await import('../services/github.js');
+
+    // Check permission with GitHub
+    const hasAdminPermission = await checkRepositoryAdminPermission(
+      req.user.accessToken,
+      owner,
+      repo
+    );
+
+    if (!hasAdminPermission) {
+      console.warn(
+        `[Auth] User ${req.user.username} denied admin access to ${owner}/${repo}`
+      );
+      return res.status(403).json({
+        error: 'Admin access required',
+        message: 'You must have admin permissions on this repository to access settings',
+      });
+    }
+
+    // User has admin permission, proceed
+    console.log(
+      `[Auth] User ${req.user.username} granted admin access to ${owner}/${repo}`
+    );
+    next();
+  } catch (error) {
+    console.error('[Auth] Error checking repository admin permission:', error);
+    return res.status(500).json({
+      error: 'Failed to verify permissions',
+      message: 'Unable to verify your repository permissions. Please try again.',
+    });
+  }
+}

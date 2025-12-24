@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchRepos, fetchRepoBrowse, fetchRepoSearch, fetchRepoStatus } from '../api/repos/fetchers';
+import { fetchRepos, fetchRepoBrowse, fetchRepoSearch, fetchRepoStatus, fetchRepoPermission } from '../api/repos/fetchers';
 import { saveRepo, deleteRepo, fetchRepoData } from '../api/repos/mutators';
 import { queryKeys } from './query-keys';
 import { SaveRepoRequest } from '../api/repos/types';
@@ -42,6 +42,17 @@ export const repoSearchQueryOptions = (query: string) =>
     queryFn: () => fetchRepoSearch(query),
     enabled: query.length >= 3, // Only run if query is long enough
     staleTime: 1000 * 60 * 1, // 1 minute
+  });
+
+/**
+ * Query options for checking repository permission
+ */
+export const repoPermissionQueryOptions = (owner: string, repo: string) =>
+  queryOptions({
+    queryKey: queryKeys.repos.permission(owner, repo),
+    queryFn: () => fetchRepoPermission(owner, repo),
+    staleTime: 1000 * 60 * 5, // 5 minutes - permissions don't change frequently
+    retry: 2,
   });
 
 /**

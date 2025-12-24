@@ -1,5 +1,7 @@
 import { useParams, Outlet } from "react-router-dom";
 import { __experimentalHStack as HStack } from "@wordpress/components";
+import { useQuery } from "@tanstack/react-query";
+import { repoPermissionQueryOptions } from "../data/queries/repos";
 import Logo from "./shared/logo";
 import UserMenu from "./shared/user-menu";
 import RefreshButton from "./shared/refresh-button";
@@ -7,6 +9,12 @@ import SidebarNavLink from "./shared/sidebar-nav-link";
 
 function RepositoryLayout() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
+
+  // Check if user has admin permission
+  const { data: permissionData } = useQuery(
+    repoPermissionQueryOptions(owner!, repo!)
+  );
+  const isAdmin = permissionData?.isAdmin ?? false;
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
@@ -72,11 +80,13 @@ function RepositoryLayout() {
               Stale PRs
             </SidebarNavLink>
           </div>
-          <div>
-            <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>
-              Settings
-            </SidebarNavLink>
-          </div>
+          {isAdmin && (
+            <div>
+              <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>
+                Settings
+              </SidebarNavLink>
+            </div>
+          )}
         </nav>
 
         {/* User Menu */}

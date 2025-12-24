@@ -754,3 +754,40 @@ export async function fetchTeamMembers(accessToken, org, teamSlug) {
 
   return allMembers;
 }
+
+/**
+ * Check if the authenticated user has admin permission for a repository
+ * @param {string} accessToken - GitHub access token
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @returns {Promise<boolean>} True if user has ADMIN permission
+ */
+export async function checkRepositoryAdminPermission(accessToken, owner, repo) {
+  const client = createGitHubClient(accessToken);
+
+  const query = `
+    query($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        viewerPermission
+      }
+    }
+  `;
+
+  try {
+    const result = await client(query, { owner, repo });
+
+    if (!result || !result.repository) {
+      console.error(`[GitHub] Repository ${owner}/${repo} not found or inaccessible`);
+      return false;
+    }
+
+    const permission = result.repository.viewerPermission;
+
+    // Only ADMIN permission level grants access to settings
+    return permission === 'ADMIN';
+  } catch (error) {
+    console.error(`[GitHub] Failed to check admin permission for ${owner}/${repo}:`, error.message);
+    // Fail closed - deny access on error
+    return false;
+  }
+}

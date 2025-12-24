@@ -16,6 +16,7 @@ export const queryKeys = {
     search: (query: string) => [...queryKeys.repos.all(), 'search', query] as const,
     detail: (owner: string, repo: string) => [...queryKeys.repos.all(), owner, repo] as const,
     status: (owner: string, repo: string) => [...queryKeys.repos.detail(owner, repo), 'status'] as const,
+    permission: (owner: string, repo: string) => [...queryKeys.repos.detail(owner, repo), 'permission'] as const,
   },
 
   // Issues keys

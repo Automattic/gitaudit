@@ -11,6 +11,7 @@ function AuthCallback() {
   useEffect(() => {
     const token = searchParams.get('token');
     const error = searchParams.get('error');
+    const from = searchParams.get('from') || '/repos';
 
     if (error) {
       console.error('OAuth error:', error);
@@ -19,9 +20,9 @@ function AuthCallback() {
     }
 
     if (token) {
-      // Store token and redirect to repos page
+      // Store token and redirect to intended destination
       login(token); // User data will be fetched by AuthContext
-      navigate('/repos');
+      navigate(from);
     } else {
       navigate('/login');
     }

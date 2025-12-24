@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAdmin } from '../middleware/auth.js';
 import { repoQueries, issueQueries, analysisQueries, settingsQueries } from '../db/queries.js';
 import { getDefaultSettings, validateSettings, loadRepoSettings, maskApiKey, mergeSettingsPreservingApiKey, API_KEY_SENTINEL } from '../services/settings.js';
 import { queueJob, getQueueStatus } from '../services/job-queue.js';
@@ -177,7 +177,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get repo's scoring settings (or defaults)
-router.get('/settings', authenticateToken, async (req, res) => {
+router.get('/settings', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {
@@ -282,7 +282,7 @@ router.post('/settings/validate-llm', authenticateToken, async (req, res) => {
 });
 
 // Save repo's scoring settings
-router.put('/settings', authenticateToken, async (req, res) => {
+router.put('/settings', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {
@@ -323,7 +323,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
 });
 
 // Reset repo's settings to defaults
-router.delete('/settings', authenticateToken, async (req, res) => {
+router.delete('/settings', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {

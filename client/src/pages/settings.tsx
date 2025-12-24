@@ -45,6 +45,16 @@ function Settings() {
   // Use local settings if edited, otherwise use server settings
   const localSettings = localSettingsState ?? serverSettings;
 
+  // Helper to handle settings mutation errors
+  const handleSettingsError = (err: any, action: string) => {
+    console.error(`Failed to ${action} settings:`, err);
+    if (err?.status === 403) {
+      setError(`You need admin permissions on this repository to ${action} settings.`);
+    } else {
+      setError(getErrorMessage(err, `Failed to ${action} settings`));
+    }
+  };
+
   async function handleSave() {
     if (!localSettings) return;
 
@@ -55,9 +65,8 @@ function Settings() {
       setLocalSettingsState(null); // Clear local edits after save, fallback to updated server settings
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      console.error('Failed to save settings:', err);
-      setError(getErrorMessage(err, 'Failed to save settings'));
+    } catch (err: any) {
+      handleSettingsError(err, 'save');
     }
   }
 
@@ -72,9 +81,8 @@ function Settings() {
       setLocalSettingsState(null); // Clear local edits, will fallback to server
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      console.error('Failed to reset settings:', err);
-      setError(getErrorMessage(err, 'Failed to reset settings'));
+    } catch (err: any) {
+      handleSettingsError(err, 'reset');
     }
   }
 

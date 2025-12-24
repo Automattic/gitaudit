@@ -28,3 +28,13 @@ export const fetchRepoSearch = async (query: string): Promise<GitHubReposRespons
 export const fetchRepoStatus = async (owner: string, repo: string): Promise<RepoStatus> => {
   return apiClient.get<RepoStatus>(`/api/repos/${owner}/${repo}/status`);
 };
+
+/**
+ * Check user's permission level for a repository
+ */
+export const fetchRepoPermission = async (
+  owner: string,
+  repo: string
+): Promise<{ permission: string; isAdmin: boolean }> => {
+  return apiClient.get(`/api/repos/${owner}/${repo}/permission`);
+};

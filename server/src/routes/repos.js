@@ -209,4 +209,30 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Check user's permission level for a repository
+router.get('/:owner/:repo/permission', authenticateToken, async (req, res) => {
+  const { owner, repo } = req.params;
+
+  try {
+    const { checkRepositoryAdminPermission } = await import('../services/github.js');
+
+    const isAdmin = await checkRepositoryAdminPermission(
+      req.user.accessToken,
+      owner,
+      repo
+    );
+
+    res.json({
+      permission: isAdmin ? 'ADMIN' : 'READ',
+      isAdmin
+    });
+  } catch (error) {
+    console.error('[API] Failed to check repository permission:', error);
+    res.status(500).json({
+      error: 'Failed to check repository permission',
+      details: error.message
+    });
+  }
+});
+
 export default router;

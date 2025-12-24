@@ -12,7 +12,9 @@ function Login() {
   const error = searchParams.get('error');
 
   // Get the location they were trying to access, or default to /repos
-  const from = (location.state as any)?.from?.pathname || '/repos';
+  // Check query param first (from loader), then location.state (from Navigate)
+  const fromParam = searchParams.get('from');
+  const from = fromParam || (location.state as any)?.from?.pathname || '/repos';
 
   useEffect(() => {
     // Only redirect if authenticated and actually on the login page
@@ -27,9 +29,11 @@ function Login() {
   }
 
   const handleLogin = () => {
-    // Redirect to GitHub OAuth
+    // Redirect to GitHub OAuth, passing the intended destination
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    window.location.href = `${apiUrl}/auth/github`;
+    const state = from !== '/repos' ? encodeURIComponent(from) : '';
+    const stateParam = state ? `?state=${state}` : '';
+    window.location.href = `${apiUrl}/auth/github${stateParam}`;
   };
 
   const errorMessages: Record<string, string> = {

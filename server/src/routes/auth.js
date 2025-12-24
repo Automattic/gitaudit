@@ -11,15 +11,16 @@ router.get('/github', (req, res) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
   const redirectUri = `${req.protocol}://${req.get('host')}/auth/github/callback`;
   const scope = 'repo read:user read:org';
+  const state = req.query.state || ''; // Preserve the intended redirect destination
 
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
 
   res.redirect(githubAuthUrl);
 });
 
 // GitHub OAuth callback
 router.get('/github/callback', async (req, res) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
 
   if (!code) {
     return res.redirect(`${process.env.CLIENT_URL}/login?error=no_code`);
@@ -55,8 +56,9 @@ router.get('/github/callback', async (req, res) => {
       { expiresIn: '30d' }
     );
 
-    // Redirect to client with token
-    res.redirect(`${process.env.CLIENT_URL}/auth/callback?token=${token}`);
+    // Redirect to client with token, preserving the intended destination
+    const stateParam = state ? `&from=${encodeURIComponent(state)}` : '';
+    res.redirect(`${process.env.CLIENT_URL}/auth/callback?token=${token}${stateParam}`);
   } catch (error) {
     console.error('OAuth callback error:', error);
     res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);

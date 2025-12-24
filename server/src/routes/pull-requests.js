@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAdmin } from '../middleware/auth.js';
 import { repoQueries, prQueries, prAnalysisQueries, settingsQueries } from '../db/queries.js';
 import { loadRepoSettings, getDefaultSettings } from '../services/settings.js';
 import { analyzeStalePRs } from '../services/analyzers/stale-prs.js';
@@ -90,7 +90,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get repo's stale PR settings (or defaults)
-router.get('/settings', authenticateToken, async (req, res) => {
+router.get('/settings', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {
@@ -112,7 +112,7 @@ router.get('/settings', authenticateToken, async (req, res) => {
 });
 
 // Update repo's stale PR settings
-router.put('/settings', authenticateToken, async (req, res) => {
+router.put('/settings', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName } = req.params;
   const { stalePRs } = req.body;
 
