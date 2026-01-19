@@ -744,6 +744,53 @@ export const metricsQueries = {
   },
 };
 
+// Performance data queries (for storing metric values from CI/CD)
+export const perfQueries = {
+  get findByHashAndRepoId() {
+    return db.prepare('SELECT * FROM perf WHERE hash = ? AND repo_id = ?');
+  },
+
+  get findByMetricIdAndBranch() {
+    return db.prepare(`
+      SELECT * FROM perf
+      WHERE metric_id = ? AND branch = ?
+      ORDER BY measured_at DESC
+      LIMIT ?
+    `);
+  },
+
+  get insert() {
+    return db.prepare(`
+      INSERT INTO perf (repo_id, branch, hash, metric_id, value, raw_value, measured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+  },
+
+  get averageByMetricAndBranch() {
+    return db.prepare(`
+      SELECT AVG(value) as average
+      FROM (
+        SELECT value FROM perf
+        WHERE branch = ? AND metric_id = ?
+        ORDER BY measured_at DESC
+        LIMIT ?
+      )
+    `);
+  },
+
+  get averageByMetricAndBranchWithOffset() {
+    return db.prepare(`
+      SELECT AVG(value) as average
+      FROM (
+        SELECT value FROM perf
+        WHERE branch = ? AND metric_id = ?
+        ORDER BY measured_at DESC
+        LIMIT ? OFFSET ?
+      )
+    `);
+  },
+};
+
 // Helper function to run multiple operations in a transaction
 export function transaction(fn) {
   return db.transaction(fn);
