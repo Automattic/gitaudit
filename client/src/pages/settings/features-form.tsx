@@ -15,7 +15,7 @@ type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 interface FieldEditProps {
   data: FlattenedSettings;
-  field: { id: string; label: string; type: string };
+  field: { id: string; label: string; type?: string };
   onChange: (updates: Partial<FlattenedSettings>) => void;
 }
 
@@ -91,7 +91,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={50}
@@ -107,7 +107,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 3 })}
             min={1}
             max={20}
@@ -151,7 +151,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 30 })}
             min={1}
             max={365}
@@ -167,7 +167,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 10 })}
             min={0}
             max={50}
@@ -183,7 +183,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 90 })}
             min={1}
             max={365}
@@ -199,7 +199,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 5 })}
             min={0}
             max={50}
@@ -229,7 +229,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={50}
@@ -259,7 +259,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={50}
@@ -289,7 +289,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 5 })}
             min={0}
             max={20}
@@ -305,7 +305,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 3 })}
             min={0}
             max={20}
@@ -321,7 +321,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 2 })}
             min={0}
             max={20}
@@ -351,7 +351,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 10 })}
             min={0}
             max={20}
@@ -381,7 +381,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || -10 })}
             min={-50}
             max={0}
@@ -397,7 +397,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 180 })}
             min={30}
             max={730}
@@ -413,7 +413,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 90 })}
             min={30}
             max={365}
@@ -443,7 +443,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || -50 })}
             min={-100}
             max={0}
@@ -473,7 +473,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || -5 })}
             min={-20}
             max={0}
@@ -489,7 +489,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 100 })}
             min={50}
             max={500}
@@ -507,7 +507,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 70 })}
             min={0}
             max={200}
@@ -522,7 +522,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 50 })}
             min={0}
             max={200}
@@ -537,7 +537,7 @@ function FeatureRequestForm({ settings, onChange }: FeatureRequestFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 30 })}
             min={0}
             max={200}

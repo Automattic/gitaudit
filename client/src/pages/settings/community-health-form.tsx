@@ -15,7 +15,7 @@ type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 interface FieldEditProps {
   data: FlattenedSettings;
-  field: { id: string; label: string; type: string };
+  field: { id: string; label: string; type?: string };
   onChange: (updates: Partial<FlattenedSettings>) => void;
 }
 
@@ -63,7 +63,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -93,7 +93,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -109,7 +109,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 3 })}
             min={1}
             max={100}
@@ -139,7 +139,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 30 })}
             min={0}
             max={50}
@@ -157,7 +157,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 60 })}
             min={0}
             max={500}
@@ -172,7 +172,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 40 })}
             min={0}
             max={500}
@@ -187,7 +187,7 @@ function CommunityHealthForm({ settings, onChange }: CommunityHealthFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 20 })}
             min={0}
             max={500}

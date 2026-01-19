@@ -180,7 +180,7 @@ const PRScoreBadge = ({ pr, thresholds }: PRScoreBadgeProps) => {
       popoverProps={{
         placement: "bottom-start",
       }}
-      focusOnMount="container"
+      focusOnMount="firstElement"
       renderToggle={({ onToggle }: { onToggle: () => void }) => (
         <div
           onClick={onToggle}

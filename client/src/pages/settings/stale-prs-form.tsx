@@ -15,7 +15,7 @@ type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 interface FieldEditProps {
   data: FlattenedSettings;
-  field: { id: string; label: string; type: string };
+  field: { id: string; label: string; type?: string };
   onChange: (updates: Partial<FlattenedSettings>) => void;
 }
 
@@ -49,7 +49,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
@@ -64,7 +64,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -81,7 +81,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
@@ -96,7 +96,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -113,7 +113,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
@@ -128,7 +128,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -145,7 +145,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={999}
@@ -160,7 +160,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -189,7 +189,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -205,7 +205,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -221,7 +221,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -251,7 +251,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={-200}
             max={0}
@@ -281,7 +281,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -297,7 +297,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={365}
@@ -327,7 +327,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -357,7 +357,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -373,7 +373,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={100}
@@ -389,7 +389,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={100}
@@ -405,7 +405,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={1}
             max={365}
@@ -423,7 +423,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 125 })}
             min={0}
             max={500}
@@ -438,7 +438,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 100 })}
             min={0}
             max={500}
@@ -453,7 +453,7 @@ function StalePRsForm({ settings, onChange }: StalePRsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 70 })}
             min={0}
             max={500}
