@@ -53,6 +53,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     );
   }
 
+  // Handle 204 No Content responses (e.g., DELETE)
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json();
 }
 

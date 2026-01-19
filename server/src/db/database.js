@@ -157,6 +157,12 @@ export function initializeDatabase() {
   // Add non-GitHub repository support columns
   migrateNonGithubColumns();
 
+  // Create metrics table for performance tracking
+  createMetricsTable();
+
+  // Add metrics_token column to repositories table
+  migrateMetricsTokenColumn();
+
   console.log('Database initialized successfully');
 }
 
@@ -1233,6 +1239,44 @@ function migrateNonGithubColumns() {
   if (!columnNames.includes('url')) {
     db.exec('ALTER TABLE repositories ADD COLUMN url TEXT');
     console.log('Added url column to repositories table');
+  }
+}
+
+// Create metrics table for performance tracking
+function createMetricsTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repo_id INTEGER NOT NULL,
+      key TEXT NOT NULL,
+      name TEXT NOT NULL,
+      unit TEXT,
+      priority INTEGER DEFAULT 0,
+      default_visible BOOLEAN DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE,
+      UNIQUE(repo_id, key)
+    )
+  `);
+
+  // Create index for faster lookups by repo_id
+  const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='metrics'").all();
+  const indexNames = indexes.map(idx => idx.name);
+
+  if (!indexNames.includes('idx_metrics_repo_id')) {
+    db.exec('CREATE INDEX idx_metrics_repo_id ON metrics(repo_id)');
+    console.log('Created idx_metrics_repo_id index');
+  }
+}
+
+// Add metrics_token column to repositories table for CI/CD API authentication
+function migrateMetricsTokenColumn() {
+  const columns = db.prepare('PRAGMA table_info(repositories)').all();
+  const columnNames = columns.map(col => col.name);
+
+  if (!columnNames.includes('metrics_token')) {
+    db.exec('ALTER TABLE repositories ADD COLUMN metrics_token TEXT');
+    console.log('Added metrics_token column to repositories table');
   }
 }
 

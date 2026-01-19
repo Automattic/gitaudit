@@ -8,6 +8,7 @@ import StaleIssuesForm from './settings/stale-issues-form';
 import CommunityHealthForm from './settings/community-health-form';
 import FeatureRequestForm from './settings/features-form';
 import StalePRsForm from './settings/stale-prs-form';
+import MetricsForm from './settings/metrics-form';
 import AdvancedForm from './settings/advanced-form';
 import { repoSettingsQueryOptions, useUpdateSettingsMutation, useResetSettingsMutation } from '@/data/queries/settings';
 import { repoStatusQueryOptions, useUpdateLocalRepoMutation } from '@/data/queries/repos';
@@ -32,10 +33,10 @@ function Settings() {
 
   const isGithub = statusData?.isGithub ?? true; // Default to true for backward compat
 
-  // Validate section parameter with fallback - custom repos have "general" and "advanced"
+  // Validate section parameter with fallback - custom repos have "general", "metrics", and "advanced"
   const validSections = isGithub
-    ? ["general", "bugs", "stale", "community", "features", "stalePRs", "advanced"]
-    : ["general", "advanced"];
+    ? ["general", "bugs", "stale", "community", "features", "stalePRs", "metrics", "advanced"]
+    : ["general", "metrics", "advanced"];
   const activeSection = section && validSections.includes(section)
     ? section
     : "general";
@@ -260,6 +261,7 @@ function Settings() {
               <Tabs.Tab tabId="stalePRs">Stale PRs</Tabs.Tab>
             </>
           )}
+          <Tabs.Tab tabId="metrics">Metrics</Tabs.Tab>
           <Tabs.Tab tabId="advanced">Advanced</Tabs.Tab>
         </Tabs.TabList>
       </Tabs>
@@ -305,13 +307,16 @@ function Settings() {
             onChange={handleStalePRsChange}
           />
         )}
+        {activeSection === "metrics" && (
+          <MetricsForm owner={owner!} repo={repo!} />
+        )}
         {activeSection === "advanced" && (
           <AdvancedForm owner={owner!} repo={repo!} />
         )}
       </div>
 
-      {/* Action Buttons (outside card, shared for all tabs except Advanced) */}
-      {activeSection !== "advanced" && (
+      {/* Action Buttons (outside card, shared for all tabs except Advanced and Metrics) */}
+      {activeSection !== "advanced" && activeSection !== "metrics" && (
         <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
           <Button variant="primary" onClick={handleSave} isBusy={saving} disabled={saving || (!isGithub && !isFormValid)}>
             {saving ? 'Saving...' : 'Save Settings'}
