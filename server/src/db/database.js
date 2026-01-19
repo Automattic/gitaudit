@@ -154,6 +154,9 @@ export function initializeDatabase() {
   // Add PR tracking columns to repositories table
   migratePRTrackingColumns();
 
+  // Add non-GitHub repository support columns
+  migrateNonGithubColumns();
+
   console.log('Database initialized successfully');
 }
 
@@ -1211,6 +1214,25 @@ function migratePRTrackingColumns() {
   if (!columnNames.includes('pr_count')) {
     db.exec('ALTER TABLE repositories ADD COLUMN pr_count INTEGER DEFAULT 0');
     console.log('Added pr_count column to repositories table');
+  }
+}
+
+// Add columns to support non-GitHub repositories
+function migrateNonGithubColumns() {
+  // Get existing columns
+  const columns = db.prepare('PRAGMA table_info(repositories)').all();
+  const columnNames = columns.map(col => col.name);
+
+  // Add is_github column if it doesn't exist (default 1 = true for backward compatibility)
+  if (!columnNames.includes('is_github')) {
+    db.exec('ALTER TABLE repositories ADD COLUMN is_github BOOLEAN DEFAULT 1');
+    console.log('Added is_github column to repositories table');
+  }
+
+  // Add url column if it doesn't exist (for non-GitHub commit linking)
+  if (!columnNames.includes('url')) {
+    db.exec('ALTER TABLE repositories ADD COLUMN url TEXT');
+    console.log('Added url column to repositories table');
   }
 }
 

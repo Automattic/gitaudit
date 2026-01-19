@@ -1,8 +1,8 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchRepos, fetchRepoBrowse, fetchRepoSearch, fetchRepoStatus, fetchRepoPermission } from '../api/repos/fetchers';
-import { saveRepo, deleteRepo, fetchRepoData, fullDeleteRepo } from '../api/repos/mutators';
+import { saveRepo, deleteRepo, fetchRepoData, createLocalRepo, updateLocalRepo, fullDeleteRepo } from '../api/repos/mutators';
 import { queryKeys } from './query-keys';
-import { SaveRepoRequest } from '../api/repos/types';
+import { SaveRepoRequest, CreateLocalRepoRequest, UpdateLocalRepoRequest } from '../api/repos/types';
 
 /**
  * Query options for fetching saved repos
@@ -95,6 +95,38 @@ export const useFetchRepoDataMutation = (owner: string, repo: string) => {
     onSuccess: () => {
       // Invalidate status to trigger refetch and start polling
       queryClient.invalidateQueries({ queryKey: queryKeys.repos.status(owner, repo) });
+    },
+  });
+};
+
+/**
+ * Mutation for creating a local (non-GitHub) repository
+ */
+export const useCreateLocalRepoMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateLocalRepoRequest) => createLocalRepo(data),
+    onSuccess: () => {
+      // Invalidate repos list to trigger refetch
+      queryClient.invalidateQueries({ queryKey: queryKeys.repos.list() });
+    },
+  });
+};
+
+/**
+ * Mutation for updating a custom (non-GitHub) repository's info
+ */
+export const useUpdateLocalRepoMutation = (owner: string, repo: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: UpdateLocalRepoRequest) => updateLocalRepo(owner, repo, data),
+    onSuccess: () => {
+      // Invalidate status to refresh the data
+      queryClient.invalidateQueries({ queryKey: queryKeys.repos.status(owner, repo) });
+      // Also invalidate repos list in case description shows there
+      queryClient.invalidateQueries({ queryKey: queryKeys.repos.list() });
     },
   });
 };

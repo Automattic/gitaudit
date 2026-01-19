@@ -1,7 +1,7 @@
 import { useParams, Outlet } from "react-router-dom";
 import { __experimentalHStack as HStack } from "@wordpress/components";
 import { useQuery } from "@tanstack/react-query";
-import { repoPermissionQueryOptions } from "../data/queries/repos";
+import { repoPermissionQueryOptions, repoStatusQueryOptions } from "../data/queries/repos";
 import Logo from "./shared/logo";
 import UserMenu from "./shared/user-menu";
 import RefreshButton from "./shared/refresh-button";
@@ -14,7 +14,18 @@ function RepositoryLayout() {
   const { data: permissionData } = useQuery(
     repoPermissionQueryOptions(owner!, repo!)
   );
+
+  // Get repo status to determine if it's a GitHub repo
+  const { data: statusData } = useQuery({
+    ...repoStatusQueryOptions(owner!, repo!),
+    refetchInterval: false, // Don't poll for layout purposes
+  });
+
+  const isGithub = statusData?.isGithub ?? true; // Default to true for backward compat
   const isAdmin = permissionData?.isAdmin ?? false;
+
+  // For non-GitHub repos, show settings if user is the owner (permission check handles this)
+  const showSettings = isGithub ? isAdmin : permissionData?.isAdmin ?? false;
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
@@ -55,32 +66,36 @@ function RepositoryLayout() {
               </div>
             </div>
 
-            <RefreshButton owner={owner!} repo={repo!} />
+            {isGithub && <RefreshButton owner={owner!} repo={repo!} />}
           </HStack>
         </div>
 
         {/* Navigation Menu */}
         <nav style={{ paddingTop: "2rem", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div>
-            <SidebarNavLink to={`/repos/${owner}/${repo}/bugs`}>
-              Important Bugs
-            </SidebarNavLink>
-            <SidebarNavLink to={`/repos/${owner}/${repo}/stale`}>
-              Stale Issues
-            </SidebarNavLink>
-            <SidebarNavLink to={`/repos/${owner}/${repo}/features`}>
-              Feature Requests
-            </SidebarNavLink>
-            <SidebarNavLink to={`/repos/${owner}/${repo}/community`}>
-              Community Health
-            </SidebarNavLink>
-          </div>
-          <div>
-            <SidebarNavLink to={`/repos/${owner}/${repo}/stale-prs`}>
-              Stale PRs
-            </SidebarNavLink>
-          </div>
-          {isAdmin && (
+          {isGithub && (
+            <>
+              <div>
+                <SidebarNavLink to={`/repos/${owner}/${repo}/bugs`}>
+                  Important Bugs
+                </SidebarNavLink>
+                <SidebarNavLink to={`/repos/${owner}/${repo}/stale`}>
+                  Stale Issues
+                </SidebarNavLink>
+                <SidebarNavLink to={`/repos/${owner}/${repo}/features`}>
+                  Feature Requests
+                </SidebarNavLink>
+                <SidebarNavLink to={`/repos/${owner}/${repo}/community`}>
+                  Community Health
+                </SidebarNavLink>
+              </div>
+              <div>
+                <SidebarNavLink to={`/repos/${owner}/${repo}/stale-prs`}>
+                  Stale PRs
+                </SidebarNavLink>
+              </div>
+            </>
+          )}
+          {showSettings && (
             <div>
               <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>
                 Settings

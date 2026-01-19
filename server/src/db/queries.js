@@ -83,6 +83,26 @@ export const repoQueries = {
     `);
   },
 
+  // Create a local (non-GitHub) repository
+  get createLocalRepo() {
+    return db.prepare(`
+      INSERT INTO repositories
+        (owner, name, github_id, description, is_github, url)
+      VALUES (?, ?, 0, ?, 0, ?)
+      RETURNING *
+    `);
+  },
+
+  // Update a local (non-GitHub) repository's url and description
+  get updateLocalRepo() {
+    return db.prepare(`
+      UPDATE repositories
+      SET url = ?, description = ?
+      WHERE id = ? AND is_github = 0
+      RETURNING *
+    `);
+  },
+
   get saveRepo() {
     return db.prepare(`
       INSERT INTO repositories

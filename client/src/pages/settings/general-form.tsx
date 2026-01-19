@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { DataForm } from '@wordpress/dataviews';
+import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import {
   TextControl,
   TextareaControl,
@@ -19,7 +19,6 @@ import { validateLLMApiKey } from '@/data/api/settings/fetchers';
 import type { RepoSettings } from '@/data/api/settings/types';
 import { API_KEY_SENTINEL, isApiKeySet, isApiKeyEmpty } from '@/data/api/settings/constants';
 
-type GeneralSettings = RepoSettings['general'];
 type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 interface FieldEditProps {
@@ -208,13 +207,22 @@ function ApiKeyField({ data, field, onChange }: FieldEditProps) {
   );
 }
 
+interface RepoInfo {
+  url: string;
+  description: string;
+}
+
 interface GeneralFormProps {
   settings: RepoSettings;
   onChange: (settings: RepoSettings) => void;
+  isGithub?: boolean;
+  repoInfo?: RepoInfo;
+  onRepoInfoChange?: (field: 'url' | 'description', value: string) => void;
+  onValidityChange?: (isValid: boolean) => void;
 }
 
-function GeneralForm({ settings, onChange }: GeneralFormProps) {
-  // Flatten for DataForm
+function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfoChange, onValidityChange }: GeneralFormProps) {
+  // Flatten for DataForm (GitHub repos)
   const flatData = useMemo(
     () => ({
       ...flattenGeneralSettings(settings.general),
@@ -224,13 +232,28 @@ function GeneralForm({ settings, onChange }: GeneralFormProps) {
         apiKey: '',
         model: ''
       }),
+      // Include repo info for custom repos
+      ...(repoInfo ? {
+        repo_url: repoInfo.url,
+        repo_description: repoInfo.description,
+      } : {}),
     }),
-    [settings]
+    [settings, repoInfo]
   );
 
   // Handle changes from DataForm
   const handleChange = useCallback(
     (edits: Partial<FlattenedSettings>) => {
+      // Handle repo info changes for custom repos
+      if ('repo_url' in edits && onRepoInfoChange) {
+        onRepoInfoChange('url', edits.repo_url as string);
+        return;
+      }
+      if ('repo_description' in edits && onRepoInfoChange) {
+        onRepoInfoChange('description', edits.repo_description as string);
+        return;
+      }
+
       const hasLLMChanges = Object.keys(edits).some(key => key.startsWith('llm_'));
 
       if (hasLLMChanges) {
@@ -247,12 +270,45 @@ function GeneralForm({ settings, onChange }: GeneralFormProps) {
         onChange({ ...settings, general: updated });
       }
     },
-    [settings, onChange]
+    [settings, onChange, onRepoInfoChange]
   );
 
   // Field definitions
   const fields = useMemo(
     () => [
+      // Repository Info fields (for custom repos only)
+      {
+        id: 'repo_url',
+        type: 'text' as const,
+        label: 'Repository URL',
+        isValid: {
+          required: true,
+        },
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
+          <TextControl
+            label={field.label}
+            value={data[field.id] as string || ''}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
+            help="The URL to your repository or issue tracker"
+            placeholder="https://github.com/org/repo"
+          />
+        ),
+      },
+      {
+        id: 'repo_description',
+        type: 'text' as const,
+        label: 'Description',
+        Edit: ({ data, field, onChange }: FieldEditProps) => (
+          <TextareaControl
+            label={field.label}
+            value={data[field.id] as string || ''}
+            onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
+            help="A brief description of this repository"
+            placeholder="Enter a description..."
+            rows={3}
+          />
+        ),
+      },
       // LLM Configuration Fields
       {
         id: 'llm_enabled',
@@ -409,55 +465,83 @@ function GeneralForm({ settings, onChange }: GeneralFormProps) {
     []
   );
 
-  // Form layout
+  // Form layout - different for GitHub vs custom repos
   const form = useMemo(
-    () => ({
-      layout: { type: 'card' as const },
-      fields: [
-        {
-          id: 'llm-configuration',
-          label: 'AI Sentiment Analysis',
-          description: (
-            <div>
-              <p style={{ marginBottom: '0.5rem' }}>Configure AI-powered sentiment analysis to help prioritize bugs and feature requests.</p>
-              <div style={{ marginTop: '0.5rem' }}>
-                <Notice status="warning" isDismissible={false}>
-                  <strong>Important:</strong> API calls to your provider will incur costs. Monitor your usage carefully.
-                </Notice>
-              </div>
-            </div>
-          ),
-          children: ['llm_enabled', 'llm_provider', 'llm_apiKey', 'llm_model'],
-        },
-        {
-          id: 'label-keywords',
-          label: 'Label Keywords',
-          description:
-            'Define global label keywords used across different scoring types. These control issue classification and prioritization.',
-          children: [
-            'labels_bug',
-            'labels_feature',
-            'labels_highPriority',
-            'labels_lowPriority',
-          ],
-        },
-        {
-          id: 'team-configuration',
-          label: 'Team Configuration',
-          description:
-            'Configure the GitHub team used to identify maintainers. Used in Community Health scoring and job processing.',
-          children: [
+    () => {
+      // Custom repos: only show Repository Info card
+      if (!isGithub) {
+        return {
+          layout: { type: 'card' as const },
+          fields: [
             {
-              id: 'maintainer-team-fields',
-              layout: { type: 'row' as const, alignment: 'start' as const },
-              children: ['maintainerTeam_org', 'maintainerTeam_teamSlug'],
+              id: 'repository-info',
+              label: 'Repository Information',
+              description: 'Basic information about your custom repository.',
+              children: ['repo_url', 'repo_description'],
             },
           ],
-        },
-      ],
-    }),
-    []
+        };
+      }
+
+      // GitHub repos: show all the GitHub-specific cards
+      return {
+        layout: { type: 'card' as const },
+        fields: [
+          {
+            id: 'llm-configuration',
+            label: 'AI Sentiment Analysis',
+            description: (
+              <div>
+                <p style={{ marginBottom: '0.5rem' }}>Configure AI-powered sentiment analysis to help prioritize bugs and feature requests.</p>
+                <div style={{ marginTop: '0.5rem' }}>
+                  <Notice status="warning" isDismissible={false}>
+                    <strong>Important:</strong> API calls to your provider will incur costs. Monitor your usage carefully.
+                  </Notice>
+                </div>
+              </div>
+            ),
+            children: ['llm_enabled', 'llm_provider', 'llm_apiKey', 'llm_model'],
+          },
+          {
+            id: 'label-keywords',
+            label: 'Label Keywords',
+            description:
+              'Define global label keywords used across different scoring types. These control issue classification and prioritization.',
+            children: [
+              'labels_bug',
+              'labels_feature',
+              'labels_highPriority',
+              'labels_lowPriority',
+            ],
+          },
+          {
+            id: 'team-configuration',
+            label: 'Team Configuration',
+            description:
+              'Configure the GitHub team used to identify maintainers. Used in Community Health scoring and job processing.',
+            children: [
+              {
+                id: 'maintainer-team-fields',
+                layout: { type: 'row' as const, alignment: 'start' as const },
+                children: ['maintainerTeam_org', 'maintainerTeam_teamSlug'],
+              },
+            ],
+          },
+        ],
+      };
+    },
+    [isGithub]
   );
+
+  // Check form validity for custom repos
+  const { isValid } = useFormValidity(flatData, fields, form);
+
+  // Notify parent of validity changes
+  useEffect(() => {
+    if (onValidityChange && !isGithub) {
+      onValidityChange(isValid);
+    }
+  }, [isValid, isGithub, onValidityChange]);
 
   return (
     <DataForm
