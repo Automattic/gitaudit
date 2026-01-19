@@ -8,6 +8,7 @@ import StaleIssuesForm from './settings/stale-issues-form';
 import CommunityHealthForm from './settings/community-health-form';
 import FeatureRequestForm from './settings/features-form';
 import StalePRsForm from './settings/stale-prs-form';
+import AdvancedForm from './settings/advanced-form';
 import { repoSettingsQueryOptions, useUpdateSettingsMutation, useResetSettingsMutation } from '@/data/queries/settings';
 import { RepoSettings } from '@/data/api/settings/types';
 import { getErrorMessage } from '@/utils/error-handling';
@@ -23,7 +24,7 @@ function Settings() {
   const navigate = useNavigate();
 
   // Validate section parameter with fallback
-  const validSections = ["general", "bugs", "stale", "community", "features", "stalePRs"];
+  const validSections = ["general", "bugs", "stale", "community", "features", "stalePRs", "advanced"];
   const activeSection = section && validSections.includes(section)
     ? section
     : "general";
@@ -189,6 +190,7 @@ function Settings() {
           <Tabs.Tab tabId="features">Feature Requests</Tabs.Tab>
           <Tabs.Tab tabId="community">Community Health</Tabs.Tab>
           <Tabs.Tab tabId="stalePRs">Stale PRs</Tabs.Tab>
+          <Tabs.Tab tabId="advanced">Advanced</Tabs.Tab>
         </Tabs.TabList>
       </Tabs>
 
@@ -229,17 +231,22 @@ function Settings() {
             onChange={handleStalePRsChange}
           />
         )}
+        {activeSection === "advanced" && (
+          <AdvancedForm owner={owner!} repo={repo!} />
+        )}
       </div>
 
-      {/* Action Buttons (outside card, shared for all tabs) */}
-      <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
-        <Button variant="primary" onClick={handleSave} isBusy={saving}>
-          {saving ? 'Saving...' : 'Save Settings'}
-        </Button>
-        <Button variant="secondary" onClick={handleReset} disabled={saving}>
-          Reset to Defaults
-        </Button>
-      </div>
+      {/* Action Buttons (outside card, shared for all tabs except Advanced) */}
+      {activeSection !== "advanced" && (
+        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
+          <Button variant="primary" onClick={handleSave} isBusy={saving}>
+            {saving ? 'Saving...' : 'Save Settings'}
+          </Button>
+          <Button variant="secondary" onClick={handleReset} disabled={saving}>
+            Reset to Defaults
+          </Button>
+        </div>
+      )}
     </Page>
   );
 }

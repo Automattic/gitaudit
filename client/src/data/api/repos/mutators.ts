@@ -21,3 +21,10 @@ export const deleteRepo = async (repoId: number): Promise<void> => {
 export const fetchRepoData = async (owner: string, repo: string): Promise<void> => {
   return apiClient.post<void>(`/api/repos/${owner}/${repo}/fetch`);
 };
+
+/**
+ * Fully delete a repository and all associated data (admin only)
+ */
+export const fullDeleteRepo = async (owner: string, repo: string): Promise<void> => {
+  return apiClient.delete<void>(`/api/repos/${owner}/${repo}/full`);
+};

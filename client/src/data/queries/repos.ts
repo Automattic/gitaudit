@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchRepos, fetchRepoBrowse, fetchRepoSearch, fetchRepoStatus, fetchRepoPermission } from '../api/repos/fetchers';
-import { saveRepo, deleteRepo, fetchRepoData } from '../api/repos/mutators';
+import { saveRepo, deleteRepo, fetchRepoData, fullDeleteRepo } from '../api/repos/mutators';
 import { queryKeys } from './query-keys';
 import { SaveRepoRequest } from '../api/repos/types';
 
@@ -95,6 +95,22 @@ export const useFetchRepoDataMutation = (owner: string, repo: string) => {
     onSuccess: () => {
       // Invalidate status to trigger refetch and start polling
       queryClient.invalidateQueries({ queryKey: queryKeys.repos.status(owner, repo) });
+    },
+  });
+};
+
+/**
+ * Mutation for fully deleting a repository and all associated data (admin only)
+ */
+export const useFullDeleteRepoMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ owner, repo }: { owner: string; repo: string }) =>
+      fullDeleteRepo(owner, repo),
+    onSuccess: () => {
+      // Invalidate repos list to trigger refetch
+      queryClient.invalidateQueries({ queryKey: queryKeys.repos.list() });
     },
   });
 };

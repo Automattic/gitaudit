@@ -113,6 +113,10 @@ export const repoQueries = {
     `);
   },
 
+  get deleteById() {
+    return db.prepare('DELETE FROM repositories WHERE id = ?');
+  },
+
   get checkIfSaved() {
     return db.prepare(`
       SELECT r.id
