@@ -4,6 +4,7 @@ import { repoPermissionQueryOptions } from './data/queries/repos';
 import Login from './pages/login';
 import AuthCallback from './pages/auth-callback';
 import RepoSelector from './pages/repo-selector';
+import Dashboard from './pages/dashboard';
 import Bugs from './pages/bugs';
 import Stale from './pages/stale';
 import StalePRs from './pages/stale-prs';
@@ -66,7 +67,7 @@ export const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="bugs/all" replace />,
+        element: <Dashboard />,
       },
       {
         path: 'bugs',

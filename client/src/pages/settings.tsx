@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Notice, Spinner } from '@wordpress/components';
 import { useQuery } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import FeatureRequestForm from './settings/features-form';
 import StalePRsForm from './settings/stale-prs-form';
 import AdvancedForm from './settings/advanced-form';
 import { repoSettingsQueryOptions, useUpdateSettingsMutation, useResetSettingsMutation } from '@/data/queries/settings';
+import { repoStatusQueryOptions, useUpdateLocalRepoMutation } from '@/data/queries/repos';
 import { RepoSettings } from '@/data/api/settings/types';
 import { getErrorMessage } from '@/utils/error-handling';
 import Page from '../components/page';
@@ -23,14 +24,31 @@ function Settings() {
   }>();
   const navigate = useNavigate();
 
-  // Validate section parameter with fallback
-  const validSections = ["general", "bugs", "stale", "community", "features", "stalePRs", "advanced"];
+  // Get repo status to determine if it's a GitHub repo
+  const { data: statusData, isLoading: isStatusLoading } = useQuery({
+    ...repoStatusQueryOptions(owner!, repo!),
+    refetchInterval: false, // Don't poll for settings purposes
+  });
+
+  const isGithub = statusData?.isGithub ?? true; // Default to true for backward compat
+
+  // Validate section parameter with fallback - custom repos have "general" and "advanced"
+  const validSections = isGithub
+    ? ["general", "bugs", "stale", "community", "features", "stalePRs", "advanced"]
+    : ["general", "advanced"];
   const activeSection = section && validSections.includes(section)
     ? section
     : "general";
 
+  // Redirect to general if custom repo tries to access GitHub-specific tabs
+  useEffect(() => {
+    if (!isGithub && section && !validSections.includes(section)) {
+      navigate(`/repos/${owner}/${repo}/settings/general`, { replace: true });
+    }
+  }, [isGithub, section, owner, repo, navigate, validSections]);
+
   // Fetch settings using TanStack Query
-  const { data: serverSettings, isLoading } = useQuery(
+  const { data: serverSettings, isLoading: isSettingsLoading } = useQuery(
     repoSettingsQueryOptions(owner!, repo!)
   );
 
@@ -39,9 +57,31 @@ function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Local state for repo info (custom repos only)
+  const [repoInfo, setRepoInfo] = useState<{ url: string; description: string }>({
+    url: statusData?.url || '',
+    description: statusData?.description || '',
+  });
+
+  // Track form validity for custom repos
+  const [isFormValid, setIsFormValid] = useState(true);
+
+  // Update repoInfo when statusData changes
+  useEffect(() => {
+    if (statusData && !isGithub) {
+      setRepoInfo({
+        url: statusData.url || '',
+        description: statusData.description || '',
+      });
+    }
+  }, [statusData, isGithub]);
+
   // Mutations
   const updateMutation = useUpdateSettingsMutation(owner!, repo!);
   const resetMutation = useResetSettingsMutation(owner!, repo!);
+  const updateRepoMutation = useUpdateLocalRepoMutation(owner!, repo!);
+
+  const isLoading = isStatusLoading || isSettingsLoading;
 
   // Use local settings if edited, otherwise use server settings
   const localSettings = localSettingsState ?? serverSettings;
@@ -62,13 +102,33 @@ function Settings() {
     try {
       setError(null);
       setSuccess(false);
-      await updateMutation.mutateAsync(localSettings);
-      setLocalSettingsState(null); // Clear local edits after save, fallback to updated server settings
+
+      // For custom repos, save repo info if on general tab
+      if (!isGithub && activeSection === 'general') {
+        await updateRepoMutation.mutateAsync(repoInfo);
+      }
+
+      // Save settings (for GitHub repos, or general settings for custom repos)
+      if (isGithub || localSettingsState) {
+        await updateMutation.mutateAsync(localSettings);
+        setLocalSettingsState(null); // Clear local edits after save, fallback to updated server settings
+      }
+
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       handleSettingsError(err, 'save');
     }
+  }
+
+  // Handler for repo info changes (custom repos only)
+  function handleRepoInfoChange(field: 'url' | 'description', value: string) {
+    setRepoInfo(prev => ({ ...prev, [field]: value }));
+  }
+
+  // Handler for form validity changes (custom repos only)
+  function handleValidityChange(valid: boolean) {
+    setIsFormValid(valid);
   }
 
   async function handleReset() {
@@ -148,12 +208,18 @@ function Settings() {
     );
   }
 
-  const saving = updateMutation.isPending || resetMutation.isPending;
+  const saving = updateMutation.isPending || resetMutation.isPending || updateRepoMutation.isPending;
+
+  // Page title and description based on repo type
+  const pageTitle = isGithub ? "Scoring Settings" : "Repository Settings";
+  const pageDescription = isGithub
+    ? "Configure how issues are scored and prioritized"
+    : "Manage your custom repository settings";
 
   return (
     <Page
-      title="Scoring Settings"
-      description="Configure how issues are scored and prioritized"
+      title={pageTitle}
+      description={pageDescription}
     >
       {/* Success/Error Notices */}
       {success && (
@@ -185,11 +251,15 @@ function Settings() {
       >
         <Tabs.TabList>
           <Tabs.Tab tabId="general">General</Tabs.Tab>
-          <Tabs.Tab tabId="bugs">Important Bugs</Tabs.Tab>
-          <Tabs.Tab tabId="stale">Stale Issues</Tabs.Tab>
-          <Tabs.Tab tabId="features">Feature Requests</Tabs.Tab>
-          <Tabs.Tab tabId="community">Community Health</Tabs.Tab>
-          <Tabs.Tab tabId="stalePRs">Stale PRs</Tabs.Tab>
+          {isGithub && (
+            <>
+              <Tabs.Tab tabId="bugs">Important Bugs</Tabs.Tab>
+              <Tabs.Tab tabId="stale">Stale Issues</Tabs.Tab>
+              <Tabs.Tab tabId="features">Feature Requests</Tabs.Tab>
+              <Tabs.Tab tabId="community">Community Health</Tabs.Tab>
+              <Tabs.Tab tabId="stalePRs">Stale PRs</Tabs.Tab>
+            </>
+          )}
           <Tabs.Tab tabId="advanced">Advanced</Tabs.Tab>
         </Tabs.TabList>
       </Tabs>
@@ -199,6 +269,10 @@ function Settings() {
           <GeneralForm
             settings={localSettings}
             onChange={handleGeneralChange}
+            isGithub={isGithub}
+            repoInfo={repoInfo}
+            onRepoInfoChange={handleRepoInfoChange}
+            onValidityChange={handleValidityChange}
           />
         )}
         {activeSection === "bugs" && (
@@ -239,12 +313,14 @@ function Settings() {
       {/* Action Buttons (outside card, shared for all tabs except Advanced) */}
       {activeSection !== "advanced" && (
         <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
-          <Button variant="primary" onClick={handleSave} isBusy={saving}>
+          <Button variant="primary" onClick={handleSave} isBusy={saving} disabled={saving || (!isGithub && !isFormValid)}>
             {saving ? 'Saving...' : 'Save Settings'}
           </Button>
-          <Button variant="secondary" onClick={handleReset} disabled={saving}>
-            Reset to Defaults
-          </Button>
+          {isGithub && (
+            <Button variant="secondary" onClick={handleReset} disabled={saving}>
+              Reset to Defaults
+            </Button>
+          )}
         </div>
       )}
     </Page>

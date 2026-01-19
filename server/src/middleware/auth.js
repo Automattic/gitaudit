@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { userQueries } from '../db/queries.js';
+import { userQueries, repoQueries } from '../db/queries.js';
 
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -62,10 +62,32 @@ export async function requireRepositoryAdmin(req, res, next) {
   }
 
   try {
-    // Import GitHub service
+    // First check if this is a non-GitHub repo
+    const repoRecord = repoQueries.findByOwnerAndName.get(owner, repo);
+
+    if (repoRecord && !repoRecord.is_github) {
+      // For non-GitHub repos, the owner (which is the user's username) has admin access
+      const hasAdminPermission = repoRecord.owner === req.user.username;
+
+      if (!hasAdminPermission) {
+        console.warn(
+          `[Auth] User ${req.user.username} denied admin access to local repo ${owner}/${repo}`
+        );
+        return res.status(403).json({
+          error: 'Admin access required',
+          message: 'You must be the owner of this repository to access settings',
+        });
+      }
+
+      console.log(
+        `[Auth] User ${req.user.username} granted admin access to local repo ${owner}/${repo}`
+      );
+      return next();
+    }
+
+    // For GitHub repos, check permission via GitHub API
     const { checkRepositoryAdminPermission } = await import('../services/github.js');
 
-    // Check permission with GitHub
     const hasAdminPermission = await checkRepositoryAdminPermission(
       req.user.accessToken,
       owner,

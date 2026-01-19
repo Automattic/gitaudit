@@ -45,7 +45,8 @@ function RepoSelector() {
   }
 
   function handleSelectRepo(repo: Repository) {
-    navigate(`/repos/${repo.owner}/${repo.name}/bugs`);
+    // Navigate to dashboard for all repos (dashboard handles GitHub vs non-GitHub)
+    navigate(`/repos/${repo.owner}/${repo.name}`);
   }
 
   function formatDate(dateString: string) {
@@ -91,7 +92,7 @@ function RepoSelector() {
               <div style={{ textAlign: "center", padding: "2rem" }}>
                 <h3 style={{ marginBottom: "1rem" }}>No Repositories Yet</h3>
                 <p style={{ marginBottom: "2rem", color: "#666" }}>
-                  Add a repository from GitHub to start auditing its issues.
+                  Add a repository to get started.
                 </p>
                 <Button variant="primary" onClick={() => setIsModalOpen(true)}>
                   Add Your First Repository
@@ -213,8 +214,21 @@ function RepoSelector() {
                           {repo.language}
                         </div>
                       )}
-                      <div>⭐ {repo.stars}</div>
-                      <div>Updated {formatDate(repo.updatedAt)}</div>
+                      {repo.isGithub && <div>⭐ {repo.stars}</div>}
+                      {repo.updatedAt && <div>Updated {formatDate(repo.updatedAt)}</div>}
+                      {!repo.isGithub && (
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            padding: "2px 6px",
+                            backgroundColor: "#e8f4fc",
+                            borderRadius: "3px",
+                            color: "#0073aa",
+                          }}
+                        >
+                          Custom
+                        </span>
+                      )}
                     </div>
                   </div>
                 </CardBody>

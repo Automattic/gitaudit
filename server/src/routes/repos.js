@@ -24,6 +24,8 @@ router.get('/', authenticateToken, async (req, res) => {
       languageColor: repo.language_color,
       updatedAt: repo.updated_at,
       isPrivate: Boolean(repo.is_private),
+      isGithub: Boolean(repo.is_github ?? true),
+      url: repo.url || null,
     }));
 
     res.json({ repos: formattedRepos });
@@ -88,6 +90,13 @@ router.post('/:owner/:repo/fetch', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Repository not found' });
     }
 
+    // Non-GitHub repos don't have data to fetch from GitHub
+    if (!repo.is_github) {
+      return res.status(400).json({
+        error: 'Cannot fetch data for non-GitHub repositories'
+      });
+    }
+
     // Queue both issue-fetch and pr-fetch jobs
     queueJob({
       type: 'issue-fetch',
@@ -128,10 +137,12 @@ router.get('/:owner/:repo/status', authenticateToken, async (req, res) => {
         hasCachedPRs: false,
         status: 'not_started',
         currentJob: null,
+        isGithub: true, // default to true for unknown repos
         sentiment: { totalIssues: 0, analyzedIssues: 0, progress: 0 }
       });
     }
 
+    const isGithub = Boolean(repo.is_github ?? true);
     const issueCount = issueQueries.countByRepo.get(repo.id);
     const prCount = prQueries.countByRepo.get(repo.id);
     const analyzedIssues = analysisQueries.countByRepoAndType.get(repo.id, 'sentiment');
@@ -146,6 +157,9 @@ router.get('/:owner/:repo/status', authenticateToken, async (req, res) => {
       issueCount: issueCount.count,
       prCount: prCount.count,
       currentJob: currentJob,
+      isGithub,
+      url: repo.url || null,
+      description: repo.description || null,
       sentiment: {
         totalIssues: issueCount.count,
         analyzedIssues: analyzedIssues.count,
@@ -198,6 +212,112 @@ router.post('/save', authenticateToken, async (req, res) => {
   }
 });
 
+// Create a local (non-GitHub) repository
+router.post('/local', authenticateToken, async (req, res) => {
+  try {
+    const { name, url, description } = req.body;
+
+    if (!name || !url) {
+      return res.status(400).json({ error: 'Missing required fields: name, url' });
+    }
+
+    // Use the authenticated user's username as the owner for URL routing consistency
+    const owner = req.user.username;
+
+    // Use transaction to create repo and link to user atomically
+    const repo = transaction(() => {
+      // Create the local repository
+      const createdRepo = repoQueries.createLocalRepo.get(
+        owner,
+        name,
+        description || null,
+        url
+      );
+
+      // Link the user to the repository
+      repoQueries.addUserRepo.run(req.user.id, createdRepo.id);
+
+      return createdRepo;
+    })();
+
+    // Format response
+    res.json({
+      repo: {
+        id: repo.id,
+        name: repo.name,
+        owner: repo.owner,
+        fullName: `${repo.owner}/${repo.name}`,
+        description: repo.description,
+        url: repo.url,
+        isGithub: false,
+        stars: 0,
+        language: null,
+        languageColor: null,
+        updatedAt: null,
+        isPrivate: false,
+      }
+    });
+  } catch (error) {
+    console.error('Error creating local repository:', error);
+    res.status(500).json({ error: 'Failed to create local repository' });
+  }
+});
+
+// Update a custom (non-GitHub) repository's info
+router.patch('/:owner/:repo', authenticateToken, requireRepositoryAdmin, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+  const { url, description } = req.body;
+
+  try {
+    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
+
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    // Only allow updates to non-GitHub repos
+    if (repo.is_github) {
+      return res.status(400).json({
+        error: 'Cannot update GitHub repository info. Repository data is synced from GitHub.'
+      });
+    }
+
+    // Validate URL is not empty (use provided url, or fall back to existing)
+    const finalUrl = url !== undefined ? url : repo.url;
+    if (!finalUrl || finalUrl.trim() === '') {
+      return res.status(400).json({
+        error: 'Repository URL is required'
+      });
+    }
+
+    // Update the repository
+    const updatedRepo = repoQueries.updateLocalRepo.get(
+      url ?? repo.url,
+      description ?? repo.description,
+      repo.id
+    );
+
+    if (!updatedRepo) {
+      return res.status(500).json({ error: 'Failed to update repository' });
+    }
+
+    res.json({
+      repo: {
+        id: updatedRepo.id,
+        name: updatedRepo.name,
+        owner: updatedRepo.owner,
+        fullName: `${updatedRepo.owner}/${updatedRepo.name}`,
+        description: updatedRepo.description,
+        url: updatedRepo.url,
+        isGithub: false,
+      }
+    });
+  } catch (error) {
+    console.error('Error updating custom repository:', error);
+    res.status(500).json({ error: 'Failed to update repository' });
+  }
+});
+
 // Remove a saved repository
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
@@ -211,20 +331,35 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
 // Check user's permission level for a repository
 router.get('/:owner/:repo/permission', authenticateToken, async (req, res) => {
-  const { owner, repo } = req.params;
+  const { owner, repo: repoName } = req.params;
 
   try {
+    // First check if this is a non-GitHub repo
+    const repoRecord = repoQueries.findByOwnerAndName.get(owner, repoName);
+
+    if (repoRecord && !repoRecord.is_github) {
+      // For non-GitHub repos, the owner (which is the user's username) has admin access
+      const isAdmin = repoRecord.owner === req.user.username;
+      return res.json({
+        permission: isAdmin ? 'ADMIN' : 'READ',
+        isAdmin,
+        isGithub: false,
+      });
+    }
+
+    // For GitHub repos, check permission via GitHub API
     const { checkRepositoryAdminPermission } = await import('../services/github.js');
 
     const isAdmin = await checkRepositoryAdminPermission(
       req.user.accessToken,
       owner,
-      repo
+      repoName
     );
 
     res.json({
       permission: isAdmin ? 'ADMIN' : 'READ',
-      isAdmin
+      isAdmin,
+      isGithub: true,
     });
   } catch (error) {
     console.error('[API] Failed to check repository permission:', error);

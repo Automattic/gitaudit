@@ -10,6 +10,8 @@ export interface Repository {
   languageColor: string | null;
   updatedAt: string;
   isPrivate: boolean;
+  isGithub: boolean;
+  url: string | null;
 }
 
 export interface ReposResponse {
@@ -26,6 +28,17 @@ export interface SaveRepoRequest {
   languageColor: string | null;
   updatedAt: string;
   isPrivate: boolean;
+}
+
+export interface CreateLocalRepoRequest {
+  name: string;
+  url: string;
+  description?: string;
+}
+
+export interface UpdateLocalRepoRequest {
+  url?: string;
+  description?: string;
 }
 
 export interface GitHubRepo {
@@ -56,4 +69,7 @@ export interface RepoStatus {
     total: number;
   };
   message?: string;
+  isGithub?: boolean;
+  url?: string | null;
+  description?: string | null;
 }
