@@ -23,7 +23,7 @@ type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 interface FieldEditProps {
   data: FlattenedSettings;
-  field: { id: string; label: string; type: string };
+  field: { id: string; label: string; type?: string };
   onChange: (updates: Partial<FlattenedSettings>) => void;
 }
 
@@ -312,7 +312,7 @@ function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfo
       // LLM Configuration Fields
       {
         id: 'llm_enabled',
-        type: 'checkbox' as const,
+        type: 'boolean' as const,
         label: 'Enable Sentiment Analysis',
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <ToggleControl
@@ -330,7 +330,7 @@ function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfo
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <SelectControl
             label={field.label}
-            value={data[field.id] as string}
+            value={data[field.id] as 'anthropic' | 'openai' | undefined}
             onChange={(value: string) => onChange({ [field.id]: value })}
             options={[
               { label: 'Anthropic (Claude)', value: 'anthropic' },
@@ -371,7 +371,7 @@ function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfo
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextareaControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string}
             onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             help="Comma-separated list of bug label keywords (case-insensitive partial match). Used to identify which issues are bugs."
             placeholder="bug, defect, error, crash, broken"
@@ -388,7 +388,7 @@ function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfo
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextareaControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string}
             onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             help="Comma-separated list of feature request label keywords (case-insensitive partial match). Used to identify which issues are feature requests."
             placeholder="enhancement, feature, feature request"
@@ -405,7 +405,7 @@ function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfo
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextareaControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string}
             onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             help="Comma-separated list of high priority label keywords (case-insensitive partial match). Scoring rules (enabled/points) are configured in Important Bugs settings."
             placeholder="critical, high priority, urgent, p0, p1"
@@ -422,7 +422,7 @@ function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfo
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextareaControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string}
             onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             help="Comma-separated list of low priority label keywords (case-insensitive partial match). Used for negative scoring in Important Bugs and rejection penalty in Feature Requests."
             placeholder="priority low, low priority"
@@ -439,7 +439,7 @@ function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfo
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string}
             onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             help="GitHub organization login (e.g., 'facebook')"
             placeholder="organization-name"
@@ -454,7 +454,7 @@ function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfo
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <TextControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string}
             onChange={(value: string | boolean | undefined) => onChange({ [field.id]: value })}
             help="GitHub team slug (e.g., 'react-core')"
             placeholder="team-slug"
@@ -490,16 +490,8 @@ function GeneralForm({ settings, onChange, isGithub = true, repoInfo, onRepoInfo
           {
             id: 'llm-configuration',
             label: 'AI Sentiment Analysis',
-            description: (
-              <div>
-                <p style={{ marginBottom: '0.5rem' }}>Configure AI-powered sentiment analysis to help prioritize bugs and feature requests.</p>
-                <div style={{ marginTop: '0.5rem' }}>
-                  <Notice status="warning" isDismissible={false}>
-                    <strong>Important:</strong> API calls to your provider will incur costs. Monitor your usage carefully.
-                  </Notice>
-                </div>
-              </div>
-            ),
+            description:
+              'Configure AI-powered sentiment analysis to help prioritize bugs and feature requests. Important: API calls to your provider will incur costs. Monitor your usage carefully.',
             children: ['llm_enabled', 'llm_provider', 'llm_apiKey', 'llm_model'],
           },
           {

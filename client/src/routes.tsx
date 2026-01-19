@@ -1,4 +1,4 @@
-import { Navigate, redirect } from 'react-router-dom';
+import { Navigate, redirect, type LoaderFunctionArgs } from 'react-router-dom';
 import { queryClient } from './data/queries/query-client';
 import { repoPermissionQueryOptions } from './data/queries/repos';
 import Login from './pages/login';
@@ -30,13 +30,16 @@ export async function protectedLoader({ request }: { request: Request }) {
 }
 
 // Repository layout loader - checks auth AND prefetches permission data
-export async function repositoryLayoutLoader({ params, request }: { params: { owner: string; repo: string }; request: Request }) {
+export async function repositoryLayoutLoader({ params, request }: LoaderFunctionArgs) {
   // Check authentication
   const authRedirect = checkAuth(request);
   if (authRedirect) return authRedirect;
 
   // Prefetch the permission query to avoid layout shift
   const { owner, repo } = params;
+  if (!owner || !repo) {
+    throw new Response('Repository not found', { status: 404 });
+  }
   await queryClient.ensureQueryData(repoPermissionQueryOptions(owner, repo));
 
   return null;

@@ -15,7 +15,7 @@ type FlattenedSettings = Record<string, string | number | boolean | string[]>;
 
 interface FieldEditProps {
   data: FlattenedSettings;
-  field: { id: string; label: string; type: string };
+  field: { id: string; label: string; type?: string };
   onChange: (updates: Partial<FlattenedSettings>) => void;
 }
 
@@ -64,7 +64,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -95,7 +95,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={-200}
             max={200}
@@ -125,7 +125,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -141,7 +141,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 7 })}
             min={1}
             max={365}
@@ -171,7 +171,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -187,7 +187,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 5 })}
             min={1}
             max={100}
@@ -217,7 +217,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -247,7 +247,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -277,7 +277,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 5 })}
             min={0}
             max={100}
@@ -293,7 +293,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 5 })}
             min={0}
             max={50}
@@ -309,7 +309,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 50 })}
             min={0}
             max={100}
@@ -339,7 +339,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 0 })}
             min={0}
             max={200}
@@ -355,7 +355,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 30 })}
             min={1}
             max={365}
@@ -371,7 +371,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 14 })}
             min={1}
             max={365}
@@ -401,7 +401,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 30 })}
             min={0}
             max={50}
@@ -418,7 +418,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 120 })}
             min={0}
             max={500}
@@ -433,7 +433,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 80 })}
             min={0}
             max={500}
@@ -448,7 +448,7 @@ function ImportantBugsForm({ settings, onChange }: ImportantBugsFormProps) {
         Edit: ({ data, field, onChange }: FieldEditProps) => (
           <NumberControl
             label={field.label}
-            value={data[field.id]}
+            value={data[field.id] as string | number | undefined}
             onChange={(value: string | undefined) => onChange({ [field.id]: parseInt(value || '0') || 50 })}
             min={0}
             max={500}
