@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAdmin } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories } from '../services/github.js';
 import { repoQueries, issueQueries, analysisQueries, prQueries, transaction } from '../db/queries.js';
 import { toSqliteDateTime } from '../utils/dates.js';
@@ -232,6 +232,33 @@ router.get('/:owner/:repo/permission', authenticateToken, async (req, res) => {
       error: 'Failed to check repository permission',
       details: error.message
     });
+  }
+});
+
+// Full repository deletion (admin only)
+// Deletes the repository and all associated data (issues, PRs, settings, etc.)
+router.delete('/:owner/:repo/full', authenticateToken, requireRepositoryAdmin, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+
+  try {
+    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
+
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    // Delete from repositories table - cascades to all related data
+    repoQueries.deleteById.run(repo.id);
+
+    console.log(`[API] Repository ${owner}/${repoName} fully deleted by user ${req.user.username}`);
+
+    res.json({
+      success: true,
+      message: 'Repository and all associated data deleted'
+    });
+  } catch (error) {
+    console.error('Error deleting repository:', error);
+    res.status(500).json({ error: 'Failed to delete repository' });
   }
 });
 
