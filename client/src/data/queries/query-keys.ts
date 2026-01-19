@@ -59,4 +59,12 @@ export const queryKeys = {
     all: () => ['settings'] as const,
     repo: (owner: string, repo: string) => [...queryKeys.settings.all(), owner, repo] as const,
   },
+
+  // Metrics keys (for performance tracking)
+  metrics: {
+    all: () => ['metrics'] as const,
+    repo: (owner: string, repo: string) => [...queryKeys.metrics.all(), owner, repo] as const,
+    list: (owner: string, repo: string) => [...queryKeys.metrics.repo(owner, repo), 'list'] as const,
+    token: (owner: string, repo: string) => [...queryKeys.metrics.repo(owner, repo), 'token'] as const,
+  },
 } as const;

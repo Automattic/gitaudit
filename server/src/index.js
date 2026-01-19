@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js';
 import reposRoutes from './routes/repos.js';
 import issuesRoutes from './routes/issues.js';
 import prRoutes from './routes/pull-requests.js';
+import metricsRoutes from './routes/metrics.js';
 
 // Load environment variables
 dotenv.config();
@@ -42,6 +43,7 @@ app.use('/auth', authRoutes);
 app.use('/api/repos', reposRoutes);
 app.use('/api/repos/:owner/:repo/issues', issuesRoutes);
 app.use('/api/repos/:owner/:repo/prs', prRoutes);
+app.use('/api/repos/:owner/:repo/metrics', metricsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

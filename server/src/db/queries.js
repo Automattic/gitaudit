@@ -161,6 +161,18 @@ export const repoQueries = {
       WHERE id = ?
     `);
   },
+
+  get findByMetricsToken() {
+    return db.prepare('SELECT * FROM repositories WHERE metrics_token = ?');
+  },
+
+  get updateMetricsToken() {
+    return db.prepare(`
+      UPDATE repositories
+      SET metrics_token = ?
+      WHERE id = ?
+    `);
+  },
 };
 
 // Issue queries
@@ -689,6 +701,46 @@ export const prCommentQueries = {
       FROM pr_comments
       WHERE pr_id = ?
     `);
+  },
+};
+
+// Metrics queries (for performance tracking)
+export const metricsQueries = {
+  get findByRepoId() {
+    return db.prepare(`
+      SELECT * FROM metrics
+      WHERE repo_id = ?
+      ORDER BY priority DESC, name ASC
+    `);
+  },
+
+  get findById() {
+    return db.prepare('SELECT * FROM metrics WHERE id = ?');
+  },
+
+  get findByRepoIdAndKey() {
+    return db.prepare('SELECT * FROM metrics WHERE repo_id = ? AND key = ?');
+  },
+
+  get insert() {
+    return db.prepare(`
+      INSERT INTO metrics (repo_id, key, name, unit, priority, default_visible)
+      VALUES (?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `);
+  },
+
+  get update() {
+    return db.prepare(`
+      UPDATE metrics
+      SET name = ?, unit = ?, priority = ?, default_visible = ?
+      WHERE id = ?
+      RETURNING *
+    `);
+  },
+
+  get delete() {
+    return db.prepare('DELETE FROM metrics WHERE id = ?');
   },
 };
 
