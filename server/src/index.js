@@ -8,6 +8,8 @@ import reposRoutes from './routes/repos.js';
 import issuesRoutes from './routes/issues.js';
 import prRoutes from './routes/pull-requests.js';
 import metricsRoutes from './routes/metrics.js';
+import logRoutes from './routes/log.js';
+import perfRoutes from './routes/perf.js';
 
 // Load environment variables
 dotenv.config();
@@ -44,6 +46,8 @@ app.use('/api/repos', reposRoutes);
 app.use('/api/repos/:owner/:repo/issues', issuesRoutes);
 app.use('/api/repos/:owner/:repo/prs', prRoutes);
 app.use('/api/repos/:owner/:repo/metrics', metricsRoutes);
+app.use('/api/repos/:owner/:repo/perf', perfRoutes);
+app.use('/api/log', logRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

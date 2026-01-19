@@ -163,6 +163,9 @@ export function initializeDatabase() {
   // Add metrics_token column to repositories table
   migrateMetricsTokenColumn();
 
+  // Create perf table for performance metric data points
+  createPerfTable();
+
   console.log('Database initialized successfully');
 }
 
@@ -1277,6 +1280,54 @@ function migrateMetricsTokenColumn() {
   if (!columnNames.includes('metrics_token')) {
     db.exec('ALTER TABLE repositories ADD COLUMN metrics_token TEXT');
     console.log('Added metrics_token column to repositories table');
+  }
+}
+
+// Create perf table for storing performance metric data points
+function createPerfTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS perf (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repo_id INTEGER NOT NULL,
+      branch TEXT NOT NULL,
+      hash TEXT NOT NULL,
+      metric_id INTEGER NOT NULL,
+      value REAL NOT NULL,
+      raw_value REAL NOT NULL,
+      measured_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE,
+      FOREIGN KEY (metric_id) REFERENCES metrics(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create indexes for better query performance
+  const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='perf'").all();
+  const indexNames = indexes.map(idx => idx.name);
+
+  if (!indexNames.includes('idx_perf_repo_id')) {
+    db.exec('CREATE INDEX idx_perf_repo_id ON perf(repo_id)');
+    console.log('Created idx_perf_repo_id index');
+  }
+
+  if (!indexNames.includes('idx_perf_metric_id')) {
+    db.exec('CREATE INDEX idx_perf_metric_id ON perf(metric_id)');
+    console.log('Created idx_perf_metric_id index');
+  }
+
+  if (!indexNames.includes('idx_perf_branch')) {
+    db.exec('CREATE INDEX idx_perf_branch ON perf(branch)');
+    console.log('Created idx_perf_branch index');
+  }
+
+  if (!indexNames.includes('idx_perf_hash')) {
+    db.exec('CREATE INDEX idx_perf_hash ON perf(hash)');
+    console.log('Created idx_perf_hash index');
+  }
+
+  if (!indexNames.includes('idx_perf_measured_at')) {
+    db.exec('CREATE INDEX idx_perf_measured_at ON perf(measured_at)');
+    console.log('Created idx_perf_measured_at index');
   }
 }
 
