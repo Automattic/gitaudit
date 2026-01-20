@@ -493,7 +493,7 @@ async function main() {
 	const { reset, dryRun } = parseArgs();
 
 	console.log('='.repeat(60));
-	console.log('GitAudit Test Database Seeding');
+	console.log('CodeVitals Test Database Seeding');
 	console.log('='.repeat(60));
 	console.log(`Mode: ${dryRun ? 'DRY RUN' : reset ? 'RESET + SEED' : 'SEED'}`);
 	console.log('='.repeat(60));

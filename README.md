@@ -1,6 +1,6 @@
-# GitAudit
+# CodeVitals
 
-A powerful web application for auditing GitHub repository issues and pull requests. GitAudit helps maintainers prioritize work by identifying important bugs, stale issues, promising feature requests, and community health metrics using intelligent analysis and optional AI-powered sentiment analysis.
+A powerful web application for auditing GitHub repository issues and pull requests. CodeVitals helps maintainers prioritize work by identifying important bugs, stale issues, promising feature requests, and community health metrics using intelligent analysis and optional AI-powered sentiment analysis.
 
 ## Features
 
@@ -76,7 +76,7 @@ Skip this step if you only want to test with seeded data.
 
 1. Go to [GitHub Settings → Developer settings → OAuth Apps](https://github.com/settings/developers) → New OAuth App
 2. Fill in the details:
-   - **Application name**: GitAudit (or your preferred name)
+   - **Application name**: CodeVitals (or your preferred name)
    - **Homepage URL**: `http://localhost:3000`
    - **Authorization callback URL**: `http://localhost:3001/auth/github/callback`
 3. Click "Register application"
@@ -126,7 +126,7 @@ The application will be available at:
 
 ## AI Sentiment Analysis (Optional)
 
-GitAudit supports optional AI-powered sentiment analysis to better prioritize bugs and feature requests:
+CodeVitals supports optional AI-powered sentiment analysis to better prioritize bugs and feature requests:
 
 1. Navigate to Settings → General
 2. Enable "AI Sentiment Analysis"
@@ -140,7 +140,7 @@ GitAudit supports optional AI-powered sentiment analysis to better prioritize bu
 ## Project Structure
 
 ```
-gitaudit/
+codevitals/
 ├── client/              # React frontend (TypeScript + Vite)
 │   ├── src/
 │   │   ├── components/  # Reusable UI components
@@ -189,7 +189,7 @@ The test data includes WordPress/gutenberg with:
 
 ### API Rate Limiting
 
-GitAudit implements smart rate limiting to respect GitHub's API limits:
+CodeVitals implements smart rate limiting to respect GitHub's API limits:
 - Serial request processing (one request at a time)
 - Configurable delays between requests
 - Automatic retry logic with exponential backoff

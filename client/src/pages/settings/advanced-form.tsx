@@ -70,7 +70,7 @@ function AdvancedForm({ owner, repo }: AdvancedFormProps) {
                 Remove Repository
               </h3>
               <p style={{ margin: 0, color: '#666', fontSize: '0.875rem' }}>
-                Delete this repository from GitAudit and remove all associated data including
+                Delete this repository from CodeVitals and remove all associated data including
                 cached issues, pull requests, analysis results, and settings.
               </p>
             </div>
@@ -94,7 +94,7 @@ function AdvancedForm({ owner, repo }: AdvancedFormProps) {
           {!isAdmin && (
             <div style={{ marginTop: '1rem' }}>
               <Notice status="info" isDismissible={false}>
-                You need admin permissions on this GitHub repository to remove it from GitAudit.
+                You need admin permissions on this GitHub repository to remove it from CodeVitals.
               </Notice>
             </div>
           )}
@@ -107,7 +107,7 @@ function AdvancedForm({ owner, repo }: AdvancedFormProps) {
           message={
             <div>
               <p style={{ marginTop: 0 }}>
-                Are you sure you want to remove <strong>{repoFullName}</strong> from GitAudit?
+                Are you sure you want to remove <strong>{repoFullName}</strong> from CodeVitals?
               </p>
               <p>This will permanently delete:</p>
               <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>

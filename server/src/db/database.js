@@ -7,7 +7,7 @@ const __dirname = dirname(__filename);
 
 // Create database connection
 // Railway persistent volume path or local development path
-const dbPath = process.env.DATABASE_PATH || join(__dirname, '../../gitaudit.db');
+const dbPath = process.env.DATABASE_PATH || join(__dirname, '../../codevitals.db');
 const db = new Database(dbPath);
 
 // Enable foreign keys

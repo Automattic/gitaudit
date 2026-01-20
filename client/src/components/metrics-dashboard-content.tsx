@@ -47,7 +47,7 @@ const isHigherBetter = (metricKey: string): boolean => {
   return HIGHER_IS_BETTER_PATTERNS.some((pattern) => lowerKey.includes(pattern));
 };
 
-// Colors matching GitAudit's palette
+// Colors matching CodeVitals' palette
 const COLORS = {
   positive: '#00a32a',
   negative: '#d63638',

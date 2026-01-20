@@ -43,7 +43,7 @@ function PublicHeader() {
             cursor: 'pointer',
           }}
         >
-          GitAudit
+          CodeVitals
         </span>
 
         {isAuthenticated ? (
