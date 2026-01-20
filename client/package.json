@@ -1,7 +1,7 @@
 {
-  "name": "gitaudit-client",
+  "name": "codevitals-client",
   "version": "1.0.0",
-  "description": "Frontend for GitAudit",
+  "description": "Frontend for CodeVitals",
   "type": "module",
   "scripts": {
     "start": "vite",

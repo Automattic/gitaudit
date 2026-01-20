@@ -225,7 +225,7 @@ function HeroSection() {
           letterSpacing: '-1px',
         }}
       >
-        GitAudit
+        CodeVitals
       </h1>
 
       <p

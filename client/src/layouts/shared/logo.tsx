@@ -21,7 +21,7 @@ function Logo() {
           letterSpacing: "-0.5px",
         }}
       >
-        GitAudit
+        CodeVitals
       </h1>
     </div>
   );

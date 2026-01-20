@@ -60,7 +60,7 @@ function Login() {
           color: 'var(--wp-admin-theme-color)',
           letterSpacing: '-0.5px',
         }}>
-          GitAudit
+          CodeVitals
         </h1>
         <p style={{ marginBottom: '2rem', color: '#666' }}>
           Audit GitHub repository issues to identify important bugs,

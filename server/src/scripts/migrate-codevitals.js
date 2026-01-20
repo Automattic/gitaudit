@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Migration script: CodeVitals (PlanetScale MySQL) -> GitAudit (SQLite)
+ * Migration script: CodeVitals Legacy (PlanetScale MySQL) -> CodeVitals (SQLite)
  *
  * Usage:
  *   node server/src/scripts/migrate-codevitals.js <project_id> <owner/name> [--dry-run]
@@ -39,7 +39,7 @@ Usage: node migrate-codevitals.js <project_id> <owner/name> [--dry-run]
 
 Arguments:
   project_id    CodeVitals project ID to migrate
-  owner/name    GitAudit repository (e.g., WordPress/gutenberg)
+  owner/name    CodeVitals repository (e.g., WordPress/gutenberg)
 
 Options:
   --dry-run     Preview changes without modifying the database
@@ -167,7 +167,7 @@ function findOrCreateRepository( owner, name, projectName, dryRun ) {
 // ============================================================================
 
 function migrateMetrics( repoId, sourceMetrics, dryRun ) {
-	const idMapping = new Map(); // codevitals_id -> gitaudit_id
+	const idMapping = new Map(); // legacy_id -> new_id
 	const stats = { created: 0, skipped: 0 };
 
 	for ( const sourceMetric of sourceMetrics ) {
@@ -293,10 +293,10 @@ async function migrate() {
 	const { projectId, owner, name, dryRun } = parseArgs();
 
 	console.log( '=' .repeat( 60 ) );
-	console.log( 'CodeVitals -> GitAudit Migration' );
+	console.log( 'CodeVitals Legacy -> CodeVitals Migration' );
 	console.log( '=' .repeat( 60 ) );
 	console.log( `Source: CodeVitals project_id = ${ projectId }` );
-	console.log( `Target: GitAudit repo = ${ owner }/${ name }` );
+	console.log( `Target: CodeVitals repo = ${ owner }/${ name }` );
 	console.log( `Mode: ${ dryRun ? 'DRY RUN (no changes)' : 'LIVE' }` );
 	console.log( '=' .repeat( 60 ) );
 

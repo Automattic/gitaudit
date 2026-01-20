@@ -1,11 +1,11 @@
 #!/bin/bash
-# GitAudit Local Development Setup Script
+# CodeVitals Local Development Setup Script
 # Usage: ./scripts/setup.sh
 
 set -e
 
 echo "=============================================="
-echo "GitAudit Local Development Setup"
+echo "CodeVitals Local Development Setup"
 echo "=============================================="
 
 # Generate session secret
@@ -28,7 +28,7 @@ PORT=3001
 CLIENT_URL=http://localhost:3000
 
 # Database path (local development)
-DATABASE_PATH=./gitaudit.db
+DATABASE_PATH=./codevitals.db
 EOF
     echo "  Created server/.env"
 else
