@@ -16,7 +16,7 @@ function getRepo(owner, repoName) {
 }
 
 // GET /api/repos/:owner/:repo/metrics - List all metrics for a repo
-router.get('/', authenticateToken, requireRepositoryAdmin, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {
