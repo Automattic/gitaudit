@@ -1,24 +1,35 @@
 import express from 'express';
-import { authenticateToken, requireRepositoryAccess } from '../middleware/auth.js';
-import { repoQueries, perfQueries } from '../db/queries.js';
+import { optionalAuth, requireRepositoryAccessOrPublic } from '../middleware/auth.js';
+import { perfQueries, metricsQueries } from '../db/queries.js';
 
 const router = express.Router({ mergeParams: true });
 
-// Helper to get repo by owner/name
-function getRepo(owner, repoName) {
-  return repoQueries.findByOwnerAndName.get(owner, repoName);
+// Helper to check if a metric is accessible (visible or authenticated)
+function isMetricAccessible(metricId, repoId, isPublicAccess) {
+  const metric = metricsQueries.findById.get(metricId);
+  if (!metric || metric.repo_id !== repoId) {
+    return false;
+  }
+  // For public access, only allow visible metrics
+  if (isPublicAccess && !metric.default_visible) {
+    return false;
+  }
+  return true;
 }
 
 // GET /api/repos/:owner/:repo/perf/evolution/:metricId
-// Returns metric history for charts (same logic as CodeVitals /api/evolution/[metric_id].js)
-router.get('/evolution/:metricId', authenticateToken, requireRepositoryAccess, async (req, res) => {
-  const { owner, repo: repoName, metricId } = req.params;
+// Returns metric history for charts
+// Public access only allowed for visible metrics
+router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
+  const { metricId } = req.params;
   const { limit = 100, branch = 'trunk' } = req.query;
 
   try {
-    const repo = getRepo(owner, repoName);
-    if (!repo) {
-      return res.status(404).json({ error: 'Repository not found' });
+    const repo = req.publicRepo;
+
+    // Check metric is accessible
+    if (!isMetricAccessible(metricId, repo.id, req.isPublicAccess)) {
+      return res.status(404).json({ error: 'Metric not found' });
     }
 
     const perfs = perfQueries.findByMetricIdAndBranch.all(
@@ -50,15 +61,18 @@ router.get('/evolution/:metricId', authenticateToken, requireRepositoryAccess, a
 });
 
 // GET /api/repos/:owner/:repo/perf/average/:metricId
-// Returns rolling averages (same logic as CodeVitals /api/average/[metric_id].js)
-router.get('/average/:metricId', authenticateToken, requireRepositoryAccess, async (req, res) => {
-  const { owner, repo: repoName, metricId } = req.params;
+// Returns rolling averages
+// Public access only allowed for visible metrics
+router.get('/average/:metricId', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
+  const { metricId } = req.params;
   const { branch = 'trunk' } = req.query;
 
   try {
-    const repo = getRepo(owner, repoName);
-    if (!repo) {
-      return res.status(404).json({ error: 'Repository not found' });
+    const repo = req.publicRepo;
+
+    // Check metric is accessible
+    if (!isMetricAccessible(metricId, repo.id, req.isPublicAccess)) {
+      return res.status(404).json({ error: 'Metric not found' });
     }
 
     // Average of last 20 values

@@ -66,6 +66,8 @@ export const queryKeys = {
     repo: (owner: string, repo: string) => [...queryKeys.metrics.all(), owner, repo] as const,
     list: (owner: string, repo: string) => [...queryKeys.metrics.repo(owner, repo), 'list'] as const,
     token: (owner: string, repo: string) => [...queryKeys.metrics.repo(owner, repo), 'token'] as const,
+    publicStatus: (owner: string, repo: string) => [...queryKeys.metrics.repo(owner, repo), 'publicStatus'] as const,
+    info: (owner: string, repo: string) => [...queryKeys.metrics.repo(owner, repo), 'info'] as const,
   },
 
   // Performance data keys (for metric evolution and averages)
@@ -76,5 +78,11 @@ export const queryKeys = {
       [...queryKeys.perf.repo(owner, repo), 'evolution', metricId, limit, branch] as const,
     average: (owner: string, repo: string, metricId: number, branch: string) =>
       [...queryKeys.perf.repo(owner, repo), 'average', metricId, branch] as const,
+  },
+
+  // Public repos keys (for homepage)
+  publicRepos: {
+    all: () => ['publicRepos'] as const,
+    list: () => [...queryKeys.publicRepos.all(), 'list'] as const,
   },
 } as const;

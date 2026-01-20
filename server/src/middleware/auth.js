@@ -148,3 +148,76 @@ export function requireRepositoryAccess(req, res, next) {
 
   next();
 }
+
+/**
+ * Optional authentication middleware
+ * If token is present, validates it and attaches user to req
+ * If no token, continues without user (req.user will be undefined)
+ */
+export function optionalAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    // No token provided - continue without user
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.SESSION_SECRET);
+    const user = userQueries.findByGithubId.get(decoded.githubId);
+
+    if (user) {
+      req.user = {
+        id: user.id,
+        githubId: user.github_id,
+        username: user.username,
+        accessToken: user.access_token,
+      };
+    }
+    // If user not found, just continue without user
+    next();
+  } catch {
+    // Invalid token - continue without user (don't fail the request)
+    next();
+  }
+}
+
+/**
+ * Middleware to allow access if user is authenticated with repo access OR repo has public metrics enabled
+ * Sets req.isPublicAccess = true if accessing via public metrics (no auth)
+ * Sets req.publicRepo with the repository data
+ */
+export function requireRepositoryAccessOrPublic(req, res, next) {
+  const { owner, repo } = req.params;
+
+  if (!owner || !repo) {
+    return res.status(400).json({ error: 'Repository owner and name are required' });
+  }
+
+  // If user is authenticated, check they have access
+  if (req.user) {
+    const hasAccess = repoQueries.checkIfSaved.get(req.user.id, owner, repo);
+    if (hasAccess) {
+      req.isPublicAccess = false;
+      req.publicRepo = repoQueries.findByOwnerAndName.get(owner, repo);
+      return next();
+    }
+  }
+
+  // No auth or no access - check if repo is public
+  const repository = repoQueries.findByOwnerAndName.get(owner, repo);
+
+  if (!repository || !repository.metrics_public) {
+    // Return 404 to not reveal existence of private repos
+    return res.status(404).json({
+      error: 'Not found',
+      message: 'Repository not found or metrics are not public',
+    });
+  }
+
+  // Public access granted
+  req.isPublicAccess = true;
+  req.publicRepo = repository;
+  next();
+}

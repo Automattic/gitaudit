@@ -173,6 +173,30 @@ export const repoQueries = {
       WHERE id = ?
     `);
   },
+
+  get findByOwnerAndNamePublic() {
+    return db.prepare(`
+      SELECT * FROM repositories
+      WHERE owner = ? AND name = ? AND metrics_public = 1
+    `);
+  },
+
+  get updateMetricsPublic() {
+    return db.prepare(`
+      UPDATE repositories
+      SET metrics_public = ?
+      WHERE id = ?
+    `);
+  },
+
+  get findAllPublicMetricsRepos() {
+    return db.prepare(`
+      SELECT id, owner, name, description, language, language_color
+      FROM repositories
+      WHERE metrics_public = 1
+      ORDER BY name ASC
+    `);
+  },
 };
 
 // Issue queries
@@ -710,6 +734,14 @@ export const metricsQueries = {
     return db.prepare(`
       SELECT * FROM metrics
       WHERE repo_id = ?
+      ORDER BY priority DESC, name ASC
+    `);
+  },
+
+  get findVisibleByRepoId() {
+    return db.prepare(`
+      SELECT * FROM metrics
+      WHERE repo_id = ? AND default_visible = 1
       ORDER BY priority DESC, name ASC
     `);
   },
