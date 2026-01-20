@@ -325,6 +325,21 @@ async function migrate() {
 			console.log( 'Note: Using placeholder IDs for dry run' );
 		}
 
+		// Migrate token
+		let tokenMigrated = false;
+		if ( project.token ) {
+			if ( dryRun ) {
+				console.log( `[DRY-RUN] Would set metrics_token from CodeVitals` );
+				tokenMigrated = true;
+			} else {
+				repoQueries.updateMetricsToken.run( project.token, repo.id );
+				console.log( `Set metrics_token from CodeVitals project` );
+				tokenMigrated = true;
+			}
+		} else {
+			console.log( 'Note: No token found in CodeVitals project' );
+		}
+
 		// Migrate metrics
 		console.log( '\n[4/5] Migrating metrics...' );
 		const { idMapping, stats: metricStats } = migrateMetrics(
@@ -359,6 +374,7 @@ async function migrate() {
 		console.log( '=' .repeat( 60 ) );
 		console.log( `Source project: ${ project.name } (id: ${ projectId })` );
 		console.log( `Target repository: ${ owner }/${ name }` );
+		console.log( `Token: ${ tokenMigrated ? 'migrated' : 'not found in source' }` );
 		console.log(
 			`Metrics: ${ metricStats.created } new, ${ metricStats.skipped } existing`
 		);
