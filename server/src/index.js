@@ -30,7 +30,7 @@ const PORT = process.env.PORT || 3001;
 app.set('trust proxy', 1);
 
 // Middleware
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.CLIENT_URL || 'http://localhost:3000')
   .split(',')
   .map(url => url.trim());
 
