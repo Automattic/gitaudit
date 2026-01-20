@@ -65,13 +65,23 @@ function MetricPreview({ metric }: { metric: PublicRepoMetric }) {
       style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
         gap: '0.75rem',
       }}
     >
       {/* Metric name and value */}
-      <div style={{ flex: '0 0 auto', minWidth: '80px' }}>
-        <div style={{ fontSize: '0.7rem', color: '#50575e', marginBottom: '2px' }}>{metric.name}</div>
+      <div style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
+        <div
+          style={{
+            fontSize: '0.7rem',
+            color: '#50575e',
+            marginBottom: '2px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {metric.name}
+        </div>
         <div
           style={{
             fontSize: '0.875rem',
@@ -86,30 +96,32 @@ function MetricPreview({ metric }: { metric: PublicRepoMetric }) {
         </div>
       </div>
 
-      {/* Sparkline */}
-      {metric.sparklineData.length > 1 && (
-        <div style={{ flex: '1 1 auto' }}>
+      {/* Sparkline - fixed width for alignment */}
+      <div style={{ flex: '0 0 80px' }}>
+        {metric.sparklineData.length > 1 && (
           <MiniSparkline
             data={metric.sparklineData}
             color={sentiment === 'negative' ? '#d63638' : '#3858e9'}
           />
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Change indicator */}
-      {metric.changePercent !== null && sentiment !== 'neutral' && (
-        <div
-          style={{
-            flex: '0 0 auto',
-            fontSize: '0.7rem',
-            fontWeight: 500,
-            color: sentiment === 'positive' ? '#00a32a' : '#d63638',
-          }}
-        >
-          {metric.changePercent > 0 ? '+' : ''}
-          {(metric.changePercent * 100).toFixed(0)}%
-        </div>
-      )}
+      {/* Change indicator - fixed width for alignment */}
+      <div
+        style={{
+          flex: '0 0 36px',
+          fontSize: '0.7rem',
+          fontWeight: 500,
+          textAlign: 'right',
+        }}
+      >
+        {metric.changePercent !== null && sentiment !== 'neutral' && (
+          <span style={{ color: sentiment === 'positive' ? '#00a32a' : '#d63638' }}>
+            {metric.changePercent > 0 ? '+' : ''}
+            {(metric.changePercent * 100).toFixed(0)}%
+          </span>
+        )}
+      </div>
     </div>
   );
 }
