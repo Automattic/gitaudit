@@ -72,9 +72,9 @@ function RepositoryLayout() {
 
         {/* Navigation Menu */}
         <nav style={{ paddingTop: "2rem", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {isGithub && (
-            <>
-              <div>
+          <div>
+            {isGithub && (
+              <>
                 <SidebarNavLink to={`/repos/${owner}/${repo}/bugs`}>
                   Important Bugs
                 </SidebarNavLink>
@@ -87,14 +87,15 @@ function RepositoryLayout() {
                 <SidebarNavLink to={`/repos/${owner}/${repo}/community`}>
                   Community Health
                 </SidebarNavLink>
-              </div>
-              <div>
                 <SidebarNavLink to={`/repos/${owner}/${repo}/stale-prs`}>
                   Stale PRs
                 </SidebarNavLink>
-              </div>
-            </>
-          )}
+              </>
+            )}
+            <SidebarNavLink to={`/repos/${owner}/${repo}/metrics`}>
+              Metrics
+            </SidebarNavLink>
+          </div>
           {showSettings && (
             <div>
               <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>

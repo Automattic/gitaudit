@@ -67,4 +67,14 @@ export const queryKeys = {
     list: (owner: string, repo: string) => [...queryKeys.metrics.repo(owner, repo), 'list'] as const,
     token: (owner: string, repo: string) => [...queryKeys.metrics.repo(owner, repo), 'token'] as const,
   },
+
+  // Performance data keys (for metric evolution and averages)
+  perf: {
+    all: () => ['perf'] as const,
+    repo: (owner: string, repo: string) => [...queryKeys.perf.all(), owner, repo] as const,
+    evolution: (owner: string, repo: string, metricId: number, limit: number, branch: string) =>
+      [...queryKeys.perf.repo(owner, repo), 'evolution', metricId, limit, branch] as const,
+    average: (owner: string, repo: string, metricId: number, branch: string) =>
+      [...queryKeys.perf.repo(owner, repo), 'average', metricId, branch] as const,
+  },
 } as const;
