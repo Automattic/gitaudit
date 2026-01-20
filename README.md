@@ -21,10 +21,30 @@ A powerful web application for auditing GitHub repository issues and pull reques
 - **API**: GitHub GraphQL API
 - **AI Integration**: Vercel AI SDK with Anthropic Claude and OpenAI support
 
+## Quick Start (with Test Data)
+
+Get up and running in under 2 minutes with pre-seeded test data:
+
+```bash
+# 1. Clone and setup (includes installing deps and seeding test data)
+git clone https://github.com/Automattic/gitaudit.git
+cd gitaudit
+./scripts/setup.sh
+
+# 2. Start the app
+npm run dev
+```
+
+Open http://localhost:3000 and add `WordPress/gutenberg` to your repositories—it will already have test data pre-loaded (20 issues, 12 PRs, and performance metrics).
+
+> **Note**: Test data mode doesn't require GitHub OAuth. When you add WordPress/gutenberg, you'll see the seeded data immediately without fetching from GitHub.
+
+---
+
 ## Prerequisites
 
 - Node.js 18+ and npm
-- GitHub account
+- GitHub account (for syncing real repositories)
 - (Optional) Anthropic or OpenAI API key for sentiment analysis
 
 ## Installation
@@ -36,15 +56,23 @@ git clone https://github.com/Automattic/gitaudit.git
 cd gitaudit
 ```
 
-### 2. Install Dependencies
+### 2. Automated Setup (Recommended)
+
+Run the setup script to create environment files, install dependencies, and seed test data:
 
 ```bash
-npm install
+./scripts/setup.sh
 ```
 
-This will install dependencies for both the client and server workspaces.
+This will:
+- Create `server/.env` with a generated session secret
+- Create `client/.env` with default API URL
+- Install all dependencies
+- Seed the database with test data for WordPress/gutenberg
 
-### 3. Create GitHub OAuth App
+### 3. (Optional) Configure GitHub OAuth
+
+Skip this step if you only want to test with seeded data.
 
 1. Go to [GitHub Settings → Developer settings → OAuth Apps](https://github.com/settings/developers) → New OAuth App
 2. Fill in the details:
@@ -52,50 +80,14 @@ This will install dependencies for both the client and server workspaces.
    - **Homepage URL**: `http://localhost:3000`
    - **Authorization callback URL**: `http://localhost:3001/auth/github/callback`
 3. Click "Register application"
-4. Copy the **Client ID** and generate a **Client Secret**
-
-### 4. Configure Environment Variables
-
-#### Backend Configuration
-
-Copy the example file and edit it:
-
-```bash
-cp server/.env.example server/.env
-```
-
-Edit `server/.env`:
+4. Copy the **Client ID** and **Client Secret** to `server/.env`:
 
 ```bash
 GITHUB_CLIENT_ID=your_client_id_here
 GITHUB_CLIENT_SECRET=your_client_secret_here
-SESSION_SECRET=your_random_secret_here
-PORT=3001
-CLIENT_URL=http://localhost:3000
-DATABASE_PATH=/data/gitaudit.db
 ```
 
-Generate a secure session secret:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-#### Frontend Configuration
-
-Copy the example file:
-
-```bash
-cp client/.env.example client/.env
-```
-
-The default configuration should work for local development:
-
-```bash
-VITE_API_URL=http://localhost:3001
-```
-
-### 5. Run the Application
+### 4. Run the Application
 
 Start both client and server in development mode:
 
@@ -174,6 +166,26 @@ gitaudit/
 ### Database
 
 The backend uses SQLite with better-sqlite3 for data storage. The database file is created automatically on first run at the path specified in `DATABASE_PATH`.
+
+### Test Data
+
+Seed the database with sample data for local development:
+
+```bash
+# Add test data (preserves existing data)
+npm run seed --workspace=server
+
+# Reset and re-seed (clears all data first)
+npm run seed:reset --workspace=server
+
+# Preview without modifying database
+npm run seed:reset --workspace=server -- --dry-run
+```
+
+The test data includes WordPress/gutenberg with:
+- 20 issues (critical bugs, stale issues, feature requests)
+- 12 PRs (abandoned, approved, draft, etc.)
+- 7 performance metrics with 30 days of data
 
 ### API Rate Limiting
 
