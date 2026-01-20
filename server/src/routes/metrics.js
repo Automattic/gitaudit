@@ -1,6 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
-import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAdmin, optionalAuth, requireRepositoryAccessOrPublic } from '../middleware/auth.js';
 import { repoQueries, metricsQueries } from '../db/queries.js';
 
 const router = express.Router({ mergeParams: true });
@@ -15,17 +15,20 @@ function getRepo(owner, repoName) {
   return repoQueries.findByOwnerAndName.get(owner, repoName);
 }
 
-// GET /api/repos/:owner/:repo/metrics - List all metrics for a repo
-router.get('/', authenticateToken, requireRepositoryAccess, async (req, res) => {
-  const { owner, repo: repoName } = req.params;
-
+// GET /api/repos/:owner/:repo/metrics - List metrics for a repo
+// Authenticated users see all metrics, public access sees only visible metrics
+router.get('/', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
   try {
-    const repo = getRepo(owner, repoName);
-    if (!repo) {
-      return res.status(404).json({ error: 'Repository not found' });
-    }
+    const repo = req.publicRepo;
+    let metrics;
 
-    const metrics = metricsQueries.findByRepoId.all(repo.id);
+    if (req.isPublicAccess) {
+      // Public access: only return visible metrics
+      metrics = metricsQueries.findVisibleByRepoId.all(repo.id);
+    } else {
+      // Authenticated access: return all metrics
+      metrics = metricsQueries.findByRepoId.all(repo.id);
+    }
 
     // Transform to camelCase for frontend
     const transformed = metrics.map(m => ({
@@ -99,6 +102,111 @@ router.post('/', authenticateToken, requireRepositoryAdmin, async (req, res) => 
   }
 });
 
+// GET /api/repos/:owner/:repo/metrics/info - Get repo info for commit links
+// NOTE: This route must be defined BEFORE /:id to avoid matching "info" as an id
+router.get('/info', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
+  try {
+    const repo = req.publicRepo;
+    res.json({
+      url: repo.url || null,
+      isGithub: Boolean(repo.is_github),
+    });
+  } catch (error) {
+    console.error('[API] Failed to get repo info:', error);
+    res.status(500).json({ error: 'Failed to get repo info' });
+  }
+});
+
+// GET /api/repos/:owner/:repo/metrics/token - Get metrics token (admin only)
+// NOTE: This route must be defined BEFORE /:id to avoid matching "token" as an id
+router.get('/token', authenticateToken, requireRepositoryAdmin, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+
+  try {
+    const repo = getRepo(owner, repoName);
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    // Return actual token since this endpoint is admin-protected
+    res.json({
+      token: repo.metrics_token || null,
+    });
+  } catch (error) {
+    console.error('[API] Failed to get metrics token:', error);
+    res.status(500).json({ error: 'Failed to get metrics token' });
+  }
+});
+
+// POST /api/repos/:owner/:repo/metrics/token/regenerate - Generate or regenerate token
+router.post('/token/regenerate', authenticateToken, requireRepositoryAdmin, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+
+  try {
+    const repo = getRepo(owner, repoName);
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    const newToken = generateToken();
+    repoQueries.updateMetricsToken.run(newToken, repo.id);
+
+    // Return the actual token (one-time view for copying)
+    res.json({
+      token: newToken,
+    });
+  } catch (error) {
+    console.error('[API] Failed to regenerate metrics token:', error);
+    res.status(500).json({ error: 'Failed to regenerate metrics token' });
+  }
+});
+
+// GET /api/repos/:owner/:repo/metrics/public - Get public status (admin only)
+// NOTE: This route must be defined BEFORE /:id to avoid matching "public" as an id
+router.get('/public', authenticateToken, requireRepositoryAdmin, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+
+  try {
+    const repo = getRepo(owner, repoName);
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    res.json({
+      isPublic: Boolean(repo.metrics_public),
+    });
+  } catch (error) {
+    console.error('[API] Failed to get public status:', error);
+    res.status(500).json({ error: 'Failed to get public status' });
+  }
+});
+
+// PUT /api/repos/:owner/:repo/metrics/public - Update public status (admin only)
+router.put('/public', authenticateToken, requireRepositoryAdmin, async (req, res) => {
+  const { owner, repo: repoName } = req.params;
+  const { isPublic } = req.body;
+
+  if (typeof isPublic !== 'boolean') {
+    return res.status(400).json({ error: 'isPublic must be a boolean' });
+  }
+
+  try {
+    const repo = getRepo(owner, repoName);
+    if (!repo) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
+
+    repoQueries.updateMetricsPublic.run(isPublic ? 1 : 0, repo.id);
+
+    res.json({
+      isPublic,
+    });
+  } catch (error) {
+    console.error('[API] Failed to update public status:', error);
+    res.status(500).json({ error: 'Failed to update public status' });
+  }
+});
+
 // PUT /api/repos/:owner/:repo/metrics/:id - Update a metric
 router.put('/:id', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName, id } = req.params;
@@ -164,49 +272,6 @@ router.delete('/:id', authenticateToken, requireRepositoryAdmin, async (req, res
   } catch (error) {
     console.error('[API] Failed to delete metric:', error);
     res.status(500).json({ error: 'Failed to delete metric' });
-  }
-});
-
-// GET /api/repos/:owner/:repo/metrics/token - Get metrics token (admin only)
-router.get('/token', authenticateToken, requireRepositoryAdmin, async (req, res) => {
-  const { owner, repo: repoName } = req.params;
-
-  try {
-    const repo = getRepo(owner, repoName);
-    if (!repo) {
-      return res.status(404).json({ error: 'Repository not found' });
-    }
-
-    // Return actual token since this endpoint is admin-protected
-    res.json({
-      token: repo.metrics_token || null,
-    });
-  } catch (error) {
-    console.error('[API] Failed to get metrics token:', error);
-    res.status(500).json({ error: 'Failed to get metrics token' });
-  }
-});
-
-// POST /api/repos/:owner/:repo/metrics/token/regenerate - Generate or regenerate token
-router.post('/token/regenerate', authenticateToken, requireRepositoryAdmin, async (req, res) => {
-  const { owner, repo: repoName } = req.params;
-
-  try {
-    const repo = getRepo(owner, repoName);
-    if (!repo) {
-      return res.status(404).json({ error: 'Repository not found' });
-    }
-
-    const newToken = generateToken();
-    repoQueries.updateMetricsToken.run(newToken, repo.id);
-
-    // Return the actual token (one-time view for copying)
-    res.json({
-      token: newToken,
-    });
-  } catch (error) {
-    console.error('[API] Failed to regenerate metrics token:', error);
-    res.status(500).json({ error: 'Failed to regenerate metrics token' });
   }
 });
 

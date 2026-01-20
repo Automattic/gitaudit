@@ -1,6 +1,7 @@
 import { Navigate, redirect, type LoaderFunctionArgs } from 'react-router-dom';
 import { queryClient } from './data/queries/query-client';
 import { repoPermissionQueryOptions } from './data/queries/repos';
+import Homepage from './pages/homepage';
 import Login from './pages/login';
 import AuthCallback from './pages/auth-callback';
 import RepoSelector from './pages/repo-selector';
@@ -12,6 +13,7 @@ import Community from './pages/community';
 import Features from './pages/features';
 import Settings from './pages/settings';
 import MetricsDashboard from './pages/metrics-dashboard';
+import PublicMetricsDashboard from './pages/public-metrics-dashboard';
 import RepositoryLayout from './layouts/repository-layout';
 import AppLayout from './layouts/app-layout';
 
@@ -158,7 +160,11 @@ export const routes = [
     ],
   },
   {
+    path: '/public/:owner/:repo/metrics',
+    element: <PublicMetricsDashboard />,
+  },
+  {
     path: '/',
-    element: <Navigate to="/repos" replace />,
+    element: <Homepage />,
   },
 ];

@@ -9,7 +9,7 @@ function Logo() {
         padding: "1.5rem 1.5rem 1.25rem",
         cursor: "pointer",
       }}
-      onClick={() => navigate("/repos")}
+      onClick={() => navigate("/")}
     >
       <h1
         style={{

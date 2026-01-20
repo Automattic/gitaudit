@@ -7,16 +7,19 @@ import {
   Spinner,
   TextControl,
   CheckboxControl,
+  ToggleControl,
   __experimentalNumberControl as NumberControl,
 } from '@wordpress/components';
 import { useQuery } from '@tanstack/react-query';
 import {
   metricsQueryOptions,
   metricsTokenQueryOptions,
+  metricsPublicStatusQueryOptions,
   useCreateMetricMutation,
   useUpdateMetricMutation,
   useDeleteMetricMutation,
   useRegenerateMetricsTokenMutation,
+  useUpdateMetricsPublicStatusMutation,
 } from '@/data/queries/metrics';
 import { Metric } from '@/data/api/metrics/types';
 import { getErrorMessage } from '@/utils/error-handling';
@@ -57,8 +60,15 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
     isLoading: tokenLoading,
   } = useQuery(metricsTokenQueryOptions(owner, repo));
 
+  // Fetch public status
+  const {
+    data: publicStatus,
+    isLoading: publicStatusLoading,
+  } = useQuery(metricsPublicStatusQueryOptions(owner, repo));
+
   // Mutations
   const createMutation = useCreateMetricMutation(owner, repo);
+  const updatePublicStatusMutation = useUpdateMetricsPublicStatusMutation(owner, repo);
   const updateMutation = useUpdateMetricMutation(owner, repo);
   const deleteMutation = useDeleteMetricMutation(owner, repo);
   const regenerateTokenMutation = useRegenerateMetricsTokenMutation(owner, repo);
@@ -177,7 +187,27 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
     }
   }
 
-  if (metricsLoading || tokenLoading) {
+  async function handleTogglePublic() {
+    const newValue = !publicStatus?.isPublic;
+    setError(null);
+
+    try {
+      await updatePublicStatusMutation.mutateAsync(newValue);
+      setSuccess(newValue ? 'Dashboard is now public' : 'Dashboard is now private');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to update public status'));
+    }
+  }
+
+  function handleCopyPublicUrl() {
+    const publicUrl = `${window.location.origin}/public/${owner}/${repo}/metrics`;
+    navigator.clipboard.writeText(publicUrl);
+    setSuccess('Public URL copied to clipboard');
+    setTimeout(() => setSuccess(null), 3000);
+  }
+
+  if (metricsLoading || tokenLoading || publicStatusLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <Spinner />
@@ -440,6 +470,57 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
   }'`}
             </pre>
           </div>
+        </CardBody>
+      </Card>
+
+      {/* Public Dashboard Section */}
+      <Card style={{ marginTop: '1.5rem' }}>
+        <CardBody>
+          <h2 style={{ margin: '0 0 0.5rem 0' }}>Public Dashboard</h2>
+          <p style={{ margin: '0 0 1rem 0', color: '#666', fontSize: '0.875rem' }}>
+            Make your metrics dashboard publicly accessible without authentication.
+            Only metrics marked as "Visible by default" will be shown publicly.
+          </p>
+
+          <ToggleControl
+            label="Enable public dashboard"
+            checked={publicStatus?.isPublic ?? false}
+            onChange={handleTogglePublic}
+            disabled={updatePublicStatusMutation.isPending}
+          />
+
+          {publicStatus?.isPublic && (
+            <div style={{
+              marginTop: '1rem',
+              padding: '0.75rem',
+              backgroundColor: '#f0f6fc',
+              borderRadius: '4px',
+            }}>
+              <strong>Public URL:</strong>
+              <div style={{
+                marginTop: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}>
+                <code style={{
+                  backgroundColor: '#fff',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.8125rem',
+                  wordBreak: 'break-all',
+                  flex: 1,
+                  border: '1px solid #ddd',
+                }}>
+                  {`${window.location.origin}/public/${owner}/${repo}/metrics`}
+                </code>
+                <Button variant="secondary" onClick={handleCopyPublicUrl} size="small">
+                  Copy
+                </Button>
+              </div>
+            </div>
+          )}
         </CardBody>
       </Card>
 

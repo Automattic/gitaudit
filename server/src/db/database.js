@@ -166,6 +166,9 @@ export function initializeDatabase() {
   // Create perf table for performance metric data points
   createPerfTable();
 
+  // Add metrics_public column for public dashboard toggle
+  migrateMetricsPublicColumn();
+
   console.log('Database initialized successfully');
 }
 
@@ -1328,6 +1331,17 @@ function createPerfTable() {
   if (!indexNames.includes('idx_perf_measured_at')) {
     db.exec('CREATE INDEX idx_perf_measured_at ON perf(measured_at)');
     console.log('Created idx_perf_measured_at index');
+  }
+}
+
+// Add metrics_public column to repositories table for public dashboard toggle
+function migrateMetricsPublicColumn() {
+  const columns = db.prepare('PRAGMA table_info(repositories)').all();
+  const columnNames = columns.map(col => col.name);
+
+  if (!columnNames.includes('metrics_public')) {
+    db.exec('ALTER TABLE repositories ADD COLUMN metrics_public BOOLEAN DEFAULT 0');
+    console.log('Added metrics_public column to repositories table');
   }
 }
 
