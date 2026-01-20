@@ -684,21 +684,17 @@ export function MetricsDashboardContent({ owner, repo, repoUrl }: MetricsDashboa
 
   if (metricsError) {
     return (
-      <div style={{ padding: '2rem' }}>
-        <Notice status="error" isDismissible={false}>
-          {(metricsError as Error).message || 'Failed to load metrics'}
-        </Notice>
-      </div>
+      <Notice status="error" isDismissible={false}>
+        {(metricsError as Error).message || 'Failed to load metrics'}
+      </Notice>
     );
   }
 
   if (!metrics?.length) {
     return (
-      <div style={{ padding: '2rem' }}>
-        <Notice status="info" isDismissible={false}>
-          No metrics available for this repository.
-        </Notice>
-      </div>
+      <Notice status="info" isDismissible={false}>
+        No metrics available for this repository.
+      </Notice>
     );
   }
 
