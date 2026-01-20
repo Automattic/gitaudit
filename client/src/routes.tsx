@@ -11,6 +11,7 @@ import StalePRs from './pages/stale-prs';
 import Community from './pages/community';
 import Features from './pages/features';
 import Settings from './pages/settings';
+import MetricsDashboard from './pages/metrics-dashboard';
 import RepositoryLayout from './layouts/repository-layout';
 import AppLayout from './layouts/app-layout';
 
@@ -136,6 +137,10 @@ export const routes = [
             element: <StalePRs />,
           },
         ],
+      },
+      {
+        path: 'metrics',
+        element: <MetricsDashboard />,
       },
       {
         path: 'settings',
