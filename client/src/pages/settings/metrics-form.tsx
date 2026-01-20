@@ -303,7 +303,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
 
                 <NumberControl
                   label="Priority"
-                  help="Higher values appear first"
+                  help="Lower values appear first"
                   value={formState.priority}
                   onChange={(value) => setFormState(prev => ({ ...prev, priority: parseInt(value || '0', 10) }))}
                   min={0}

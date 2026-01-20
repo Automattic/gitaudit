@@ -734,7 +734,7 @@ export const metricsQueries = {
     return db.prepare(`
       SELECT * FROM metrics
       WHERE repo_id = ?
-      ORDER BY priority DESC, name ASC
+      ORDER BY priority ASC, id ASC
     `);
   },
 
@@ -742,7 +742,7 @@ export const metricsQueries = {
     return db.prepare(`
       SELECT * FROM metrics
       WHERE repo_id = ? AND default_visible = 1
-      ORDER BY priority DESC, name ASC
+      ORDER BY priority ASC, id ASC
     `);
   },
 
