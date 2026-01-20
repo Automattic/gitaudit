@@ -26,21 +26,18 @@ A powerful web application for auditing GitHub repository issues and pull reques
 Get up and running in under 2 minutes with pre-seeded test data:
 
 ```bash
-# 1. Clone and setup
+# 1. Clone and setup (includes installing deps and seeding test data)
 git clone https://github.com/Automattic/gitaudit.git
 cd gitaudit
 ./scripts/setup.sh
 
-# 2. Seed the database with test data
-npm run seed:reset --workspace=server
-
-# 3. Start the app
+# 2. Start the app
 npm run dev
 ```
 
-Open http://localhost:3000 and navigate to `WordPress/gutenberg` to see the test data (issues, PRs, and metrics).
+Open http://localhost:3000 and add `WordPress/gutenberg` to your repositories—it will already have test data pre-loaded (20 issues, 12 PRs, and performance metrics).
 
-> **Note**: Test data mode doesn't require GitHub OAuth. To sync real repositories, follow the full installation below.
+> **Note**: Test data mode doesn't require GitHub OAuth. When you add WordPress/gutenberg, you'll see the seeded data immediately without fetching from GitHub.
 
 ---
 
@@ -61,7 +58,7 @@ cd gitaudit
 
 ### 2. Automated Setup (Recommended)
 
-Run the setup script to create environment files and install dependencies:
+Run the setup script to create environment files, install dependencies, and seed test data:
 
 ```bash
 ./scripts/setup.sh
@@ -71,6 +68,7 @@ This will:
 - Create `server/.env` with a generated session secret
 - Create `client/.env` with default API URL
 - Install all dependencies
+- Seed the database with test data for WordPress/gutenberg
 
 ### 3. (Optional) Configure GitHub OAuth
 
@@ -89,21 +87,7 @@ GITHUB_CLIENT_ID=your_client_id_here
 GITHUB_CLIENT_SECRET=your_client_secret_here
 ```
 
-### 4. Load Test Data (Optional)
-
-Seed the database with sample data for WordPress/gutenberg:
-
-```bash
-# Seed with test data (20 issues, 12 PRs, performance metrics)
-npm run seed:reset --workspace=server
-```
-
-This creates realistic test data including:
-- Issues with various priority levels and states
-- Pull requests in different review states
-- 30 days of performance metrics (Core Web Vitals)
-
-### 5. Run the Application
+### 4. Run the Application
 
 Start both client and server in development mode:
 
