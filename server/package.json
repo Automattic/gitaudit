@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "seed": "node src/scripts/seed-test-data.js",
+    "seed:reset": "node src/scripts/seed-test-data.js --reset"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.53",
