@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken, requireRepositoryAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories } from '../services/github.js';
 import { repoQueries, issueQueries, analysisQueries, prQueries, transaction } from '../db/queries.js';
 import { toSqliteDateTime } from '../utils/dates.js';
@@ -125,7 +125,7 @@ router.post('/:owner/:repo/fetch', authenticateToken, async (req, res) => {
 });
 
 // Get repository status (for polling background jobs)
-router.get('/:owner/:repo/status', authenticateToken, async (req, res) => {
+router.get('/:owner/:repo/status', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {
@@ -330,7 +330,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Check user's permission level for a repository
-router.get('/:owner/:repo/permission', authenticateToken, async (req, res) => {
+router.get('/:owner/:repo/permission', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {

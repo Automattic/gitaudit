@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken, requireRepositoryAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess } from '../middleware/auth.js';
 import { repoQueries, issueQueries, analysisQueries, settingsQueries } from '../db/queries.js';
 import { getDefaultSettings, validateSettings, loadRepoSettings, maskApiKey, mergeSettingsPreservingApiKey, API_KEY_SENTINEL } from '../services/settings.js';
 import { queueJob, getQueueStatus } from '../services/job-queue.js';
@@ -43,7 +43,7 @@ router.post('/:issueNumber/refresh', authenticateToken, async (req, res) => {
 });
 
 // Get sentiment analysis status
-router.get('/sentiment/status', authenticateToken, async (req, res) => {
+router.get('/sentiment/status', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {
@@ -72,7 +72,7 @@ router.get('/sentiment/status', authenticateToken, async (req, res) => {
 });
 
 // Get distinct labels for a repository
-router.get('/labels', authenticateToken, async (req, res) => {
+router.get('/labels', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {
@@ -99,7 +99,7 @@ router.get('/labels', authenticateToken, async (req, res) => {
 });
 
 // Unified endpoint for all issues with scores
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   // Extract query parameters

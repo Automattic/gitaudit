@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken, requireRepositoryAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess } from '../middleware/auth.js';
 import { repoQueries, prQueries, prAnalysisQueries, settingsQueries } from '../db/queries.js';
 import { loadRepoSettings, getDefaultSettings } from '../services/settings.js';
 import { analyzeStalePRs } from '../services/analyzers/stale-prs.js';
@@ -8,7 +8,7 @@ import { queueJob } from '../services/job-queue.js';
 const router = express.Router({ mergeParams: true });
 
 // Get PRs with scores
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   // Extract query parameters

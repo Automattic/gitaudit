@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAccess } from '../middleware/auth.js';
 import { repoQueries, perfQueries } from '../db/queries.js';
 
 const router = express.Router({ mergeParams: true });
@@ -11,7 +11,7 @@ function getRepo(owner, repoName) {
 
 // GET /api/repos/:owner/:repo/perf/evolution/:metricId
 // Returns metric history for charts (same logic as CodeVitals /api/evolution/[metric_id].js)
-router.get('/evolution/:metricId', authenticateToken, async (req, res) => {
+router.get('/evolution/:metricId', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName, metricId } = req.params;
   const { limit = 100, branch = 'trunk' } = req.query;
 
@@ -51,7 +51,7 @@ router.get('/evolution/:metricId', authenticateToken, async (req, res) => {
 
 // GET /api/repos/:owner/:repo/perf/average/:metricId
 // Returns rolling averages (same logic as CodeVitals /api/average/[metric_id].js)
-router.get('/average/:metricId', authenticateToken, async (req, res) => {
+router.get('/average/:metricId', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName, metricId } = req.params;
   const { branch = 'trunk' } = req.query;
 

@@ -1,6 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
-import { authenticateToken, requireRepositoryAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess } from '../middleware/auth.js';
 import { repoQueries, metricsQueries } from '../db/queries.js';
 
 const router = express.Router({ mergeParams: true });
@@ -16,7 +16,7 @@ function getRepo(owner, repoName) {
 }
 
 // GET /api/repos/:owner/:repo/metrics - List all metrics for a repo
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {

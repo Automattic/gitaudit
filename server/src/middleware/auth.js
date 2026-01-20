@@ -117,3 +117,34 @@ export async function requireRepositoryAdmin(req, res, next) {
     });
   }
 }
+
+/**
+ * Middleware to verify user has read access to the repository
+ * Checks if the user has the repository saved in their account (user_repositories table)
+ * Must be used AFTER authenticateToken middleware
+ * Expects req.params to contain owner and repo
+ */
+export function requireRepositoryAccess(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const { owner, repo } = req.params;
+
+  if (!owner || !repo) {
+    console.error('[Auth] Missing owner or repo in request params');
+    return res.status(400).json({ error: 'Repository owner and name are required' });
+  }
+
+  const hasAccess = repoQueries.checkIfSaved.get(req.user.id, owner, repo);
+
+  if (!hasAccess) {
+    console.warn(`[Auth] User ${req.user.username} denied access to ${owner}/${repo}`);
+    return res.status(403).json({
+      error: 'Access denied',
+      message: 'You do not have access to this repository',
+    });
+  }
+
+  next();
+}
