@@ -38,11 +38,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (!response.ok) {
-    // Handle authentication errors
-    if (response.status === 401 || response.status === 403) {
+    // Handle authentication error (session expired)
+    if (response.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login?error=session_expired';
       throw new ApiRequestError('Session expired. Please login again.', response.status);
+    }
+
+    // Handle permission denied (user is authenticated but lacks permission)
+    if (response.status === 403) {
+      throw new ApiRequestError('You do not have permission to perform this action.', response.status);
     }
 
     const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
