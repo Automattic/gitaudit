@@ -4,14 +4,10 @@ import { perfQueries, metricsQueries } from '../db/queries.js';
 
 const router = express.Router({ mergeParams: true });
 
-// Helper to check if a metric is accessible (visible or authenticated)
-function isMetricAccessible(metricId, repoId, isPublicAccess) {
+// Helper to check if a metric exists and belongs to the repo
+function isMetricAccessible(metricId, repoId) {
   const metric = metricsQueries.findById.get(metricId);
   if (!metric || metric.repo_id !== repoId) {
-    return false;
-  }
-  // For public access, only allow visible metrics
-  if (isPublicAccess && !metric.default_visible) {
     return false;
   }
   return true;
@@ -19,7 +15,6 @@ function isMetricAccessible(metricId, repoId, isPublicAccess) {
 
 // GET /api/repos/:owner/:repo/perf/evolution/:metricId
 // Returns metric history for charts
-// Public access only allowed for visible metrics
 router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
   const { metricId } = req.params;
   const { limit = 100, branch = 'trunk' } = req.query;
@@ -28,7 +23,7 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
     const repo = req.publicRepo;
 
     // Check metric is accessible
-    if (!isMetricAccessible(metricId, repo.id, req.isPublicAccess)) {
+    if (!isMetricAccessible(metricId, repo.id)) {
       return res.status(404).json({ error: 'Metric not found' });
     }
 
@@ -62,7 +57,6 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
 
 // GET /api/repos/:owner/:repo/perf/average/:metricId
 // Returns rolling averages
-// Public access only allowed for visible metrics
 router.get('/average/:metricId', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
   const { metricId } = req.params;
   const { branch = 'trunk' } = req.query;
@@ -71,7 +65,7 @@ router.get('/average/:metricId', optionalAuth, requireRepositoryAccessOrPublic, 
     const repo = req.publicRepo;
 
     // Check metric is accessible
-    if (!isMetricAccessible(metricId, repo.id, req.isPublicAccess)) {
+    if (!isMetricAccessible(metricId, repo.id)) {
       return res.status(404).json({ error: 'Metric not found' });
     }
 
