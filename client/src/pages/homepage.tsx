@@ -248,8 +248,9 @@ function HeroSection() {
           marginBottom: '2rem',
         }}
       >
-        Track performance metrics across your repositories. Identify regressions, monitor trends,
-        and share public dashboards with your community.
+        The diagnostic tool for your repositories. Surface critical bugs, triage stale issues,
+        prioritize feature requests, monitor community health, and track performance metrics —
+        all scored and ranked so you know what needs attention.
       </p>
 
       <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
