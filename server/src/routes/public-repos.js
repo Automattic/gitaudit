@@ -10,9 +10,9 @@ router.get('/', async (req, res) => {
     // Get all repos with metrics_public = 1
     const repos = repoQueries.findAllPublicMetricsRepos.all();
 
-    // For each repo, get visible metrics with sparkline data
+    // For each repo, get all metrics with sparkline data
     const reposWithMetrics = repos.map((repo) => {
-      const metrics = metricsQueries.findVisibleByRepoId.all(repo.id);
+      const metrics = metricsQueries.findByRepoId.all(repo.id);
 
       const metricsWithSparkline = metrics.map((metric) => {
         // Get last 20 perf values for sparkline (branch = trunk)
@@ -39,6 +39,7 @@ router.get('/', async (req, res) => {
           key: metric.key,
           name: metric.name,
           unit: metric.unit,
+          defaultVisible: Boolean(metric.default_visible),
           sparklineData,
           currentAverage: currentAvg?.average || null,
           changePercent,

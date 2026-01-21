@@ -132,8 +132,8 @@ function MetricPreview({ metric }: { metric: PublicRepoMetric }) {
 function PublicRepoCard({ repo }: { repo: PublicRepo }) {
   const navigate = useNavigate();
 
-  // Show first 3 metrics
-  const displayMetrics = repo.metrics.slice(0, 3);
+  // Show first 3 visible metrics
+  const displayMetrics = repo.metrics.filter((m) => m.defaultVisible).slice(0, 3);
 
   return (
     <Card

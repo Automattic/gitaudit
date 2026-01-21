@@ -3,6 +3,7 @@ export interface PublicRepoMetric {
   key: string;
   name: string;
   unit: string | null;
+  defaultVisible: boolean;
   sparklineData: number[];
   currentAverage: number | null;
   changePercent: number | null;
