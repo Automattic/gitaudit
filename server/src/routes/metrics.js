@@ -16,19 +16,16 @@ function getRepo(owner, repoName) {
 }
 
 // GET /api/repos/:owner/:repo/metrics - List metrics for a repo
-// Authenticated users see all metrics, public access sees only visible metrics
+// Returns all metrics; defaultVisible controls UI display, not accessibility
 router.get('/', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
   try {
     const repo = req.publicRepo;
     let metrics;
 
-    if (req.isPublicAccess) {
-      // Public access: only return visible metrics
-      metrics = metricsQueries.findVisibleByRepoId.all(repo.id);
-    } else {
-      // Authenticated access: return all metrics
-      metrics = metricsQueries.findByRepoId.all(repo.id);
-    }
+    // Return all metrics for both public and authenticated access
+    // The defaultVisible flag controls what shows by default in the UI,
+    // but all metrics are accessible via the "Other" dropdown
+    metrics = metricsQueries.findByRepoId.all(repo.id);
 
     // Transform to camelCase for frontend
     const transformed = metrics.map(m => ({
