@@ -13,6 +13,14 @@ const db = new Database(dbPath);
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
 
+// Set busy timeout to 5 seconds to handle concurrent write requests
+// Without this, SQLite immediately returns SQLITE_BUSY when another transaction holds the lock
+db.pragma('busy_timeout = 5000');
+
+// Enable WAL mode for better concurrent read/write performance
+// WAL allows readers to proceed while a writer is active (only one writer at a time)
+db.pragma('journal_mode = WAL');
+
 // Initialize database schema
 export function initializeDatabase() {
   // Users table
