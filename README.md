@@ -1,6 +1,6 @@
 # CodeVitals
 
-A powerful web application for auditing GitHub repository issues and pull requests. CodeVitals helps maintainers prioritize work by identifying important bugs, stale issues, promising feature requests, and community health metrics using intelligent analysis and optional AI-powered sentiment analysis.
+CodeVitals is a repository health dashboard that helps maintainers focus on what matters. It automatically scores and prioritizes bugs by severity and community impact, detects stale issues and abandoned PRs, surfaces high-demand feature requests, and monitors community health metrics. Optional AI-powered sentiment analysis adds another dimension to prioritization.
 
 ## Features
 
