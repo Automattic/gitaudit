@@ -1,5 +1,5 @@
 import express from 'express';
-import { repoQueries, metricsQueries, perfQueries } from '../db/queries.js';
+import { repoQueries, metricsQueries, perfQueries, transaction } from '../db/queries.js';
 
 const router = express.Router();
 
@@ -45,10 +45,6 @@ router.post('/', async (req, res) => {
       }
     });
 
-    for (const tuple of baseTuples) {
-      perfQueries.insert.run(...tuple);
-    }
-
     // Insert and normalize current metrics
     const tuples = [];
     Object.entries(metrics).forEach(([metricKey, metricValue]) => {
@@ -77,9 +73,16 @@ router.post('/', async (req, res) => {
       }
     });
 
-    for (const tuple of tuples) {
-      perfQueries.insert.run(...tuple);
-    }
+    // Use a transaction to batch all inserts - improves performance and prevents lock contention
+    const insertAllMetrics = transaction(() => {
+      for (const tuple of baseTuples) {
+        perfQueries.insert.run(...tuple);
+      }
+      for (const tuple of tuples) {
+        perfQueries.insert.run(...tuple);
+      }
+    });
+    insertAllMetrics();
 
     res.json({ status: 'ok', count: tuples.length });
   } catch (error) {

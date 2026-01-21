@@ -14,6 +14,22 @@ app.use('/api/log', createProxyMiddleware({
   target: API_URL,
   changeOrigin: true,
   pathRewrite: (path) => `/api/log${path}`,
+  timeout: 60000, // 60 second timeout
+  proxyTimeout: 60000,
+  on: {
+    error: (err, req, res) => {
+      console.error('[Proxy] Error:', err.message);
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Proxy error', message: err.message });
+      }
+    },
+    proxyReq: (proxyReq, req) => {
+      console.log(`[Proxy] ${req.method} ${req.url} -> ${API_URL}/api/log${req.url}`);
+    },
+    proxyRes: (proxyRes, req) => {
+      console.log(`[Proxy] Response: ${proxyRes.statusCode}`);
+    },
+  },
 }));
 
 // Serve static files from dist/
