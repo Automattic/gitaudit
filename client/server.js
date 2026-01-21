@@ -13,6 +13,7 @@ const API_URL = process.env.VITE_API_URL || 'http://localhost:3001';
 app.use('/api/log', createProxyMiddleware({
   target: API_URL,
   changeOrigin: true,
+  pathRewrite: (path) => `/api/log${path}`,
 }));
 
 // Serve static files from dist/
