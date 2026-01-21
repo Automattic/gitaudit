@@ -10,6 +10,10 @@ export const userQueries = {
     return db.prepare('SELECT * FROM users WHERE github_id = ?');
   },
 
+  get findByUsername() {
+    return db.prepare('SELECT * FROM users WHERE username = ?');
+  },
+
   get create() {
     return db.prepare(`
       INSERT INTO users (github_id, username, access_token)
@@ -195,6 +199,36 @@ export const repoQueries = {
       FROM repositories
       WHERE metrics_public = 1
       ORDER BY name ASC
+    `);
+  },
+
+  // Role-based access queries for user_repositories
+  get getUserRoleAndSync() {
+    return db.prepare('SELECT role, last_synced FROM user_repositories WHERE user_id = ? AND repo_id = ?');
+  },
+
+  get updateUserRoleAndSync() {
+    return db.prepare('UPDATE user_repositories SET role = ?, last_synced = ? WHERE user_id = ? AND repo_id = ?');
+  },
+
+  get addUserRepoWithRole() {
+    return db.prepare('INSERT OR IGNORE INTO user_repositories (user_id, repo_id, role, last_synced) VALUES (?, ?, ?, ?)');
+  },
+
+  get countAdminsByRepoId() {
+    return db.prepare(`
+      SELECT COUNT(*) as count FROM user_repositories
+      WHERE repo_id = ? AND role = 'admin'
+    `);
+  },
+
+  get findCollaboratorsByRepoId() {
+    return db.prepare(`
+      SELECT ur.user_id, ur.role, ur.date_added, ur.last_synced, u.username, u.github_id
+      FROM user_repositories ur
+      JOIN users u ON ur.user_id = u.id
+      WHERE ur.repo_id = ?
+      ORDER BY ur.date_added ASC
     `);
   },
 };

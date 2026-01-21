@@ -85,4 +85,13 @@ export const queryKeys = {
     all: () => ['publicRepos'] as const,
     list: () => [...queryKeys.publicRepos.all(), 'list'] as const,
   },
+
+  // Collaborators keys (for custom repos)
+  collaborators: {
+    all: () => ['collaborators'] as const,
+    repo: (owner: string, repo: string) =>
+      [...queryKeys.collaborators.all(), owner, repo] as const,
+    list: (owner: string, repo: string) =>
+      [...queryKeys.collaborators.repo(owner, repo), 'list'] as const,
+  },
 } as const;

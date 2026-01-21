@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess } from '../middleware/auth.js';
-import { searchGitHubRepositories, fetchUserRepositories } from '../services/github.js';
+import { searchGitHubRepositories, fetchUserRepositories, checkRepositoryAdminPermission } from '../services/github.js';
 import { repoQueries, issueQueries, analysisQueries, prQueries, transaction } from '../db/queries.js';
 import { toSqliteDateTime } from '../utils/dates.js';
 import { getCurrentJobForRepo, queueJob } from '../services/job-queue.js';
@@ -184,6 +184,11 @@ router.post('/save', authenticateToken, async (req, res) => {
     // Convert GitHub's ISO 8601 date to SQLite format for consistency
     const sqliteUpdatedAt = updatedAt ? toSqliteDateTime(updatedAt) : null;
 
+    // Check GitHub permission to determine role
+    const isAdmin = await checkRepositoryAdminPermission(req.user.accessToken, owner, name);
+    const role = isAdmin ? 'admin' : 'member';
+    const lastSynced = new Date().toISOString();
+
     // Use transaction to save repo and link to user atomically
     const repo = transaction(() => {
       // First, insert or update the repository
@@ -199,13 +204,13 @@ router.post('/save', authenticateToken, async (req, res) => {
         isPrivate ? 1 : 0
       );
 
-      // Then, link the user to the repository
-      repoQueries.addUserRepo.run(req.user.id, savedRepo.id);
+      // Then, link the user to the repository with role and last_synced
+      repoQueries.addUserRepoWithRole.run(req.user.id, savedRepo.id, role, lastSynced);
 
       return savedRepo;
     })();
 
-    res.json({ repo });
+    res.json({ repo, role });
   } catch (error) {
     console.error('Error saving repository:', error);
     res.status(500).json({ error: 'Failed to save repository' });
@@ -234,8 +239,9 @@ router.post('/local', authenticateToken, async (req, res) => {
         url
       );
 
-      // Link the user to the repository
-      repoQueries.addUserRepo.run(req.user.id, createdRepo.id);
+      // Link the user to the repository with admin role (creator is always admin)
+      // last_synced is null for custom repos (no GitHub sync needed)
+      repoQueries.addUserRepoWithRole.run(req.user.id, createdRepo.id, 'admin', null);
 
       return createdRepo;
     })();
@@ -255,7 +261,8 @@ router.post('/local', authenticateToken, async (req, res) => {
         languageColor: null,
         updatedAt: null,
         isPrivate: false,
-      }
+      },
+      role: 'admin'
     });
   } catch (error) {
     console.error('Error creating local repository:', error);
@@ -330,36 +337,28 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Check user's permission level for a repository
+// Returns the cached role from user_repositories table
 router.get('/:owner/:repo/permission', authenticateToken, requireRepositoryAccess, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
   try {
-    // First check if this is a non-GitHub repo
     const repoRecord = repoQueries.findByOwnerAndName.get(owner, repoName);
 
-    if (repoRecord && !repoRecord.is_github) {
-      // For non-GitHub repos, the owner (which is the user's username) has admin access
-      const isAdmin = repoRecord.owner === req.user.username;
-      return res.json({
-        permission: isAdmin ? 'ADMIN' : 'READ',
-        isAdmin,
-        isGithub: false,
-      });
+    if (!repoRecord) {
+      return res.status(404).json({ error: 'Repository not found' });
     }
 
-    // For GitHub repos, check permission via GitHub API
-    const { checkRepositoryAdminPermission } = await import('../services/github.js');
-
-    const isAdmin = await checkRepositoryAdminPermission(
-      req.user.accessToken,
-      owner,
-      repoName
-    );
+    // Get the user's role from the cached user_repositories table
+    const userRepo = repoQueries.getUserRoleAndSync.get(req.user.id, repoRecord.id);
+    const role = userRepo?.role || 'member';
+    const isAdmin = role === 'admin';
 
     res.json({
       permission: isAdmin ? 'ADMIN' : 'READ',
+      role,
       isAdmin,
-      isGithub: true,
+      isGithub: Boolean(repoRecord.is_github),
+      lastSynced: userRepo?.last_synced || null,
     });
   } catch (error) {
     console.error('[API] Failed to check repository permission:', error);

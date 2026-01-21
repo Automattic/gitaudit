@@ -169,6 +169,9 @@ export function initializeDatabase() {
   // Add metrics_public column for public dashboard toggle
   migrateMetricsPublicColumn();
 
+  // Add role and last_synced columns to user_repositories for multi-user access
+  migrateUserRepositoriesRoleColumns();
+
   console.log('Database initialized successfully');
 }
 
@@ -1342,6 +1345,44 @@ function migrateMetricsPublicColumn() {
   if (!columnNames.includes('metrics_public')) {
     db.exec('ALTER TABLE repositories ADD COLUMN metrics_public BOOLEAN DEFAULT 0');
     console.log('Added metrics_public column to repositories table');
+  }
+}
+
+// Add role and last_synced columns to user_repositories for multi-user access
+// role: 'admin' or 'member' - determines permission level
+// last_synced: tracks when GitHub permissions were last synced (for staleness check)
+function migrateUserRepositoriesRoleColumns() {
+  const columns = db.prepare('PRAGMA table_info(user_repositories)').all();
+  const columnNames = columns.map(col => col.name);
+
+  // Add role column if missing
+  if (!columnNames.includes('role')) {
+    db.exec("ALTER TABLE user_repositories ADD COLUMN role TEXT NOT NULL DEFAULT 'member'");
+    console.log('Added role column to user_repositories table');
+
+    // Set admin role for custom repo owners (where user is the owner)
+    // For custom repos (is_github = 0), the owner username matches the user's username
+    const result = db.prepare(`
+      UPDATE user_repositories
+      SET role = 'admin'
+      WHERE rowid IN (
+        SELECT ur.rowid FROM user_repositories ur
+        JOIN repositories r ON ur.repo_id = r.id
+        JOIN users u ON ur.user_id = u.id
+        WHERE r.is_github = 0 AND r.owner = u.username
+      )
+    `).run();
+
+    if (result.changes > 0) {
+      console.log(`Set admin role for ${result.changes} custom repo owner(s)`);
+    }
+  }
+
+  // Add last_synced column if missing
+  if (!columnNames.includes('last_synced')) {
+    db.exec('ALTER TABLE user_repositories ADD COLUMN last_synced DATETIME');
+    console.log('Added last_synced column to user_repositories table');
+    // Existing rows have NULL last_synced, which will trigger refresh on first access for GitHub repos
   }
 }
 
