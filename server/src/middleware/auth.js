@@ -1,6 +1,68 @@
 import jwt from 'jsonwebtoken';
 import { userQueries, repoQueries } from '../db/queries.js';
 
+// Staleness threshold for GitHub permission refresh (1 day)
+const ROLE_STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Get user's role for a repository with staleness check for GitHub repos.
+ * For GitHub repos, if the cached role is stale (>1 day), refreshes from GitHub API.
+ * If the user has lost all access, removes their entry from user_repositories.
+ * For custom repos, returns the cached role directly (no refresh needed).
+ * @returns {Promise<string|null>} Role ('admin' or 'member') or null if no access
+ */
+async function getUserRoleWithRefresh(userId, repoRecord, accessToken) {
+  const userRepo = repoQueries.getUserRoleAndSync.get(userId, repoRecord.id);
+
+  if (!userRepo) {
+    return null;
+  }
+
+  // For custom repos (is_github = 0), no refresh needed
+  if (!repoRecord.is_github) {
+    return userRepo.role;
+  }
+
+  // For GitHub repos, check if the cached role is stale
+  const lastSynced = userRepo.last_synced ? new Date(userRepo.last_synced).getTime() : 0;
+  const isStale = Date.now() - lastSynced > ROLE_STALE_THRESHOLD_MS;
+
+  if (isStale) {
+    // Refresh from GitHub API
+    try {
+      const { checkRepositoryPermission } = await import('../services/github.js');
+      const permission = await checkRepositoryPermission(accessToken, repoRecord.owner, repoRecord.name);
+
+      if (permission === null) {
+        // User lost all access - remove entry from user_repositories
+        repoQueries.deleteByUserAndId.run(repoRecord.id, userId);
+        console.log(
+          `[Auth] Removed stale entry: user ${userId} lost access to ${repoRecord.owner}/${repoRecord.name}`
+        );
+        return null; // Signal no access
+      }
+
+      // User still has access - update role based on permission level
+      const newRole = permission === 'ADMIN' ? 'admin' : 'member';
+      repoQueries.updateUserRoleAndSync.run(newRole, new Date().toISOString(), userId, repoRecord.id);
+
+      console.log(
+        `[Auth] Refreshed stale role for user ${userId} on ${repoRecord.owner}/${repoRecord.name}: ${newRole} (permission: ${permission})`
+      );
+
+      return newRole;
+    } catch (error) {
+      // If GitHub API fails, fall back to cached role
+      console.warn(
+        `[Auth] Failed to refresh role from GitHub, using cached: ${error.message}`
+      );
+      return userRepo.role;
+    }
+  }
+
+  return userRepo.role;
+}
+
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -43,6 +105,7 @@ export function authenticateToken(req, res, next) {
 
 /**
  * Middleware to verify user has admin permission for the repository
+ * Uses cached role from user_repositories table with staleness refresh for GitHub repos.
  * Must be used AFTER authenticateToken middleware
  * Expects req.params to contain owner and repo
  */
@@ -62,53 +125,30 @@ export async function requireRepositoryAdmin(req, res, next) {
   }
 
   try {
-    // First check if this is a non-GitHub repo
     const repoRecord = repoQueries.findByOwnerAndName.get(owner, repo);
 
-    if (repoRecord && !repoRecord.is_github) {
-      // For non-GitHub repos, the owner (which is the user's username) has admin access
-      const hasAdminPermission = repoRecord.owner === req.user.username;
+    if (!repoRecord) {
+      return res.status(404).json({ error: 'Repository not found' });
+    }
 
-      if (!hasAdminPermission) {
-        console.warn(
-          `[Auth] User ${req.user.username} denied admin access to local repo ${owner}/${repo}`
-        );
-        return res.status(403).json({
-          error: 'Admin access required',
-          message: 'You must be the owner of this repository to access settings',
-        });
-      }
+    // Get role with staleness refresh for GitHub repos
+    const role = await getUserRoleWithRefresh(req.user.id, repoRecord, req.user.accessToken);
 
+    if (role === 'admin') {
+      req.repoRecord = repoRecord;
       console.log(
-        `[Auth] User ${req.user.username} granted admin access to local repo ${owner}/${repo}`
+        `[Auth] User ${req.user.username} granted admin access to ${owner}/${repo} (role: ${role})`
       );
       return next();
     }
 
-    // For GitHub repos, check permission via GitHub API
-    const { checkRepositoryAdminPermission } = await import('../services/github.js');
-
-    const hasAdminPermission = await checkRepositoryAdminPermission(
-      req.user.accessToken,
-      owner,
-      repo
+    console.warn(
+      `[Auth] User ${req.user.username} denied admin access to ${owner}/${repo} (role: ${role || 'none'})`
     );
-
-    if (!hasAdminPermission) {
-      console.warn(
-        `[Auth] User ${req.user.username} denied admin access to ${owner}/${repo}`
-      );
-      return res.status(403).json({
-        error: 'Admin access required',
-        message: 'You must have admin permissions on this repository to access settings',
-      });
-    }
-
-    // User has admin permission, proceed
-    console.log(
-      `[Auth] User ${req.user.username} granted admin access to ${owner}/${repo}`
-    );
-    next();
+    return res.status(403).json({
+      error: 'Admin access required',
+      message: 'You must have admin permissions on this repository to access settings',
+    });
   } catch (error) {
     console.error('[Auth] Error checking repository admin permission:', error);
     return res.status(500).json({

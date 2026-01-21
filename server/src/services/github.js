@@ -791,3 +791,39 @@ export async function checkRepositoryAdminPermission(accessToken, owner, repo) {
     return false;
   }
 }
+
+/**
+ * Check the user's permission level for a repository.
+ * Returns the permission level ('ADMIN', 'MAINTAIN', 'WRITE', 'TRIAGE', 'READ') or null if no access.
+ * Used for staleness refresh to detect when a user has lost all access.
+ * @param {string} accessToken - GitHub access token
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @returns {Promise<string|null>} Permission level or null if no access
+ */
+export async function checkRepositoryPermission(accessToken, owner, repo) {
+  const client = createGitHubClient(accessToken);
+
+  const query = `
+    query($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        viewerPermission
+      }
+    }
+  `;
+
+  try {
+    const result = await client(query, { owner, repo });
+
+    if (!result || !result.repository) {
+      // Repository not found or user has no access
+      return null;
+    }
+
+    return result.repository.viewerPermission;
+  } catch (error) {
+    console.error(`[GitHub] Error checking permission for ${owner}/${repo}:`, error.message);
+    // Fail closed - treat as no access on error
+    return null;
+  }
+}

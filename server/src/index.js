@@ -11,6 +11,7 @@ import metricsRoutes from './routes/metrics.js';
 import logRoutes from './routes/log.js';
 import perfRoutes from './routes/perf.js';
 import publicReposRoutes from './routes/public-repos.js';
+import collaboratorsRoutes from './routes/collaborators.js';
 
 // Load environment variables
 dotenv.config();
@@ -61,6 +62,7 @@ app.use('/api/repos/:owner/:repo/issues', issuesRoutes);
 app.use('/api/repos/:owner/:repo/prs', prRoutes);
 app.use('/api/repos/:owner/:repo/metrics', metricsRoutes);
 app.use('/api/repos/:owner/:repo/perf', perfRoutes);
+app.use('/api/repos/:owner/:repo/collaborators', collaboratorsRoutes);
 app.use('/api/log', logRoutes);
 app.use('/api/public-repos', publicReposRoutes);
 
