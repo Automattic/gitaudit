@@ -6,14 +6,14 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GitHub OAuth login - redirect to GitHub
+// GitHub App OAuth login - redirect to GitHub
+// Note: Permissions are defined in the GitHub App settings, not via scope parameter
 router.get('/github', (req, res) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
   const redirectUri = `${req.protocol}://${req.get('host')}/auth/github/callback`;
-  const scope = 'repo read:user read:org';
   const state = req.query.state || ''; // Preserve the intended redirect destination
 
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
 
   res.redirect(githubAuthUrl);
 });
