@@ -8,7 +8,7 @@ CodeVitals is a repository health dashboard that helps maintainers focus on what
 - **Stale Issues & PRs**: Track issues and pull requests that may need re-validation or closure
 - **Feature Request Analysis**: Discover promising feature requests from the community with AI-powered sentiment scoring
 - **Community Health**: Monitor community engagement and maintainer response times
-- **GitHub OAuth**: Secure authentication with GitHub
+- **GitHub App Authentication**: Secure authentication with GitHub using fine-grained permissions
 - **Real-time Sync**: Automatic synchronization with GitHub repositories
 - **Smart Caching**: SQLite-based caching for fast performance
 - **AI-Powered Analysis**: Optional sentiment analysis using Anthropic Claude or OpenAI GPT models
@@ -17,7 +17,7 @@ CodeVitals is a repository health dashboard that helps maintainers focus on what
 
 - **Frontend**: React, TypeScript, Vite, @wordpress/components, @wordpress/dataviews
 - **Backend**: Node.js, Express, SQLite (better-sqlite3)
-- **Authentication**: GitHub OAuth
+- **Authentication**: GitHub App (OAuth flow with fine-grained permissions)
 - **API**: GitHub GraphQL API
 - **AI Integration**: Vercel AI SDK with Anthropic Claude and OpenAI support
 
@@ -37,7 +37,7 @@ npm run dev
 
 Open http://localhost:3000 and add `WordPress/gutenberg` to your repositories—it will already have test data pre-loaded (20 issues, 12 PRs, and performance metrics).
 
-> **Note**: Test data mode doesn't require GitHub OAuth. When you add WordPress/gutenberg, you'll see the seeded data immediately without fetching from GitHub.
+> **Note**: Test data mode doesn't require GitHub authentication. When you add WordPress/gutenberg, you'll see the seeded data immediately without fetching from GitHub.
 
 ---
 
@@ -70,20 +70,30 @@ This will:
 - Install all dependencies
 - Seed the database with test data for WordPress/gutenberg
 
-### 3. (Optional) Configure GitHub OAuth
+### 3. (Optional) Configure GitHub App
 
 Skip this step if you only want to test with seeded data.
 
-1. Go to [GitHub Settings → Developer settings → OAuth Apps](https://github.com/settings/developers) → New OAuth App
+1. Go to [GitHub Settings → Developer settings → GitHub Apps](https://github.com/settings/apps) → New GitHub App
 2. Fill in the details:
-   - **Application name**: CodeVitals (or your preferred name)
+   - **GitHub App name**: CodeVitals (or your preferred name)
    - **Homepage URL**: `http://localhost:3000`
-   - **Authorization callback URL**: `http://localhost:3001/auth/github/callback`
-3. Click "Register application"
-4. Copy the **Client ID** and **Client Secret** to `server/.env`:
+   - **Callback URL**: `http://localhost:3001/auth/github/callback` (add one per environment)
+   - **Expire user authorization tokens**: **UNCHECK** this for non-expiring tokens
+   - **Where can this GitHub App be installed?**: Any account
+3. Set permissions:
+   - Repository → Contents: Read
+   - Repository → Issues: Read
+   - Repository → Pull requests: Read
+   - Repository → Metadata: Read (required)
+   - Organization → Members: Read
+   - Account → Email addresses: Read
+4. Click "Create GitHub App"
+5. Generate a client secret
+6. Copy the **Client ID** (starts with `Iv1.`) and **Client Secret** to `server/.env`:
 
 ```bash
-GITHUB_CLIENT_ID=your_client_id_here
+GITHUB_CLIENT_ID=Iv1.your_client_id_here
 GITHUB_CLIENT_SECRET=your_client_secret_here
 ```
 
