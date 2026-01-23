@@ -112,17 +112,32 @@ function StatCard({
   );
 
   if (to) {
+    const isExternal = to.startsWith('http');
+    const hoverHandlers = {
+      onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+        e.currentTarget.style.borderColor = COLORS.primary;
+      },
+      onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+        e.currentTarget.style.borderColor = COLORS.border;
+      },
+    };
+
+    if (isExternal) {
+      return (
+        <a
+          href={to}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={cardStyle}
+          {...hoverHandlers}
+        >
+          {content}
+        </a>
+      );
+    }
+
     return (
-      <Link
-        to={to}
-        style={cardStyle}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = COLORS.primary;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = COLORS.border;
-        }}
-      >
+      <Link to={to} style={cardStyle} {...hoverHandlers}>
         {content}
       </Link>
     );
@@ -294,12 +309,14 @@ function Dashboard() {
             value={statusData?.openIssueCount ?? 0}
             subValue={statusData?.closedIssueCount ?? 0}
             subLabel="closed"
+            to={`https://github.com/${owner}/${repo}/issues`}
           />
           <StatCard
             label="Open PRs"
             value={statusData?.openPRCount ?? 0}
             subValue={statusData?.mergedPRCount ?? 0}
             subLabel="merged"
+            to={`https://github.com/${owner}/${repo}/pulls`}
           />
           <StatCard
             label="Needs Attention"
