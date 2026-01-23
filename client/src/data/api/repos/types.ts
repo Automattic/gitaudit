@@ -72,4 +72,20 @@ export interface RepoStatus {
   isGithub?: boolean;
   url?: string | null;
   description?: string | null;
+  // Dashboard-specific fields
+  hasCachedData?: boolean;
+  hasCachedPRs?: boolean;
+  lastFetched?: string | null;
+  lastPRFetched?: string | null;
+  issueCount?: number;
+  prCount?: number;
+  openIssueCount?: number;
+  closedIssueCount?: number;
+  openPRCount?: number;
+  mergedPRCount?: number;
+  highPriorityCount?: number;
+  recentActivity?: string | null;
+  stars?: number;
+  language?: string | null;
+  languageColor?: string | null;
 }

@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories, checkRepositoryAdminPermission } from '../services/github.js';
-import { repoQueries, issueQueries, analysisQueries, prQueries, transaction } from '../db/queries.js';
+import { repoQueries, issueQueries, analysisQueries, prQueries, dashboardQueries, transaction } from '../db/queries.js';
 import { toSqliteDateTime } from '../utils/dates.js';
 import { getCurrentJobForRepo, queueJob } from '../services/job-queue.js';
 
@@ -138,7 +138,17 @@ router.get('/:owner/:repo/status', authenticateToken, requireRepositoryAccess, a
         status: 'not_started',
         currentJob: null,
         isGithub: true, // default to true for unknown repos
-        sentiment: { totalIssues: 0, analyzedIssues: 0, progress: 0 }
+        sentiment: { totalIssues: 0, analyzedIssues: 0, progress: 0 },
+        // Dashboard fields with defaults
+        openIssueCount: 0,
+        closedIssueCount: 0,
+        openPRCount: 0,
+        mergedPRCount: 0,
+        highPriorityCount: 0,
+        recentActivity: null,
+        stars: 0,
+        language: null,
+        languageColor: null,
       });
     }
 
@@ -147,6 +157,14 @@ router.get('/:owner/:repo/status', authenticateToken, requireRepositoryAccess, a
     const prCount = prQueries.countByRepo.get(repo.id);
     const analyzedIssues = analysisQueries.countByRepoAndType.get(repo.id, 'sentiment');
     const currentJob = getCurrentJobForRepo(repo.id);
+
+    // Dashboard-specific counts
+    const openIssueCount = issueQueries.countOpenByRepo.get(repo.id);
+    const closedIssueCount = issueQueries.countClosedByRepo.get(repo.id);
+    const openPRCount = prQueries.countOpenByRepo.get(repo.id);
+    const mergedPRCount = prQueries.countMergedByRepo.get(repo.id);
+    const highPriorityCount = dashboardQueries.countHighPriorityIssues.get(repo.id);
+    const recentActivity = dashboardQueries.getMostRecentActivity.get(repo.id, repo.id);
 
     res.json({
       hasCachedData: issueCount.count > 0,
@@ -164,7 +182,17 @@ router.get('/:owner/:repo/status', authenticateToken, requireRepositoryAccess, a
         totalIssues: issueCount.count,
         analyzedIssues: analyzedIssues.count,
         progress: issueCount.count > 0 ? (analyzedIssues.count / issueCount.count) * 100 : 0
-      }
+      },
+      // Dashboard-specific fields
+      openIssueCount: openIssueCount.count,
+      closedIssueCount: closedIssueCount.count,
+      openPRCount: openPRCount.count,
+      mergedPRCount: mergedPRCount.count,
+      highPriorityCount: highPriorityCount.count,
+      recentActivity: recentActivity?.most_recent || null,
+      stars: repo.stars || 0,
+      language: repo.language || null,
+      languageColor: repo.language_color || null,
     });
   } catch (error) {
     console.error('Error getting repository status:', error);

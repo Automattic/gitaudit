@@ -3,12 +3,14 @@ import { NavLink } from "react-router-dom";
 interface SidebarNavLinkProps {
   to: string;
   children: React.ReactNode;
+  end?: boolean;
 }
 
-function SidebarNavLink({ to, children }: SidebarNavLinkProps) {
+function SidebarNavLink({ to, children, end }: SidebarNavLinkProps) {
   return (
     <NavLink
       to={to}
+      end={end}
       style={({ isActive }: { isActive: boolean }) => ({
         display: "block",
         padding: "0.5rem 1.5rem",
