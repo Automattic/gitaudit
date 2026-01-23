@@ -73,6 +73,9 @@ function RepositoryLayout() {
         {/* Navigation Menu */}
         <nav style={{ paddingTop: "2rem", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div>
+            <SidebarNavLink to={`/repos/${owner}/${repo}`} end>
+              Dashboard
+            </SidebarNavLink>
             {isGithub && (
               <>
                 <SidebarNavLink to={`/repos/${owner}/${repo}/bugs`}>

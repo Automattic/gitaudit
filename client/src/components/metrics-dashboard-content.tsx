@@ -15,7 +15,8 @@ import {
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { metricsQueryOptions } from '@/data/queries/metrics';
-import { perfEvolutionQueryOptions, perfAverageQueryOptions } from '@/data/queries/perf';
+import { perfEvolutionQueryOptions } from '@/data/queries/perf';
+import { MetricSummary } from '@/components/metric-summary';
 import type { Metric } from '@/data/api/metrics/types';
 
 // Register Chart.js components
@@ -34,18 +35,6 @@ const LIMITS = [
   { label: '200 commits', value: 200 },
   { label: '1000 commits', value: 1000 },
 ];
-
-// Format number with commas and max 2 decimal places
-const formatNumber = (num: number) =>
-  num.toLocaleString(undefined, { maximumFractionDigits: 2 });
-
-// Metrics where higher values are better (not regressions)
-const HIGHER_IS_BETTER_PATTERNS = ['coverage', 'score', 'accuracy', 'uptime'];
-
-const isHigherBetter = (metricKey: string): boolean => {
-  const lowerKey = metricKey.toLowerCase();
-  return HIGHER_IS_BETTER_PATTERNS.some((pattern) => lowerKey.includes(pattern));
-};
 
 // Colors matching CodeVitals' palette
 const COLORS = {
@@ -313,7 +302,8 @@ function OtherMetricsCard({
 }
 
 /**
- * Metric card showing name, average, and change percentage
+ * Interactive metric card wrapper for the metrics dashboard.
+ * Uses MetricSummary for content, adds click behavior and active state styling.
  */
 function MetricCard({
   metric,
@@ -328,25 +318,6 @@ function MetricCard({
   isActive: boolean;
   onSelect: () => void;
 }) {
-  const { data, isLoading } = useQuery(perfAverageQueryOptions(owner, repo, metric.id));
-
-  // Calculate change percentage
-  let change: number | null = null;
-  let sentiment: 'positive' | 'negative' | 'neutral' = 'neutral';
-
-  if (data?.average && data?.previous) {
-    change = (data.average - data.previous) / data.previous;
-    const higherBetter = isHigherBetter(metric.key);
-
-    if (Math.abs(change) >= 0.05) {
-      if (higherBetter) {
-        sentiment = change > 0 ? 'positive' : 'negative';
-      } else {
-        sentiment = change > 0 ? 'negative' : 'positive';
-      }
-    }
-  }
-
   return (
     <div
       role="button"
@@ -362,80 +333,7 @@ function MetricCard({
         minWidth: '150px',
       }}
     >
-      <div
-        style={{
-          fontSize: '0.875rem',
-          fontWeight: 500,
-          color: '#1e1e1e',
-          marginBottom: '0.5rem',
-        }}
-      >
-        {metric.name}
-      </div>
-
-      {isLoading ? (
-        <div style={{ padding: '0.5rem 0' }}>
-          <Spinner />
-        </div>
-      ) : (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'baseline',
-            flexWrap: 'wrap',
-            gap: '0.5rem',
-          }}
-        >
-          {data?.average !== null && data?.average !== undefined && (
-            <div
-              style={{
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                color: COLORS.primary,
-                fontFamily: 'monospace',
-              }}
-              title="Average of last 20 commits (normalized)"
-            >
-              {formatNumber(data.average)}
-              {metric.unit && (
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    marginLeft: '0.25rem',
-                    color: COLORS.neutral,
-                  }}
-                >
-                  {metric.unit}
-                </span>
-              )}
-            </div>
-          )}
-
-          {change !== null && sentiment !== 'neutral' && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '0.25rem 0.5rem',
-                borderRadius: '4px',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                backgroundColor:
-                  sentiment === 'positive'
-                    ? 'rgba(0, 163, 42, 0.1)'
-                    : 'rgba(214, 54, 56, 0.1)',
-                color: sentiment === 'positive' ? COLORS.positive : COLORS.negative,
-              }}
-              title="Change compared to previous 20 commits"
-            >
-              <span style={{ marginRight: '0.25rem' }}>{change > 0 ? '↑' : '↓'}</span>
-              {change > 0 ? '+' : ''}
-              {formatNumber(change * 100)}%
-            </div>
-          )}
-        </div>
-      )}
+      <MetricSummary metric={metric} owner={owner} repo={repo} size="default" />
     </div>
   );
 }

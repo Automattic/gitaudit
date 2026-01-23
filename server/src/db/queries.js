@@ -304,6 +304,42 @@ export const issueQueries = {
       WHERE id = ?
     `);
   },
+
+  get countOpenByRepo() {
+    return db.prepare(`
+      SELECT COUNT(*) as count FROM issues WHERE repo_id = ? AND state = 'open'
+    `);
+  },
+
+  get countClosedByRepo() {
+    return db.prepare(`
+      SELECT COUNT(*) as count FROM issues WHERE repo_id = ? AND state = 'closed'
+    `);
+  },
+};
+
+// Dashboard queries (for aggregated stats)
+export const dashboardQueries = {
+  // Get most recent activity across issues and PRs
+  get getMostRecentActivity() {
+    return db.prepare(`
+      SELECT MAX(activity) as most_recent FROM (
+        SELECT MAX(updated_at) as activity FROM issues WHERE repo_id = ?
+        UNION ALL
+        SELECT MAX(updated_at) as activity FROM pull_requests WHERE repo_id = ?
+      )
+    `);
+  },
+
+  // Count high-priority issues (bugs score >= 80, which is "high" default threshold)
+  get countHighPriorityIssues() {
+    return db.prepare(`
+      SELECT COUNT(*) as count
+      FROM issue_analysis ia
+      JOIN issues i ON ia.issue_id = i.id
+      WHERE i.repo_id = ? AND ia.analysis_type = 'bugs' AND ia.score >= 80 AND i.state = 'open'
+    `);
+  },
 };
 
 // Analysis queries
@@ -655,6 +691,18 @@ export const prQueries = {
       UPDATE repositories
       SET last_pr_fetched = ?
       WHERE id = ?
+    `);
+  },
+
+  get countOpenByRepo() {
+    return db.prepare(`
+      SELECT COUNT(*) as count FROM pull_requests WHERE repo_id = ? AND state = 'open'
+    `);
+  },
+
+  get countMergedByRepo() {
+    return db.prepare(`
+      SELECT COUNT(*) as count FROM pull_requests WHERE repo_id = ? AND merged_at IS NOT NULL
     `);
   },
 };
