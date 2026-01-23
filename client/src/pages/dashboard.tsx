@@ -55,22 +55,27 @@ function StatCard({
   subValue,
   subLabel,
   color = COLORS.primary,
+  to,
 }: {
   label: string;
   value: number | string;
   subValue?: number | string;
   subLabel?: string;
   color?: string;
+  to?: string;
 }) {
-  return (
-    <div
-      style={{
-        padding: '1.25rem',
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: '8px',
-        backgroundColor: COLORS.cardBg,
-      }}
-    >
+  const cardStyle = {
+    padding: '1.25rem',
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: '8px',
+    backgroundColor: COLORS.cardBg,
+    textDecoration: 'none',
+    display: 'block',
+    transition: 'border-color 0.15s',
+  };
+
+  const content = (
+    <>
       <div
         style={{
           fontSize: '0.8125rem',
@@ -103,8 +108,27 @@ function StatCard({
           {typeof subValue === 'number' ? formatNumber(subValue) : subValue} {subLabel}
         </div>
       )}
-    </div>
+    </>
   );
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        style={cardStyle}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = COLORS.primary;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = COLORS.border;
+        }}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return <div style={cardStyle}>{content}</div>;
 }
 
 /**
@@ -284,6 +308,7 @@ function Dashboard() {
             color={
               (statusData?.highPriorityCount ?? 0) > 0 ? COLORS.negative : COLORS.positive
             }
+            to={`/repos/${owner}/${repo}/bugs/all`}
           />
           <StatCard
             label="Recent Activity"
