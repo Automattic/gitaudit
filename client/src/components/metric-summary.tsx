@@ -9,6 +9,7 @@ const COLORS = {
   negative: '#d63638',
   neutral: '#50575e',
   primary: '#3858e9',
+  regression: '#cc1818',
 };
 
 // Format number with commas and max 2 decimal places
@@ -159,6 +160,25 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
             <span style={{ marginRight: '0.25rem' }}>{change > 0 ? '↑' : '↓'}</span>
             {change > 0 ? '+' : ''}
             {formatNumber(change * 100)}%
+          </div>
+        )}
+
+        {data?.regressionCount !== undefined && data.regressionCount > 0 && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: styles.badgePadding,
+              borderRadius: '4px',
+              fontSize: styles.badgeFontSize,
+              fontWeight: 600,
+              backgroundColor: 'rgba(204, 24, 24, 0.1)',
+              color: COLORS.regression,
+            }}
+            title={`${data.regressionCount} regression${data.regressionCount > 1 ? 's' : ''} detected in last 50 commits`}
+          >
+            <span style={{ marginRight: '0.25rem' }}>⚠</span>
+            {data.regressionCount}
           </div>
         )}
       </div>
