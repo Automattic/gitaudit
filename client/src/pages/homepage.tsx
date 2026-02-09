@@ -46,18 +46,10 @@ function MiniSparkline({ data, color }: { data: number[]; color: string }) {
  * Metric preview with sparkline
  */
 function MetricPreview({ metric }: { metric: PublicRepoMetric }) {
-  // Determine if higher values are better based on metric key
-  const isHigherBetter = ['coverage', 'score', 'accuracy', 'uptime'].some((p) =>
-    metric.key.toLowerCase().includes(p)
-  );
-
+  // Lower is always better: increase = negative, decrease = positive
   let sentiment: 'positive' | 'negative' | 'neutral' = 'neutral';
   if (metric.changePercent !== null && Math.abs(metric.changePercent) >= 0.05) {
-    if (isHigherBetter) {
-      sentiment = metric.changePercent > 0 ? 'positive' : 'negative';
-    } else {
-      sentiment = metric.changePercent > 0 ? 'negative' : 'positive';
-    }
+    sentiment = metric.changePercent > 0 ? 'negative' : 'positive';
   }
 
   return (

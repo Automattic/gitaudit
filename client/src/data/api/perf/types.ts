@@ -9,10 +9,11 @@ export interface PerfDataPoint {
   measuredAt: string;
   isRegression: boolean;
   regressionPercent: number | null;
+  isImprovement: boolean;
+  improvementPercent: number | null;
 }
 
 export interface MetricAverage {
   average: number | null;
   previous: number | null;
-  regressionCount: number;
 }

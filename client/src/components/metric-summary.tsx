@@ -9,20 +9,11 @@ const COLORS = {
   negative: '#d63638',
   neutral: '#50575e',
   primary: '#3858e9',
-  regression: '#cc1818',
 };
 
 // Format number with commas and max 2 decimal places
 const formatNumber = (num: number) =>
   num.toLocaleString(undefined, { maximumFractionDigits: 2 });
-
-// Metrics where higher values are better (not regressions)
-const HIGHER_IS_BETTER_PATTERNS = ['coverage', 'score', 'accuracy', 'uptime'];
-
-const isHigherBetter = (metricKey: string): boolean => {
-  const lowerKey = metricKey.toLowerCase();
-  return HIGHER_IS_BETTER_PATTERNS.some((pattern) => lowerKey.includes(pattern));
-};
 
 export interface MetricSummaryProps {
   metric: Metric;
@@ -45,14 +36,10 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
 
   if (data?.average && data?.previous) {
     change = (data.average - data.previous) / data.previous;
-    const higherBetter = isHigherBetter(metric.key);
 
+    // Lower is always better: increase = negative, decrease = positive
     if (Math.abs(change) >= 0.05) {
-      if (higherBetter) {
-        sentiment = change > 0 ? 'positive' : 'negative';
-      } else {
-        sentiment = change > 0 ? 'negative' : 'positive';
-      }
+      sentiment = change > 0 ? 'negative' : 'positive';
     }
   }
 
@@ -163,24 +150,6 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
           </div>
         )}
 
-        {data?.regressionCount !== undefined && data.regressionCount > 0 && (
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: styles.badgePadding,
-              borderRadius: '4px',
-              fontSize: styles.badgeFontSize,
-              fontWeight: 600,
-              backgroundColor: 'rgba(204, 24, 24, 0.1)',
-              color: COLORS.regression,
-            }}
-            title={`${data.regressionCount} regression${data.regressionCount > 1 ? 's' : ''} detected in last 50 commits`}
-          >
-            <span style={{ marginRight: '0.25rem' }}>⚠</span>
-            {data.regressionCount}
-          </div>
-        )}
       </div>
     </>
   );

@@ -45,7 +45,6 @@ const COLORS = {
   border: '#e0e0e0',
   cardBg: '#f6f7f7',
   cardActiveBg: '#fff',
-  regression: '#cc1818',
 };
 
 interface TooltipData {
@@ -56,6 +55,8 @@ interface TooltipData {
   value?: string;
   isRegression?: boolean;
   regressionPercent?: number | null;
+  isImprovement?: boolean;
+  improvementPercent?: number | null;
 }
 
 /**
@@ -119,7 +120,7 @@ function GraphTooltip({
         left: tooltipData.left,
         top: tooltipData.top,
         transform: 'translate(-50%, -100%)',
-        background: tooltipData.isRegression ? 'rgba(204, 24, 24, 0.95)' : 'rgba(0, 0, 0, 0.85)',
+        background: tooltipData.isRegression ? 'rgba(204, 24, 24, 0.95)' : tooltipData.isImprovement ? 'rgba(0, 163, 42, 0.95)' : 'rgba(0, 0, 0, 0.85)',
         borderRadius: '4px',
         padding: '0.5rem 0.75rem',
         color: '#fff',
@@ -132,7 +133,12 @@ function GraphTooltip({
     >
       {tooltipData.isRegression && (
         <div style={{ fontWeight: 600, marginBottom: '0.25rem', color: '#ffcccc' }}>
-          ⚠ Regression: +{tooltipData.regressionPercent?.toFixed(1)}%
+          ⚠ Regression: {tooltipData.regressionPercent?.toFixed(1)}%
+        </div>
+      )}
+      {tooltipData.isImprovement && (
+        <div style={{ fontWeight: 600, marginBottom: '0.25rem', color: '#ccffcc' }}>
+          ✓ Improvement: {tooltipData.improvementPercent?.toFixed(1)}%
         </div>
       )}
       <div>
@@ -141,7 +147,7 @@ function GraphTooltip({
             href={commitUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: tooltipData.isRegression ? '#ffcccc' : '#9ec5fe', textDecoration: 'none' }}
+            style={{ color: tooltipData.isRegression ? '#ffcccc' : tooltipData.isImprovement ? '#ccffcc' : '#9ec5fe', textDecoration: 'none' }}
           >
             {tooltipData.hash.slice(0, 7)}
           </a>
@@ -432,6 +438,8 @@ const MetricChart = forwardRef<
         value: tooltip.body?.[0]?.lines?.[0] || '',
         isRegression: dataPoint?.isRegression || false,
         regressionPercent: dataPoint?.regressionPercent,
+        isImprovement: dataPoint?.isImprovement || false,
+        improvementPercent: dataPoint?.improvementPercent,
       });
     },
     [perfData]
@@ -511,13 +519,13 @@ const MetricChart = forwardRef<
           borderColor: '#3858e9',
           backgroundColor: 'rgba(56, 88, 233, 0.1)',
           borderWidth: 2,
-          pointRadius: perfData?.map((p) => (p.isRegression ? 6 : 2)) || 2,
-          pointHoverRadius: perfData?.map((p) => (p.isRegression ? 8 : 4)) || 4,
+          pointRadius: perfData?.map((p) => (p.isRegression || p.isImprovement ? 6 : 2)) || 2,
+          pointHoverRadius: perfData?.map((p) => (p.isRegression || p.isImprovement ? 8 : 4)) || 4,
           pointBackgroundColor: perfData?.map((p) =>
-            p.isRegression ? COLORS.regression : '#3858e9'
+            p.isRegression ? COLORS.negative : p.isImprovement ? COLORS.positive : '#3858e9'
           ) || '#3858e9',
           pointBorderColor: perfData?.map((p) =>
-            p.isRegression ? COLORS.regression : '#3858e9'
+            p.isRegression ? COLORS.negative : p.isImprovement ? COLORS.positive : '#3858e9'
           ) || '#3858e9',
           tension: 0.1,
         },
@@ -549,48 +557,6 @@ const MetricChart = forwardRef<
     </div>
   );
 });
-
-/**
- * Regression indicator badge for chart header
- */
-function RegressionIndicator({
-  owner,
-  repo,
-  metricId,
-}: {
-  owner: string;
-  repo: string;
-  metricId: number;
-}) {
-  const { data: perfData } = useQuery(
-    perfEvolutionQueryOptions(owner, repo, metricId, 200)
-  );
-
-  const regressionCount = perfData?.filter((p) => p.isRegression).length || 0;
-
-  if (regressionCount === 0) {
-    return null;
-  }
-
-  return (
-    <div
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '0.25rem 0.5rem',
-        borderRadius: '4px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        backgroundColor: 'rgba(204, 24, 24, 0.1)',
-        color: COLORS.regression,
-      }}
-      title={`${regressionCount} regression${regressionCount > 1 ? 's' : ''} detected (>10% increase)`}
-    >
-      <span style={{ marginRight: '0.25rem' }}>⚠</span>
-      {regressionCount} regression{regressionCount > 1 ? 's' : ''}
-    </div>
-  );
-}
 
 export interface MetricsDashboardContentProps {
   owner: string;
@@ -693,7 +659,7 @@ export function MetricsDashboardContent({ owner, repo, repoUrl }: MetricsDashboa
             overflow: 'hidden',
           }}
         >
-          {/* Header: Metric name | Regressions | Reset Zoom */}
+          {/* Header: Metric name | Reset Zoom */}
           <div
             style={{
               display: 'flex',
@@ -706,21 +672,12 @@ export function MetricsDashboardContent({ owner, repo, repoUrl }: MetricsDashboa
           >
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#1e1e1e',
               }}
             >
-              <div
-                style={{
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  color: '#1e1e1e',
-                }}
-              >
-                {selectedMetric.name}
-              </div>
-              <RegressionIndicator owner={owner} repo={repo} metricId={selectedMetric.id} />
+              {selectedMetric.name}
             </div>
             <Button
               variant="secondary"
