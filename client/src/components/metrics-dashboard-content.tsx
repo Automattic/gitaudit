@@ -53,6 +53,10 @@ interface TooltipData {
   top?: number;
   hash?: string;
   value?: string;
+  isRegression?: boolean;
+  regressionPercent?: number | null;
+  isImprovement?: boolean;
+  improvementPercent?: number | null;
 }
 
 /**
@@ -116,7 +120,7 @@ function GraphTooltip({
         left: tooltipData.left,
         top: tooltipData.top,
         transform: 'translate(-50%, -100%)',
-        background: 'rgba(0, 0, 0, 0.85)',
+        background: tooltipData.isRegression ? 'rgba(204, 24, 24, 0.95)' : tooltipData.isImprovement ? 'rgba(0, 163, 42, 0.95)' : 'rgba(0, 0, 0, 0.85)',
         borderRadius: '4px',
         padding: '0.5rem 0.75rem',
         color: '#fff',
@@ -127,13 +131,23 @@ function GraphTooltip({
         marginTop: '-8px',
       }}
     >
+      {tooltipData.isRegression && (
+        <div style={{ fontWeight: 600, marginBottom: '0.25rem', color: '#ffcccc' }}>
+          ⚠ Regression: {tooltipData.regressionPercent?.toFixed(1)}%
+        </div>
+      )}
+      {tooltipData.isImprovement && (
+        <div style={{ fontWeight: 600, marginBottom: '0.25rem', color: '#ccffcc' }}>
+          ✓ Improvement: {tooltipData.improvementPercent?.toFixed(1)}%
+        </div>
+      )}
       <div>
         {commitUrl ? (
           <a
             href={commitUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: '#9ec5fe', textDecoration: 'none' }}
+            style={{ color: tooltipData.isRegression ? '#ffcccc' : tooltipData.isImprovement ? '#ccffcc' : '#9ec5fe', textDecoration: 'none' }}
           >
             {tooltipData.hash.slice(0, 7)}
           </a>
@@ -414,14 +428,18 @@ const MetricChart = forwardRef<
 
       const { offsetLeft, offsetTop } = chart.canvas;
       const dataIndex = tooltip.dataPoints?.[0]?.dataIndex;
-      const hash = dataIndex !== undefined && perfData ? perfData[dataIndex]?.hash : '';
+      const dataPoint = dataIndex !== undefined && perfData ? perfData[dataIndex] : null;
 
       setTooltipData({
         isVisible: true,
         left: offsetLeft + tooltip.caretX,
         top: offsetTop + tooltip.caretY,
-        hash: hash || '',
+        hash: dataPoint?.hash || '',
         value: tooltip.body?.[0]?.lines?.[0] || '',
+        isRegression: dataPoint?.isRegression || false,
+        regressionPercent: dataPoint?.regressionPercent,
+        isImprovement: dataPoint?.isImprovement || false,
+        improvementPercent: dataPoint?.improvementPercent,
       });
     },
     [perfData]
@@ -501,8 +519,14 @@ const MetricChart = forwardRef<
           borderColor: '#3858e9',
           backgroundColor: 'rgba(56, 88, 233, 0.1)',
           borderWidth: 2,
-          pointRadius: 2,
-          pointHoverRadius: 4,
+          pointRadius: perfData?.map((p) => (p.isRegression || p.isImprovement ? 6 : 2)) || 2,
+          pointHoverRadius: perfData?.map((p) => (p.isRegression || p.isImprovement ? 8 : 4)) || 4,
+          pointBackgroundColor: perfData?.map((p) =>
+            p.isRegression ? COLORS.negative : p.isImprovement ? COLORS.positive : '#3858e9'
+          ) || '#3858e9',
+          pointBorderColor: perfData?.map((p) =>
+            p.isRegression ? COLORS.negative : p.isImprovement ? COLORS.positive : '#3858e9'
+          ) || '#3858e9',
           tension: 0.1,
         },
       ],

@@ -437,7 +437,7 @@ function seedMetrics(repos, dryRun) {
 	const perfData = [];
 
 	if (dryRun) {
-		console.log(`  [DRY-RUN] Would create ${metricDefinitions.length} metrics with 30 days of data each`);
+		console.log(`  [DRY-RUN] Would create ${metricDefinitions.length} metrics with 60 days of data each`);
 		return { metrics: [], perfData: [] };
 	}
 
@@ -464,7 +464,7 @@ function seedMetrics(repos, dryRun) {
 		metrics.push(metric);
 
 		// Generate perf data for this metric
-		const dataPoints = generatePerfData(metric.id, metricDef.key, metricsRepo.id, 'trunk', 30);
+		const dataPoints = generatePerfData(metric.id, metricDef.key, metricsRepo.id, 'trunk', 60);
 
 		for (const point of dataPoints) {
 			perfQueries.insert.run(

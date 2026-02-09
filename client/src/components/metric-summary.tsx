@@ -15,14 +15,6 @@ const COLORS = {
 const formatNumber = (num: number) =>
   num.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-// Metrics where higher values are better (not regressions)
-const HIGHER_IS_BETTER_PATTERNS = ['coverage', 'score', 'accuracy', 'uptime'];
-
-const isHigherBetter = (metricKey: string): boolean => {
-  const lowerKey = metricKey.toLowerCase();
-  return HIGHER_IS_BETTER_PATTERNS.some((pattern) => lowerKey.includes(pattern));
-};
-
 export interface MetricSummaryProps {
   metric: Metric;
   owner: string;
@@ -44,14 +36,10 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
 
   if (data?.average && data?.previous) {
     change = (data.average - data.previous) / data.previous;
-    const higherBetter = isHigherBetter(metric.key);
 
+    // Lower is always better: increase = negative, decrease = positive
     if (Math.abs(change) >= 0.05) {
-      if (higherBetter) {
-        sentiment = change > 0 ? 'positive' : 'negative';
-      } else {
-        sentiment = change > 0 ? 'negative' : 'positive';
-      }
+      sentiment = change > 0 ? 'negative' : 'positive';
     }
   }
 
@@ -161,6 +149,7 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
             {formatNumber(change * 100)}%
           </div>
         )}
+
       </div>
     </>
   );

@@ -4,6 +4,9 @@ import { perfQueries, metricsQueries } from '../db/queries.js';
 
 const router = express.Router({ mergeParams: true });
 
+// Regression detection threshold (10% increase = regression)
+const REGRESSION_THRESHOLD = 0.10;
+
 // Helper to check if a metric exists and belongs to the repo
 function isMetricAccessible(metricId, repoId) {
   const metric = metricsQueries.findById.get(metricId);
@@ -13,8 +16,38 @@ function isMetricAccessible(metricId, repoId) {
   return true;
 }
 
+/**
+ * Detect regressions and improvements in performance data.
+ * Lower is always better: increase = regression, decrease = improvement.
+ * @param {Array} perfs - Performance data points (oldest first)
+ * @returns {Array} - Array with regression/improvement flags added
+ */
+function detectRegressions(perfs) {
+  if (perfs.length < 2) return perfs;
+
+  return perfs.map((point, index) => {
+    if (index === 0) {
+      return { ...point, isRegression: false, regressionPercent: null, isImprovement: false, improvementPercent: null };
+    }
+
+    const prev = perfs[index - 1];
+    const change = prev.value !== 0 ? (point.value - prev.value) / prev.value : 0;
+
+    const isRegression = change > REGRESSION_THRESHOLD;
+    const isImprovement = change < -REGRESSION_THRESHOLD;
+
+    return {
+      ...point,
+      isRegression,
+      regressionPercent: isRegression ? Math.abs(change * 100) : null,
+      isImprovement,
+      improvementPercent: isImprovement ? Math.abs(change * 100) : null,
+    };
+  });
+}
+
 // GET /api/repos/:owner/:repo/perf/evolution/:metricId
-// Returns metric history for charts
+// Returns metric history for charts with regression detection
 router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
   const { metricId } = req.params;
   const { limit = 100, branch = 'trunk' } = req.query;
@@ -22,7 +55,6 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
   try {
     const repo = req.publicRepo;
 
-    // Check metric is accessible
     if (!isMetricAccessible(metricId, repo.id)) {
       return res.status(404).json({ error: 'Metric not found' });
     }
@@ -48,7 +80,9 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
       measuredAt: p.measured_at,
     }));
 
-    res.json(transformed);
+    const withRegressions = detectRegressions(transformed);
+
+    res.json(withRegressions);
   } catch (error) {
     console.error('[API] Failed to fetch metric evolution:', error);
     res.status(500).json({ error: 'Failed to fetch metric evolution' });
@@ -64,7 +98,6 @@ router.get('/average/:metricId', optionalAuth, requireRepositoryAccessOrPublic, 
   try {
     const repo = req.publicRepo;
 
-    // Check metric is accessible
     if (!isMetricAccessible(metricId, repo.id)) {
       return res.status(404).json({ error: 'Metric not found' });
     }
