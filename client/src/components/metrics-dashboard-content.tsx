@@ -566,7 +566,7 @@ const MetricChart = forwardRef<
   return (
     <div style={{ padding: '1.5rem', position: 'relative' }}>
       <div style={{ height: '400px' }}>
-        <Line ref={chartRef} data={chartData} options={chartOptions} />
+        <Line key={isAllView ? 'all' : 'detail'} ref={chartRef} data={chartData} options={chartOptions} />
       </div>
       <GraphTooltip tooltipData={tooltipData} repoUrl={repoUrl} />
       {perfMeta?.isDownsampled && (
