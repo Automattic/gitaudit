@@ -509,8 +509,10 @@ const MetricChart = forwardRef<
   // Format date for x-axis labels
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   };
+
+  const isAllView = limit <= 0;
 
   const chartData = useMemo(
     () => ({
@@ -522,19 +524,27 @@ const MetricChart = forwardRef<
           borderColor: '#3858e9',
           backgroundColor: 'rgba(56, 88, 233, 0.1)',
           borderWidth: 2,
-          pointRadius: perfData?.map((p) => (p.isRegression || p.isImprovement ? 6 : 2)) || 2,
-          pointHoverRadius: perfData?.map((p) => (p.isRegression || p.isImprovement ? 8 : 4)) || 4,
-          pointBackgroundColor: perfData?.map((p) =>
-            p.isRegression ? COLORS.negative : p.isImprovement ? COLORS.positive : '#3858e9'
-          ) || '#3858e9',
-          pointBorderColor: perfData?.map((p) =>
-            p.isRegression ? COLORS.negative : p.isImprovement ? COLORS.positive : '#3858e9'
-          ) || '#3858e9',
+          pointRadius: isAllView
+            ? 0
+            : perfData?.map((p) => (p.isRegression || p.isImprovement ? 6 : 2)) || 2,
+          pointHoverRadius: isAllView
+            ? 3
+            : perfData?.map((p) => (p.isRegression || p.isImprovement ? 8 : 4)) || 4,
+          pointBackgroundColor: isAllView
+            ? '#3858e9'
+            : perfData?.map((p) =>
+                p.isRegression ? COLORS.negative : p.isImprovement ? COLORS.positive : '#3858e9'
+              ) || '#3858e9',
+          pointBorderColor: isAllView
+            ? '#3858e9'
+            : perfData?.map((p) =>
+                p.isRegression ? COLORS.negative : p.isImprovement ? COLORS.positive : '#3858e9'
+              ) || '#3858e9',
           tension: 0.1,
         },
       ],
     }),
-    [perfData, metric.name]
+    [perfData, metric.name, isAllView]
   );
 
   if (isLoading) {

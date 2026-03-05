@@ -48,7 +48,7 @@ function detectRegressions(perfs) {
 }
 
 // Target number of points after downsampling
-const DOWNSAMPLE_TARGET = 800;
+const DOWNSAMPLE_TARGET = 400;
 
 // GET /api/repos/:owner/:repo/perf/evolution/:metricId
 // Returns metric history for charts with regression detection
