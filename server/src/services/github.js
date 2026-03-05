@@ -158,7 +158,7 @@ export function createGitHubClient(accessToken) {
   };
 }
 
-// Exchange OAuth code for access token
+// Exchange OAuth code for access token (and refresh token for GitHub Apps)
 export async function exchangeCodeForToken(code) {
   const response = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
@@ -179,7 +179,84 @@ export async function exchangeCodeForToken(code) {
     throw new Error(data.error_description || data.error);
   }
 
-  return data.access_token;
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || null,
+    expiresIn: data.expires_in || null,
+  };
+}
+
+/**
+ * Refresh an expired GitHub App user access token
+ * @param {string} refreshToken - The refresh token from the initial OAuth flow
+ * @returns {Promise<{accessToken: string, refreshToken: string, expiresIn: number}>}
+ */
+export async function refreshAccessToken(refreshToken) {
+  const response = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: process.env.GITHUB_CLIENT_ID,
+      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (data.error) {
+    throw new Error(`Token refresh failed: ${data.error_description || data.error}`);
+  }
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresIn: data.expires_in,
+  };
+}
+
+/**
+ * Get a valid access token for a user, refreshing if expired.
+ * For legacy users (no refresh_token), returns existing token as-is.
+ * @param {object} user - User row from database (must have id, access_token, refresh_token, token_expires_at)
+ * @returns {Promise<string>} A valid access token
+ */
+export async function getValidAccessToken(user) {
+  // Legacy user without refresh token — return as-is
+  if (!user.refresh_token) {
+    return user.access_token;
+  }
+
+  // Check if token is still valid (with 5-minute buffer)
+  if (user.token_expires_at) {
+    const expiresAt = new Date(user.token_expires_at).getTime();
+    const bufferMs = 5 * 60 * 1000;
+    if (Date.now() < expiresAt - bufferMs) {
+      return user.access_token;
+    }
+  }
+
+  // Token expired or no expiry recorded — refresh it
+  console.log(`[TokenRefresh] Refreshing expired token for user ${user.id} (${user.username})`);
+
+  const { userQueries } = await import('../db/queries.js');
+  const tokens = await refreshAccessToken(user.refresh_token);
+  const newExpiresAt = new Date(Date.now() + tokens.expiresIn * 1000).toISOString();
+
+  userQueries.updateTokens.run(
+    tokens.accessToken,
+    tokens.refreshToken,
+    newExpiresAt,
+    user.id
+  );
+
+  console.log(`[TokenRefresh] Token refreshed for user ${user.id}, expires at ${newExpiresAt}`);
+
+  return tokens.accessToken;
 }
 
 // Get authenticated user info

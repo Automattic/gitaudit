@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { userQueries, repoQueries } from '../db/queries.js';
+import { getValidAccessToken } from '../services/github.js';
 
 // Staleness threshold for GitHub permission refresh (1 day)
 const ROLE_STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
@@ -63,7 +64,7 @@ async function getUserRoleWithRefresh(userId, repoRecord, accessToken) {
   return userRepo.role;
 }
 
-export function authenticateToken(req, res, next) {
+export async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -82,12 +83,21 @@ export function authenticateToken(req, res, next) {
       return res.status(401).json({ error: 'User not found' });
     }
 
+    // Get a valid access token (refreshes if expired)
+    let accessToken;
+    try {
+      accessToken = await getValidAccessToken(user);
+    } catch (refreshError) {
+      console.error('[Auth] Token refresh failed for user', user.id, ':', refreshError.message);
+      return res.status(401).json({ error: 'GitHub token expired. Please log in again.' });
+    }
+
     // Attach user and token to request
     req.user = {
       id: user.id,
       githubId: user.github_id,
       username: user.username,
-      accessToken: user.access_token,
+      accessToken,
     };
 
     next();
@@ -194,7 +204,7 @@ export function requireRepositoryAccess(req, res, next) {
  * If token is present, validates it and attaches user to req
  * If no token, continues without user (req.user will be undefined)
  */
-export function optionalAuth(req, res, next) {
+export async function optionalAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -208,11 +218,18 @@ export function optionalAuth(req, res, next) {
     const user = userQueries.findByGithubId.get(decoded.githubId);
 
     if (user) {
+      let accessToken;
+      try {
+        accessToken = await getValidAccessToken(user);
+      } catch {
+        // Token refresh failed — continue without user
+        return next();
+      }
       req.user = {
         id: user.id,
         githubId: user.github_id,
         username: user.username,
-        accessToken: user.access_token,
+        accessToken,
       };
     }
     // If user not found, just continue without user

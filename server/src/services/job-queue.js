@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { repoQueries, jobQueries, userQueries } from '../db/queries.js';
+import { getValidAccessToken } from './github.js';
 
 // Job handlers with schemas
 import { issueFetchHandler, issueFetchSchema } from './jobs/issue-fetch.js';
@@ -145,7 +146,7 @@ const jobHandlers = {
  * @param {object} job - Job from database
  * @returns {object} Enriched args with repoId, userId, accessToken, owner, repoName
  */
-function enrichJobArgs(job) {
+async function enrichJobArgs(job) {
   // Parse args JSON
   const args = job.args ? JSON.parse(job.args) : {};
 
@@ -161,12 +162,15 @@ function enrichJobArgs(job) {
     throw new Error(`Repository not found for job ${job.job_id}`);
   }
 
+  // Get a valid access token (refreshes if expired)
+  const accessToken = await getValidAccessToken(user);
+
   // Return enriched args
   return {
     ...args,
     repoId: job.repo_id,
     userId: job.user_id,
-    accessToken: user.access_token,
+    accessToken,
     owner: repo.owner,
     repoName: repo.name,
   };
@@ -184,7 +188,7 @@ async function processJob(job) {
     }
 
     // Enrich and validate
-    const enrichedArgs = enrichJobArgs(job);
+    const enrichedArgs = await enrichJobArgs(job);
     const validationResult = handlerConfig.schema.safeParse(enrichedArgs);
     if (!validationResult.success) {
       const errors = validationResult.error.flatten();
