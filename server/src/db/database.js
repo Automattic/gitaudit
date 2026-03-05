@@ -179,6 +179,7 @@ export function initializeDatabase() {
 
   // Add role and last_synced columns to user_repositories for multi-user access
   migrateUserRepositoriesRoleColumns();
+  migrateUsersTokenRefreshColumns();
 
   console.log('Database initialized successfully');
 }
@@ -1391,6 +1392,23 @@ function migrateUserRepositoriesRoleColumns() {
     db.exec('ALTER TABLE user_repositories ADD COLUMN last_synced DATETIME');
     console.log('Added last_synced column to user_repositories table');
     // Existing rows have NULL last_synced, which will trigger refresh on first access for GitHub repos
+  }
+}
+
+// Add refresh_token and token_expires_at columns to users table
+// GitHub App user access tokens expire after 8 hours and need refresh
+function migrateUsersTokenRefreshColumns() {
+  const columns = db.prepare('PRAGMA table_info(users)').all();
+  const columnNames = columns.map(col => col.name);
+
+  if (!columnNames.includes('refresh_token')) {
+    db.exec('ALTER TABLE users ADD COLUMN refresh_token TEXT');
+    console.log('Added refresh_token column to users table');
+  }
+
+  if (!columnNames.includes('token_expires_at')) {
+    db.exec('ALTER TABLE users ADD COLUMN token_expires_at DATETIME');
+    console.log('Added token_expires_at column to users table');
   }
 }
 

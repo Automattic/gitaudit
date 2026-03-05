@@ -28,7 +28,10 @@ router.get('/github/callback', async (req, res) => {
 
   try {
     // Exchange code for access token
-    const accessToken = await exchangeCodeForToken(code);
+    const { accessToken, refreshToken, expiresIn } = await exchangeCodeForToken(code);
+    const tokenExpiresAt = expiresIn
+      ? new Date(Date.now() + expiresIn * 1000).toISOString()
+      : null;
 
     // Get user info from GitHub
     const githubUser = await getAuthenticatedUser(accessToken);
@@ -37,15 +40,19 @@ router.get('/github/callback', async (req, res) => {
     let user = userQueries.findByGithubId.get(githubUser.databaseId);
 
     if (user) {
-      // Update access token
-      userQueries.updateAccessToken.run(accessToken, githubUser.databaseId);
+      // Update all token fields
+      userQueries.updateAllTokensByGithubId.run(
+        accessToken, refreshToken, tokenExpiresAt, githubUser.databaseId
+      );
       user = userQueries.findByGithubId.get(githubUser.databaseId);
     } else {
       // Create new user
       user = userQueries.create.get(
         githubUser.databaseId,
         githubUser.login,
-        accessToken
+        accessToken,
+        refreshToken,
+        tokenExpiresAt
       );
     }
 

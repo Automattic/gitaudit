@@ -16,8 +16,8 @@ export const userQueries = {
 
   get create() {
     return db.prepare(`
-      INSERT INTO users (github_id, username, access_token)
-      VALUES (?, ?, ?)
+      INSERT INTO users (github_id, username, access_token, refresh_token, token_expires_at)
+      VALUES (?, ?, ?, ?, ?)
       RETURNING *
     `);
   },
@@ -26,6 +26,22 @@ export const userQueries = {
     return db.prepare(`
       UPDATE users
       SET access_token = ?
+      WHERE github_id = ?
+    `);
+  },
+
+  get updateTokens() {
+    return db.prepare(`
+      UPDATE users
+      SET access_token = ?, refresh_token = ?, token_expires_at = ?
+      WHERE id = ?
+    `);
+  },
+
+  get updateAllTokensByGithubId() {
+    return db.prepare(`
+      UPDATE users
+      SET access_token = ?, refresh_token = ?, token_expires_at = ?
       WHERE github_id = ?
     `);
   },
