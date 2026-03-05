@@ -34,6 +34,7 @@ ChartJS.register(
 const LIMITS = [
   { label: '200 commits', value: 200 },
   { label: '1000 commits', value: 1000 },
+  { label: 'All', value: -1 },
 ];
 
 // Colors matching CodeVitals' palette
@@ -378,9 +379,11 @@ const MetricChart = forwardRef<
   const [isZoomed, setIsZoomed] = useState(false);
   const [tooltipData, setTooltipData] = useState<TooltipData>({ isVisible: false });
 
-  const { data: perfData, isLoading } = useQuery(
+  const { data: perfResponse, isLoading } = useQuery(
     perfEvolutionQueryOptions(owner, repo, metric.id, limit)
   );
+  const perfData = perfResponse?.data;
+  const perfMeta = perfResponse?.meta;
 
   // Expose zoom controls to parent
   useImperativeHandle(
@@ -551,9 +554,17 @@ const MetricChart = forwardRef<
   }
 
   return (
-    <div style={{ padding: '1.5rem', height: '400px', position: 'relative' }}>
-      <Line ref={chartRef} data={chartData} options={chartOptions} />
+    <div style={{ padding: '1.5rem', position: 'relative' }}>
+      <div style={{ height: '400px' }}>
+        <Line ref={chartRef} data={chartData} options={chartOptions} />
+      </div>
       <GraphTooltip tooltipData={tooltipData} repoUrl={repoUrl} />
+      {perfMeta?.isDownsampled && (
+        <div style={{ textAlign: 'right', fontSize: '0.75rem', color: COLORS.neutral, marginTop: '0.25rem' }}>
+          Showing {perfMeta.displayedPoints.toLocaleString()} of{' '}
+          {perfMeta.totalPoints.toLocaleString()} data points
+        </div>
+      )}
     </div>
   );
 });
