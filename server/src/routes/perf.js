@@ -92,9 +92,10 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
     // Detect regressions on full data BEFORE downsampling
     const withRegressions = detectRegressions(transformed);
 
-    // Downsample if needed
+    // Downsample only for "all" requests
+    const isAllRequest = !limit || limit === 'all';
     const totalPoints = withRegressions.length;
-    const data = totalPoints > DOWNSAMPLE_TARGET
+    const data = isAllRequest && totalPoints > DOWNSAMPLE_TARGET
       ? lttbDownsample(withRegressions, DOWNSAMPLE_TARGET)
       : withRegressions;
 
