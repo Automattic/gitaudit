@@ -13,6 +13,15 @@ export interface PerfDataPoint {
   improvementPercent: number | null;
 }
 
+export interface PerfEvolutionResponse {
+  data: PerfDataPoint[];
+  meta: {
+    totalPoints: number;
+    displayedPoints: number;
+    isDownsampled: boolean;
+  };
+}
+
 export interface MetricAverage {
   average: number | null;
   previous: number | null;

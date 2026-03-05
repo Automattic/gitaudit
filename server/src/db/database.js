@@ -1344,6 +1344,11 @@ function createPerfTable() {
     db.exec('CREATE INDEX idx_perf_measured_at ON perf(measured_at)');
     console.log('Created idx_perf_measured_at index');
   }
+
+  if (!indexNames.includes('idx_perf_metric_branch_measured')) {
+    db.exec('CREATE INDEX idx_perf_metric_branch_measured ON perf(metric_id, branch, measured_at DESC)');
+    console.log('Created idx_perf_metric_branch_measured composite index');
+  }
 }
 
 // Add metrics_public column to repositories table for public dashboard toggle

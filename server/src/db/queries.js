@@ -881,6 +881,14 @@ export const perfQueries = {
     `);
   },
 
+  get findAllByMetricIdAndBranch() {
+    return db.prepare(`
+      SELECT * FROM perf
+      WHERE metric_id = ? AND branch = ?
+      ORDER BY measured_at DESC
+    `);
+  },
+
   get insert() {
     return db.prepare(`
       INSERT INTO perf (repo_id, branch, hash, metric_id, value, raw_value, measured_at)

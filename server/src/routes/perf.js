@@ -1,6 +1,7 @@
 import express from 'express';
 import { optionalAuth, requireRepositoryAccessOrPublic } from '../middleware/auth.js';
 import { perfQueries, metricsQueries } from '../db/queries.js';
+import { lttbDownsample } from '../utils/lttb.js';
 
 const router = express.Router({ mergeParams: true });
 
@@ -46,11 +47,14 @@ function detectRegressions(perfs) {
   });
 }
 
+// Target number of points after downsampling
+const DOWNSAMPLE_TARGET = 800;
+
 // GET /api/repos/:owner/:repo/perf/evolution/:metricId
 // Returns metric history for charts with regression detection
 router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
   const { metricId } = req.params;
-  const { limit = 100, branch = 'trunk' } = req.query;
+  const { limit, branch = 'trunk' } = req.query;
 
   try {
     const repo = req.publicRepo;
@@ -59,11 +63,16 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
       return res.status(404).json({ error: 'Metric not found' });
     }
 
-    const perfs = perfQueries.findByMetricIdAndBranch.all(
-      metricId,
-      branch,
-      parseInt(limit)
-    );
+    let perfs;
+    if (!limit || limit === 'all') {
+      perfs = perfQueries.findAllByMetricIdAndBranch.all(metricId, branch);
+    } else {
+      perfs = perfQueries.findByMetricIdAndBranch.all(
+        metricId,
+        branch,
+        parseInt(limit)
+      );
+    }
 
     // Reverse to get oldest first for charts
     perfs.reverse();
@@ -80,9 +89,23 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
       measuredAt: p.measured_at,
     }));
 
+    // Detect regressions on full data BEFORE downsampling
     const withRegressions = detectRegressions(transformed);
 
-    res.json(withRegressions);
+    // Downsample if needed
+    const totalPoints = withRegressions.length;
+    const data = totalPoints > DOWNSAMPLE_TARGET
+      ? lttbDownsample(withRegressions, DOWNSAMPLE_TARGET)
+      : withRegressions;
+
+    res.json({
+      data,
+      meta: {
+        totalPoints,
+        displayedPoints: data.length,
+        isDownsampled: data.length < totalPoints,
+      },
+    });
   } catch (error) {
     console.error('[API] Failed to fetch metric evolution:', error);
     res.status(500).json({ error: 'Failed to fetch metric evolution' });
