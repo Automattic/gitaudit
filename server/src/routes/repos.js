@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess } from '../middleware/auth.js';
+import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess, getUserRoleWithRefresh } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories, checkRepositoryAdminPermission } from '../services/github.js';
 import { repoQueries, issueQueries, analysisQueries, prQueries, dashboardQueries, transaction } from '../db/queries.js';
 import { toSqliteDateTime } from '../utils/dates.js';
@@ -376,10 +376,18 @@ router.get('/:owner/:repo/permission', authenticateToken, requireRepositoryAcces
       return res.status(404).json({ error: 'Repository not found' });
     }
 
-    // Get the user's role from the cached user_repositories table
-    const userRepo = repoQueries.getUserRoleAndSync.get(req.user.id, repoRecord.id);
-    const role = userRepo?.role || 'member';
+    // Get the user's role with staleness refresh for GitHub repos
+    const role = await getUserRoleWithRefresh(req.user.id, repoRecord, req.user.accessToken);
+
+    if (role === null) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You no longer have access to this repository',
+      });
+    }
+
     const isAdmin = role === 'admin';
+    const userRepo = repoQueries.getUserRoleAndSync.get(req.user.id, repoRecord.id);
 
     res.json({
       permission: isAdmin ? 'ADMIN' : 'READ',

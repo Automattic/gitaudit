@@ -12,7 +12,7 @@ const ROLE_STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
  * For custom repos, returns the cached role directly (no refresh needed).
  * @returns {Promise<string|null>} Role ('admin' or 'member') or null if no access
  */
-async function getUserRoleWithRefresh(userId, repoRecord, accessToken) {
+export async function getUserRoleWithRefresh(userId, repoRecord, accessToken) {
   const userRepo = repoQueries.getUserRoleAndSync.get(userId, repoRecord.id);
 
   if (!userRepo) {
