@@ -57,10 +57,10 @@ router.post('/', authenticateToken, requireRepositoryAdmin, async (req, res) => 
       return res.status(404).json({ error: 'Repository not found' });
     }
 
-    // Validate key format (lowercase alphanumeric + underscores)
-    if (!key || !/^[a-z][a-z0-9_]*$/.test(key)) {
+    // Validate key format (alphanumeric + underscores + dashes)
+    if (!key || !/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(key)) {
       return res.status(400).json({
-        error: 'Invalid key format. Must start with a lowercase letter and contain only lowercase letters, numbers, and underscores.',
+        error: 'Invalid key format. Must start with a letter and contain only letters, numbers, underscores, and dashes.',
       });
     }
 

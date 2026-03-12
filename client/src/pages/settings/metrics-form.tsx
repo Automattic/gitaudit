@@ -90,7 +90,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
     : null;
 
   // Validate key format
-  const isKeyValid = /^[a-z][a-z0-9_]*$/.test(formState.key);
+  const isKeyValid = /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(formState.key);
   const isNameValid = formState.name.trim().length > 0;
 
   function handleStartAdd() {
@@ -279,9 +279,9 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                 {isAddingMetric && (
                   <TextControl
                     label="Key"
-                    help="Unique identifier (lowercase, letters/numbers/underscores only)"
+                    help="Unique identifier (letters, numbers, underscores, dashes)"
                     value={formState.key}
-                    onChange={(value) => setFormState(prev => ({ ...prev, key: value.toLowerCase() }))}
+                    onChange={(value) => setFormState(prev => ({ ...prev, key: value }))}
                     placeholder="e.g., bundle_size"
                   />
                 )}
