@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { perfAverageQueryOptions } from '@/data/queries/perf';
 import type { Metric } from '@/data/api/metrics/types';
+import { formatValueWithUnit } from '@/lib/format';
 
 // Colors for trend indicators
 const COLORS = {
@@ -112,7 +113,7 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
             }}
             title="Average of last 20 commits (normalized)"
           >
-            {formatNumber(data.average)}
+            {formatValueWithUnit(data.average, metric.unit)}
             {metric.unit && (
               <span
                 style={{
