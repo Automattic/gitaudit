@@ -120,7 +120,7 @@ function seedUsers(dryRun) {
 		return existing;
 	}
 
-	const user = userQueries.create.get(testUser.github_id, testUser.username, testUser.access_token);
+	const user = userQueries.create.get(testUser.github_id, testUser.username, testUser.access_token, null, null);
 	console.log(`  Created user: ${testUser.username} (id: ${user.id})`);
 	return user;
 }
