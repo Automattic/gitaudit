@@ -18,6 +18,7 @@ import { metricsQueryOptions } from '@/data/queries/metrics';
 import { perfEvolutionQueryOptions } from '@/data/queries/perf';
 import { MetricSummary } from '@/components/metric-summary';
 import type { Metric } from '@/data/api/metrics/types';
+import { formatValueWithUnit } from '@/lib/format';
 
 // Register Chart.js components
 ChartJS.register(
@@ -438,14 +439,16 @@ const MetricChart = forwardRef<
         left: offsetLeft + tooltip.caretX,
         top: offsetTop + tooltip.caretY,
         hash: dataPoint?.hash || '',
-        value: tooltip.body?.[0]?.lines?.[0] || '',
+        value: dataPoint
+          ? formatValueWithUnit(dataPoint.value, metric.unit) + (metric.unit ? ` ${metric.unit}` : '')
+          : '',
         isRegression: dataPoint?.isRegression || false,
         regressionPercent: dataPoint?.regressionPercent,
         isImprovement: dataPoint?.isImprovement || false,
         improvementPercent: dataPoint?.improvementPercent,
       });
     },
-    [perfData]
+    [perfData, metric.unit]
   );
 
   const handleZoomComplete = useCallback(() => {
@@ -475,6 +478,10 @@ const MetricChart = forwardRef<
           grid: {
             color: 'rgba(0, 0, 0, 0.05)',
           },
+          ticks: {
+            callback: (value: number | string) =>
+              formatValueWithUnit(Number(value), metric.unit),
+          },
         },
       },
       plugins: {
@@ -503,7 +510,7 @@ const MetricChart = forwardRef<
         },
       },
     }),
-    [externalTooltip, handleZoomComplete]
+    [externalTooltip, handleZoomComplete, metric.unit]
   );
 
   // Format date for x-axis labels
