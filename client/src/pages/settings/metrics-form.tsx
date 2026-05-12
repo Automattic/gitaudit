@@ -592,6 +592,8 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
           title="New API Token"
           onRequestClose={handleDismissFreshToken}
           isDismissible={false}
+          shouldCloseOnEsc={false}
+          shouldCloseOnClickOutside={false}
         >
           <div style={{ minWidth: '480px' }}>
             <div style={{ marginBottom: '1rem' }}>
