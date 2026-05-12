@@ -195,11 +195,14 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
     }
   }
 
-  function handleCopyFreshToken() {
-    if (freshToken) {
-      navigator.clipboard.writeText(freshToken);
+  async function handleCopyFreshToken() {
+    if (!freshToken) return;
+    try {
+      await navigator.clipboard.writeText(freshToken);
       setSuccess('Token copied to clipboard');
       setTimeout(() => setSuccess(null), 3000);
+    } catch {
+      setError('Could not copy to clipboard. Please select and copy the token manually.');
     }
   }
 
@@ -588,6 +591,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
         <Modal
           title="New API Token"
           onRequestClose={handleDismissFreshToken}
+          isDismissible={false}
         >
           <div style={{ minWidth: '480px' }}>
             <div style={{ marginBottom: '1rem' }}>
@@ -614,7 +618,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <Button variant="secondary" onClick={handleCopyFreshToken}>
+              <Button variant="secondary" onClick={() => void handleCopyFreshToken()}>
                 Copy
               </Button>
               <Button variant="primary" onClick={handleDismissFreshToken}>
