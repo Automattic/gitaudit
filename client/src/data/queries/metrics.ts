@@ -20,7 +20,7 @@ export const metricsQueryOptions = (owner: string, repo: string) =>
   });
 
 /**
- * Query options for fetching metrics token
+ * Query options for fetching whether a metrics token has been generated.
  */
 export const metricsTokenQueryOptions = (owner: string, repo: string) =>
   queryOptions({
