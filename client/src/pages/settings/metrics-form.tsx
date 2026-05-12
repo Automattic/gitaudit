@@ -87,6 +87,10 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
   const [freshToken, setFreshToken] = useState<string | null>(null);
   // Whether the regenerate-confirmation modal is open.
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  // Feedback rendered inside the reveal modal after a copy attempt.
+  const [copyFeedback, setCopyFeedback] = useState<
+    { status: 'success' | 'error'; message: string } | null
+  >(null);
 
   // Whether a token has been generated. The plaintext is never sent on read.
   const tokenSet = tokenStatus ?? false;
@@ -199,15 +203,18 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
     if (!freshToken) return;
     try {
       await navigator.clipboard.writeText(freshToken);
-      setSuccess('Token copied to clipboard');
-      setTimeout(() => setSuccess(null), 3000);
+      setCopyFeedback({ status: 'success', message: 'Token copied to clipboard' });
     } catch {
-      setError('Could not copy to clipboard. Please select and copy the token manually.');
+      setCopyFeedback({
+        status: 'error',
+        message: 'Could not copy to clipboard. Please select and copy the token manually.',
+      });
     }
   }
 
   function handleDismissFreshToken() {
     setFreshToken(null);
+    setCopyFeedback(null);
   }
 
   async function handleTogglePublic() {
@@ -618,6 +625,17 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                 {freshToken}
               </code>
             </div>
+
+            {copyFeedback && (
+              <div style={{ marginBottom: '1rem' }}>
+                <Notice
+                  status={copyFeedback.status}
+                  isDismissible={false}
+                >
+                  {copyFeedback.message}
+                </Notice>
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
               <Button variant="secondary" onClick={() => void handleCopyFreshToken()}>
