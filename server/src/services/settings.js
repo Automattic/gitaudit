@@ -3,7 +3,7 @@ import { settingsQueries } from '../db/queries.js';
 /**
  * Sentinel value to indicate API key is set without exposing the actual value
  */
-export const API_KEY_SENTINEL = '***SET***';
+export const API_KEY_SENTINEL = '********';
 
 /**
  * Masks the LLM API key in settings for safe transmission to client
