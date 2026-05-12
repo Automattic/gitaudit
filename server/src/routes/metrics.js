@@ -114,8 +114,11 @@ router.get('/info', optionalAuth, requireRepositoryAccessOrPublic, async (req, r
   }
 });
 
-// GET /api/repos/:owner/:repo/metrics/token - Get metrics token (admin only)
-// NOTE: This route must be defined BEFORE /:id to avoid matching "token" as an id
+// GET /api/repos/:owner/:repo/metrics/token - Get metrics token status (admin only)
+// NOTE: This route must be defined BEFORE /:id to avoid matching "token" as an id.
+// Returns only whether a token exists. The plaintext token is never returned from
+// this endpoint - it can only be obtained from POST /metrics/token/regenerate as a
+// one-time view.
 router.get('/token', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 
@@ -125,13 +128,12 @@ router.get('/token', authenticateToken, requireRepositoryAdmin, async (req, res)
       return res.status(404).json({ error: 'Repository not found' });
     }
 
-    // Return actual token since this endpoint is admin-protected
     res.json({
-      token: repo.metrics_token || null,
+      tokenSet: Boolean(repo.metrics_token && repo.metrics_token.length > 0),
     });
   } catch (error) {
-    console.error('[API] Failed to get metrics token:', error);
-    res.status(500).json({ error: 'Failed to get metrics token' });
+    console.error('[API] Failed to get metrics token status:', error);
+    res.status(500).json({ error: 'Failed to get metrics token status' });
   }
 });
 
