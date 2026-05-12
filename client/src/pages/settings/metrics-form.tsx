@@ -23,6 +23,7 @@ import {
   useUpdateMetricsPublicStatusMutation,
 } from '@/data/queries/metrics';
 import { Metric } from '@/data/api/metrics/types';
+import { API_KEY_SENTINEL } from '@/data/api/settings/constants';
 import { getErrorMessage } from '@/utils/error-handling';
 import ConfirmationModal from '@/components/confirmation-modal';
 
@@ -454,7 +455,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                     flex: 1,
                   }}
                 >
-                  ***SET***
+                  {API_KEY_SENTINEL}
                 </div>
               ) : (
                 <span style={{ color: '#999' }}>Not generated</span>
