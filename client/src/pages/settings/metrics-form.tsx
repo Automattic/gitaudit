@@ -36,6 +36,7 @@ interface MetricFormState {
   unit: string;
   priority: number;
   defaultVisible: boolean;
+  minRegressionDelta: number;
 }
 
 const emptyMetricForm: MetricFormState = {
@@ -44,6 +45,7 @@ const emptyMetricForm: MetricFormState = {
   unit: '',
   priority: 0,
   defaultVisible: true,
+  minRegressionDelta: 0,
 };
 
 function MetricsForm({ owner, repo }: MetricsFormProps) {
@@ -109,6 +111,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
       unit: metric.unit || '',
       priority: metric.priority,
       defaultVisible: metric.defaultVisible,
+      minRegressionDelta: metric.minRegressionDelta ?? 0,
     });
     setError(null);
   }
@@ -131,6 +134,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
           unit: formState.unit.trim() || undefined,
           priority: formState.priority,
           defaultVisible: formState.defaultVisible,
+          minRegressionDelta: formState.minRegressionDelta,
         });
         setSuccess('Metric created successfully');
       } else if (editingMetricId !== null) {
@@ -141,6 +145,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
             unit: formState.unit.trim() || undefined,
             priority: formState.priority,
             defaultVisible: formState.defaultVisible,
+            minRegressionDelta: formState.minRegressionDelta,
           },
         });
         setSuccess('Metric updated successfully');
@@ -308,6 +313,15 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                   onChange={(value) => setFormState(prev => ({ ...prev, priority: parseInt(value || '0', 10) }))}
                   min={0}
                   max={1000}
+                />
+
+                <NumberControl
+                  label="Regression noise floor"
+                  help="Ignore changes smaller than this (in the metric's unit) when flagging regressions and improvements. Use for low-baseline metrics where a percent change alone sits inside normal run-to-run noise. 0 disables the floor."
+                  value={formState.minRegressionDelta}
+                  onChange={(value) => setFormState(prev => ({ ...prev, minRegressionDelta: parseFloat(value || '0') || 0 }))}
+                  min={0}
+                  step="any"
                 />
 
                 <CheckboxControl

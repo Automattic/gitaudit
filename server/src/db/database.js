@@ -177,6 +177,9 @@ export function initializeDatabase() {
   // Add metrics_public column for public dashboard toggle
   migrateMetricsPublicColumn();
 
+  // Add min_regression_delta column to metrics for per-metric regression noise floors
+  migrateMetricsMinRegressionDelta();
+
   // Add role and last_synced columns to user_repositories for multi-user access
   migrateUserRepositoriesRoleColumns();
   migrateUsersTokenRefreshColumns();
@@ -1271,6 +1274,7 @@ function createMetricsTable() {
       unit TEXT,
       priority INTEGER DEFAULT 0,
       default_visible BOOLEAN DEFAULT 1,
+      min_regression_delta REAL NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE,
       UNIQUE(repo_id, key)
@@ -1359,6 +1363,17 @@ function migrateMetricsPublicColumn() {
   if (!columnNames.includes('metrics_public')) {
     db.exec('ALTER TABLE repositories ADD COLUMN metrics_public BOOLEAN DEFAULT 0');
     console.log('Added metrics_public column to repositories table');
+  }
+}
+
+// Add min_regression_delta column to metrics for per-metric regression noise floors
+function migrateMetricsMinRegressionDelta() {
+  const columns = db.prepare('PRAGMA table_info(metrics)').all();
+  const columnNames = columns.map(col => col.name);
+
+  if (!columnNames.includes('min_regression_delta')) {
+    db.exec('ALTER TABLE metrics ADD COLUMN min_regression_delta REAL NOT NULL DEFAULT 0');
+    console.log('Added min_regression_delta column to metrics table');
   }
 }
 

@@ -846,8 +846,8 @@ export const metricsQueries = {
 
   get insert() {
     return db.prepare(`
-      INSERT INTO metrics (repo_id, key, name, unit, priority, default_visible)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO metrics (repo_id, key, name, unit, priority, default_visible, min_regression_delta)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
   },
@@ -855,7 +855,7 @@ export const metricsQueries = {
   get update() {
     return db.prepare(`
       UPDATE metrics
-      SET name = ?, unit = ?, priority = ?, default_visible = ?
+      SET name = ?, unit = ?, priority = ?, default_visible = ?, min_regression_delta = ?
       WHERE id = ?
       RETURNING *
     `);

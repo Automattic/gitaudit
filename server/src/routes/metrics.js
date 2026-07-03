@@ -36,6 +36,7 @@ router.get('/', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) 
       unit: m.unit,
       priority: m.priority,
       defaultVisible: Boolean(m.default_visible),
+      minRegressionDelta: m.min_regression_delta,
       createdAt: m.created_at,
     }));
 
@@ -49,7 +50,7 @@ router.get('/', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) 
 // POST /api/repos/:owner/:repo/metrics - Create a new metric
 router.post('/', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName } = req.params;
-  const { key, name, unit, priority = 0, defaultVisible = true } = req.body;
+  const { key, name, unit, priority = 0, defaultVisible = true, minRegressionDelta = 0 } = req.body;
 
   try {
     const repo = getRepo(owner, repoName);
@@ -68,6 +69,10 @@ router.post('/', authenticateToken, requireRepositoryAdmin, async (req, res) => 
       return res.status(400).json({ error: 'Name is required' });
     }
 
+    if (typeof minRegressionDelta !== 'number' || !Number.isFinite(minRegressionDelta) || minRegressionDelta < 0) {
+      return res.status(400).json({ error: 'minRegressionDelta must be a non-negative number' });
+    }
+
     // Check for duplicate key
     const existing = metricsQueries.findByRepoIdAndKey.get(repo.id, key);
     if (existing) {
@@ -80,7 +85,8 @@ router.post('/', authenticateToken, requireRepositoryAdmin, async (req, res) => 
       name.trim(),
       unit || null,
       priority,
-      defaultVisible ? 1 : 0
+      defaultVisible ? 1 : 0,
+      minRegressionDelta
     );
 
     res.status(201).json({
@@ -91,6 +97,7 @@ router.post('/', authenticateToken, requireRepositoryAdmin, async (req, res) => 
       unit: metric.unit,
       priority: metric.priority,
       defaultVisible: Boolean(metric.default_visible),
+      minRegressionDelta: metric.min_regression_delta,
       createdAt: metric.created_at,
     });
   } catch (error) {
@@ -207,7 +214,7 @@ router.put('/public', authenticateToken, requireRepositoryAdmin, async (req, res
 // PUT /api/repos/:owner/:repo/metrics/:id - Update a metric
 router.put('/:id', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName, id } = req.params;
-  const { name, unit, priority, defaultVisible } = req.body;
+  const { name, unit, priority, defaultVisible, minRegressionDelta } = req.body;
 
   try {
     const repo = getRepo(owner, repoName);
@@ -224,11 +231,16 @@ router.put('/:id', authenticateToken, requireRepositoryAdmin, async (req, res) =
       return res.status(400).json({ error: 'Name cannot be empty' });
     }
 
+    if (minRegressionDelta !== undefined && (typeof minRegressionDelta !== 'number' || !Number.isFinite(minRegressionDelta) || minRegressionDelta < 0)) {
+      return res.status(400).json({ error: 'minRegressionDelta must be a non-negative number' });
+    }
+
     const metric = metricsQueries.update.get(
       name !== undefined ? name.trim() : existing.name,
       unit !== undefined ? (unit || null) : existing.unit,
       priority !== undefined ? priority : existing.priority,
       defaultVisible !== undefined ? (defaultVisible ? 1 : 0) : existing.default_visible,
+      minRegressionDelta !== undefined ? minRegressionDelta : existing.min_regression_delta,
       id
     );
 
@@ -240,6 +252,7 @@ router.put('/:id', authenticateToken, requireRepositoryAdmin, async (req, res) =
       unit: metric.unit,
       priority: metric.priority,
       defaultVisible: Boolean(metric.default_visible),
+      minRegressionDelta: metric.min_regression_delta,
       createdAt: metric.created_at,
     });
   } catch (error) {

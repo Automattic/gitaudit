@@ -194,7 +194,8 @@ function migrateMetrics( repoId, sourceMetrics, dryRun ) {
 					sourceMetric.name,
 					null, // unit (not in CodeVitals schema)
 					sourceMetric.priority || 0,
-					sourceMetric.default_visible ? 1 : 0
+					sourceMetric.default_visible ? 1 : 0,
+					0 // min_regression_delta (not in CodeVitals schema)
 				);
 				idMapping.set( sourceMetric.id, newMetric.id );
 				stats.created++;
