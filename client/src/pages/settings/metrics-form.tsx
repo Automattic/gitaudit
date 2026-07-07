@@ -317,7 +317,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
 
                 <NumberControl
                   label="Regression noise floor"
-                  help="Ignore changes smaller than this (in the units shown on the chart) when flagging regressions and improvements. 0 disables the floor."
+                  help="Ignore changes smaller than this when flagging regressions and improvements. Compared against raw submitted values, not the auto-scaled numbers shown on the chart. 0 disables the floor."
                   value={formState.minRegressionDelta}
                   onChange={(value) => setFormState(prev => ({ ...prev, minRegressionDelta: parseFloat(value || '0') || 0 }))}
                   min={0}
@@ -356,6 +356,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                   <th style={{ padding: '0.75rem 0.5rem' }}>Name</th>
                   <th style={{ padding: '0.75rem 0.5rem' }}>Unit</th>
                   <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Priority</th>
+                  <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Noise floor</th>
                   <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Visible</th>
                   <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -371,6 +372,9 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                     <td style={{ padding: '0.75rem 0.5rem' }}>{metric.name}</td>
                     <td style={{ padding: '0.75rem 0.5rem', color: '#666' }}>{metric.unit || '—'}</td>
                     <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>{metric.priority}</td>
+                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: '#666' }}>
+                      {metric.minRegressionDelta || '—'}
+                    </td>
                     <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
                       {metric.defaultVisible ? 'Yes' : 'No'}
                     </td>

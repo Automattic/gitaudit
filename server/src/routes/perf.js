@@ -28,9 +28,10 @@ function getAccessibleMetric(metricId, repoId) {
  * deviations of run-to-run jitter). minDelta = 0 preserves the old behavior.
  *
  * @param {Array} perfs - Performance data points (oldest first)
- * @param {number} [minDelta=0] - Minimum absolute change to flag, in stored
- *   `value` units (baseline-normalized when the repo submits baseMetrics —
- *   the same units plotted on the chart), not `raw_value` units
+ * @param {number} [minDelta=0] - Minimum absolute change to flag, compared
+ *   against stored `value` deltas (baseline-normalized when the repo submits
+ *   baseMetrics). Not `raw_value` units, and not the chart's display units —
+ *   byte-scale (KB/MB/GB/TB) labels divide the stored value by 1024^n
  * @returns {Array} - Array with regression/improvement flags added
  */
 function detectRegressions(perfs, minDelta = 0) {

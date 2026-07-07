@@ -178,7 +178,7 @@ export function initializeDatabase() {
   migrateMetricsPublicColumn();
 
   // Add min_regression_delta column to metrics for per-metric regression noise floors
-  migrateMetricsMinRegressionDelta();
+  migrateMetricsMinRegressionDeltaColumn();
 
   // Add role and last_synced columns to user_repositories for multi-user access
   migrateUserRepositoriesRoleColumns();
@@ -1367,7 +1367,7 @@ function migrateMetricsPublicColumn() {
 }
 
 // Add min_regression_delta column to metrics for per-metric regression noise floors
-function migrateMetricsMinRegressionDelta() {
+function migrateMetricsMinRegressionDeltaColumn() {
   const columns = db.prepare('PRAGMA table_info(metrics)').all();
   const columnNames = columns.map(col => col.name);
 

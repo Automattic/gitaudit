@@ -301,13 +301,16 @@ async function migrate() {
 	console.log( `Mode: ${ dryRun ? 'DRY RUN (no changes)' : 'LIVE' }` );
 	console.log( '=' .repeat( 60 ) );
 
-	// Ensure the target schema (including pending column migrations) exists
-	// before any inserts reference it
-	initializeDatabase();
-
 	let mysqlConnection;
 
 	try {
+		// Ensure the target schema (including pending column migrations) exists
+		// before any inserts reference it. Skipped in dry-run: initializeDatabase()
+		// is not read-only (schema DDL, stuck-status cleanup).
+		if ( ! dryRun ) {
+			initializeDatabase();
+		}
+
 		// Connect to CodeVitals
 		console.log( '\n[1/5] Connecting to CodeVitals (PlanetScale)...' );
 		mysqlConnection = await connectToCodeVitals();
