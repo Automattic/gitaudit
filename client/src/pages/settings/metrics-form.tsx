@@ -317,7 +317,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
 
                 <NumberControl
                   label="Regression noise floor"
-                  help="Ignore changes smaller than this (in the metric's unit) when flagging regressions and improvements. Use for low-baseline metrics where a percent change alone sits inside normal run-to-run noise. 0 disables the floor."
+                  help="Ignore changes smaller than this (in the units shown on the chart) when flagging regressions and improvements. 0 disables the floor."
                   value={formState.minRegressionDelta}
                   onChange={(value) => setFormState(prev => ({ ...prev, minRegressionDelta: parseFloat(value || '0') || 0 }))}
                   min={0}

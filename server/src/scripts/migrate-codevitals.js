@@ -14,7 +14,7 @@
  */
 
 import mysql from 'mysql2/promise';
-import db from '../db/database.js';
+import db, { initializeDatabase } from '../db/database.js';
 import { repoQueries, metricsQueries, perfQueries } from '../db/queries.js';
 
 // CodeVitals PlanetScale connection string (required)
@@ -300,6 +300,10 @@ async function migrate() {
 	console.log( `Target: CodeVitals repo = ${ owner }/${ name }` );
 	console.log( `Mode: ${ dryRun ? 'DRY RUN (no changes)' : 'LIVE' }` );
 	console.log( '=' .repeat( 60 ) );
+
+	// Ensure the target schema (including pending column migrations) exists
+	// before any inserts reference it
+	initializeDatabase();
 
 	let mysqlConnection;
 
