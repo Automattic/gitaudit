@@ -6,6 +6,7 @@ export interface Metric {
   unit: string | null;
   priority: number;
   defaultVisible: boolean;
+  minRegressionDelta: number;
   createdAt: string;
 }
 
@@ -15,6 +16,7 @@ export interface CreateMetricInput {
   unit?: string;
   priority?: number;
   defaultVisible?: boolean;
+  minRegressionDelta?: number;
 }
 
 export interface UpdateMetricInput {
@@ -22,4 +24,5 @@ export interface UpdateMetricInput {
   unit?: string;
   priority?: number;
   defaultVisible?: boolean;
+  minRegressionDelta?: number;
 }

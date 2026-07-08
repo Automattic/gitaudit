@@ -8,22 +8,33 @@ const router = express.Router({ mergeParams: true });
 // Regression detection threshold (10% increase = regression)
 const REGRESSION_THRESHOLD = 0.10;
 
-// Helper to check if a metric exists and belongs to the repo
-function isMetricAccessible(metricId, repoId) {
+// Helper to fetch a metric if it exists and belongs to the repo (null otherwise)
+function getAccessibleMetric(metricId, repoId) {
   const metric = metricsQueries.findById.get(metricId);
   if (!metric || metric.repo_id !== repoId) {
-    return false;
+    return null;
   }
-  return true;
+  return metric;
 }
 
 /**
  * Detect regressions and improvements in performance data.
  * Lower is always better: increase = regression, decrease = improvement.
+ *
+ * A point is only flagged when the change exceeds BOTH the relative threshold
+ * and the metric's absolute noise floor (minDelta). The floor exists for
+ * low-baseline metrics where a fixed percentage sits inside normal
+ * measurement noise (e.g. 10% of a 64ms TTFB is ~6ms — a couple of standard
+ * deviations of run-to-run jitter). minDelta = 0 preserves the old behavior.
+ *
  * @param {Array} perfs - Performance data points (oldest first)
+ * @param {number} [minDelta=0] - Minimum absolute change to flag, compared
+ *   against stored `value` deltas (baseline-normalized when the repo submits
+ *   baseMetrics). Not `raw_value` units, and not the chart's display units —
+ *   byte-scale (KB/MB/GB/TB) labels divide the stored value by 1024^n
  * @returns {Array} - Array with regression/improvement flags added
  */
-function detectRegressions(perfs) {
+function detectRegressions(perfs, minDelta = 0) {
   if (perfs.length < 2) return perfs;
 
   return perfs.map((point, index) => {
@@ -32,10 +43,12 @@ function detectRegressions(perfs) {
     }
 
     const prev = perfs[index - 1];
-    const change = prev.value !== 0 ? (point.value - prev.value) / prev.value : 0;
+    const delta = point.value - prev.value;
+    const change = prev.value !== 0 ? delta / prev.value : 0;
+    const exceedsFloor = Math.abs(delta) >= minDelta;
 
-    const isRegression = change > REGRESSION_THRESHOLD;
-    const isImprovement = change < -REGRESSION_THRESHOLD;
+    const isRegression = exceedsFloor && change > REGRESSION_THRESHOLD;
+    const isImprovement = exceedsFloor && change < -REGRESSION_THRESHOLD;
 
     return {
       ...point,
@@ -59,7 +72,8 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
   try {
     const repo = req.publicRepo;
 
-    if (!isMetricAccessible(metricId, repo.id)) {
+    const metric = getAccessibleMetric(metricId, repo.id);
+    if (!metric) {
       return res.status(404).json({ error: 'Metric not found' });
     }
 
@@ -90,7 +104,7 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
     }));
 
     // Detect regressions on full data BEFORE downsampling
-    const withRegressions = detectRegressions(transformed);
+    const withRegressions = detectRegressions(transformed, metric.min_regression_delta || 0);
 
     // Downsample only for "all" requests
     const isAllRequest = !limit || limit === 'all';
@@ -122,7 +136,7 @@ router.get('/average/:metricId', optionalAuth, requireRepositoryAccessOrPublic, 
   try {
     const repo = req.publicRepo;
 
-    if (!isMetricAccessible(metricId, repo.id)) {
+    if (!getAccessibleMetric(metricId, repo.id)) {
       return res.status(404).json({ error: 'Metric not found' });
     }
 

@@ -14,7 +14,7 @@
  */
 
 import mysql from 'mysql2/promise';
-import db from '../db/database.js';
+import db, { initializeDatabase } from '../db/database.js';
 import { repoQueries, metricsQueries, perfQueries } from '../db/queries.js';
 
 // CodeVitals PlanetScale connection string (required)
@@ -194,7 +194,8 @@ function migrateMetrics( repoId, sourceMetrics, dryRun ) {
 					sourceMetric.name,
 					null, // unit (not in CodeVitals schema)
 					sourceMetric.priority || 0,
-					sourceMetric.default_visible ? 1 : 0
+					sourceMetric.default_visible ? 1 : 0,
+					0 // min_regression_delta (not in CodeVitals schema)
 				);
 				idMapping.set( sourceMetric.id, newMetric.id );
 				stats.created++;
@@ -303,6 +304,13 @@ async function migrate() {
 	let mysqlConnection;
 
 	try {
+		// Ensure the target schema (including pending column migrations) exists
+		// before any inserts reference it. Skipped in dry-run: initializeDatabase()
+		// is not read-only (schema DDL, stuck-status cleanup).
+		if ( ! dryRun ) {
+			initializeDatabase();
+		}
+
 		// Connect to CodeVitals
 		console.log( '\n[1/5] Connecting to CodeVitals (PlanetScale)...' );
 		mysqlConnection = await connectToCodeVitals();

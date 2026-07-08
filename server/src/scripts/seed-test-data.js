@@ -456,7 +456,8 @@ function seedMetrics(repos, dryRun) {
 				metricDef.name,
 				metricDef.unit || null,
 				metricDef.priority,
-				metricDef.default_visible ? 1 : 0
+				metricDef.default_visible ? 1 : 0,
+				metricDef.min_regression_delta || 0
 			);
 			console.log(`  Created metric: ${metricDef.key} (id: ${metric.id})`);
 		}
