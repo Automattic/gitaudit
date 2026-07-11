@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Card,
   CardBody,
+  Modal,
   Button,
   Notice,
   Spinner,
@@ -22,6 +23,7 @@ import {
   useUpdateMetricsPublicStatusMutation,
 } from '@/data/queries/metrics';
 import { Metric } from '@/data/api/metrics/types';
+import { API_KEY_SENTINEL } from '@/data/api/settings/constants';
 import { getErrorMessage } from '@/utils/error-handling';
 import ConfirmationModal from '@/components/confirmation-modal';
 
@@ -83,8 +85,18 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // The actual token from the API (admin-only endpoint)
-  const token = tokenStatus || null;
+  // Plaintext token, held only in component state immediately after generate/regenerate.
+  // Cleared when the reveal modal is dismissed - never written to any cache.
+  const [freshToken, setFreshToken] = useState<string | null>(null);
+  // Whether the regenerate-confirmation modal is open.
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  // Feedback rendered inside the reveal modal after a copy attempt.
+  const [copyFeedback, setCopyFeedback] = useState<
+    { status: 'success' | 'error'; message: string } | null
+  >(null);
+
+  // Whether a token has been generated. The plaintext is never sent on read.
+  const tokenSet = tokenStatus ?? false;
 
   // Get the metric being deleted
   const metricToDelete = deleteMetricId !== null
@@ -172,24 +184,43 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
     }
   }
 
-  async function handleRegenerateToken() {
+  function handleRegenerateClick() {
     setError(null);
+    if (tokenSet) {
+      setShowRegenerateConfirm(true);
+    } else {
+      void performRegenerate();
+    }
+  }
+
+  async function performRegenerate() {
+    setError(null);
+    setShowRegenerateConfirm(false);
 
     try {
-      await regenerateTokenMutation.mutateAsync();
-      setSuccess('Token regenerated successfully');
-      setTimeout(() => setSuccess(null), 3000);
+      const newToken = await regenerateTokenMutation.mutateAsync();
+      setFreshToken(newToken);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to regenerate token'));
     }
   }
 
-  function handleCopyToken() {
-    if (token) {
-      navigator.clipboard.writeText(token);
-      setSuccess('Token copied to clipboard');
-      setTimeout(() => setSuccess(null), 3000);
+  async function handleCopyFreshToken() {
+    if (!freshToken) return;
+    try {
+      await navigator.clipboard.writeText(freshToken);
+      setCopyFeedback({ status: 'success', message: 'Token copied to clipboard' });
+    } catch {
+      setCopyFeedback({
+        status: 'error',
+        message: 'Could not copy to clipboard. Please select and copy the token manually.',
+      });
     }
+  }
+
+  function handleDismissFreshToken() {
+    setFreshToken(null);
+    setCopyFeedback(null);
   }
 
   async function handleTogglePublic() {
@@ -429,40 +460,43 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
               <strong style={{ flexShrink: 0 }}>Token:</strong>
-              {token ? (
-                <code style={{
-                  backgroundColor: '#f0f0f0',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '4px',
-                  fontFamily: 'monospace',
-                  fontSize: '0.75rem',
-                  wordBreak: 'break-all',
-                  flex: 1,
-                  minWidth: 0,
-                }}>
-                  {token}
-                </code>
+              {tokenSet ? (
+                <div
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: '#f0f0f0',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.875rem',
+                    color: '#666',
+                    flex: 1,
+                  }}
+                >
+                  {API_KEY_SENTINEL}
+                </div>
               ) : (
                 <span style={{ color: '#999' }}>Not generated</span>
               )}
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-              {token && (
-                <Button variant="secondary" onClick={handleCopyToken} size="small">
-                  Copy
-                </Button>
-              )}
               <Button
-                variant={token ? 'secondary' : 'primary'}
-                onClick={handleRegenerateToken}
+                variant={tokenSet ? 'secondary' : 'primary'}
+                onClick={handleRegenerateClick}
                 disabled={regenerateTokenMutation.isPending}
                 isBusy={regenerateTokenMutation.isPending}
                 size="small"
               >
-                {token ? 'Regenerate' : 'Generate Token'}
+                {tokenSet ? 'Regenerate' : 'Generate Token'}
               </Button>
             </div>
           </div>
+
+          {tokenSet && (
+            <p style={{ margin: '0 0 1rem 0', color: '#666', fontSize: '0.8125rem' }}>
+              Your token is securely stored. For security, it is shown only once at the moment it is generated. Click "Regenerate" to issue a new token.
+            </p>
+          )}
 
           <div style={{ marginTop: '1.5rem' }}>
             <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem' }}>Usage Example</h3>
@@ -558,6 +592,80 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
           onCancel={() => setDeleteMetricId(null)}
           isLoading={deleteMutation.isPending}
         />
+      )}
+
+      {/* Regenerate Confirmation Modal */}
+      {showRegenerateConfirm && (
+        <ConfirmationModal
+          title="Regenerate API Token"
+          message={
+            <p>
+              This will invalidate the current token. Any CI/CD scripts using the old token
+              will stop working until they are updated with the new token. Continue?
+            </p>
+          }
+          confirmLabel="Regenerate Token"
+          isDestructive
+          onConfirm={performRegenerate}
+          onCancel={() => setShowRegenerateConfirm(false)}
+          isLoading={regenerateTokenMutation.isPending}
+        />
+      )}
+
+      {/* One-Time Token Reveal Modal */}
+      {freshToken && (
+        <Modal
+          title="New API Token"
+          onRequestClose={handleDismissFreshToken}
+          isDismissible={false}
+          shouldCloseOnEsc={false}
+          shouldCloseOnClickOutside={false}
+        >
+          <div style={{ minWidth: '480px' }}>
+            <div style={{ marginBottom: '1rem' }}>
+              <Notice status="warning" isDismissible={false}>
+                <strong>Copy this token now.</strong> For security reasons, it will not be shown again. If you lose it, you will need to regenerate a new one.
+              </Notice>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <code
+                style={{
+                  display: 'block',
+                  backgroundColor: '#f0f0f0',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.875rem',
+                  wordBreak: 'break-all',
+                  border: '1px solid #ddd',
+                }}
+              >
+                {freshToken}
+              </code>
+            </div>
+
+            {copyFeedback && (
+              <div style={{ marginBottom: '1rem' }}>
+                <Notice
+                  status={copyFeedback.status}
+                  isDismissible={false}
+                >
+                  {copyFeedback.message}
+                </Notice>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <Button variant="secondary" onClick={() => void handleCopyFreshToken()}>
+                Copy
+              </Button>
+              <Button variant="primary" onClick={handleDismissFreshToken}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

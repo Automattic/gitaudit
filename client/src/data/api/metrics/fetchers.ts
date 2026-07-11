@@ -10,11 +10,13 @@ export const fetchMetrics = async (owner: string, repo: string): Promise<Metric[
 };
 
 /**
- * Fetch the metrics API token (masked)
+ * Fetch whether a metrics API token has been generated.
+ * Returns only a boolean - the plaintext token is never sent on read.
+ * The plaintext can only be obtained one time via regenerateMetricsToken.
  */
-export const fetchMetricsToken = async (owner: string, repo: string): Promise<string | null> => {
-  const response = await apiClient.get<{ token: string | null }>(`/api/repos/${owner}/${repo}/metrics/token`);
-  return response.token;
+export const fetchMetricsToken = async (owner: string, repo: string): Promise<boolean> => {
+  const response = await apiClient.get<{ tokenSet: boolean }>(`/api/repos/${owner}/${repo}/metrics/token`);
+  return response.tokenSet;
 };
 
 export interface MetricsPublicStatus {
