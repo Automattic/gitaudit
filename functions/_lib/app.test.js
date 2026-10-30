@@ -166,40 +166,108 @@ describe('GitHub repositories', () => {
     assert.equal((await call('GET', '/api/repos/search?q=si', { token })).status, 400);
   });
 
+  const onGitHub = (viewerPermission, fields = {}) => ({
+    data: { repository: { ...repository, viewerPermission, ...fields } },
+  });
+
+  const save = (token, body) => call('POST', '/api/repos/save', { token, body });
+  const savedRepos = async (token) => (await call('GET', '/api/repos', { token })).body.repos;
+
   it('saves a repository with the role GitHub reports', async () => {
     const token = await session(100, 'ada');
-    githubResponses.push({ data: { repository: { viewerPermission: 'ADMIN' } } });
+    githubResponses.push(onGitHub('ADMIN'));
 
-    const { body } = await call('POST', '/api/repos/save', {
-      token,
-      body: {
-        owner: 'org',
-        name: 'site',
-        githubId: 9,
-        description: 'A site',
-        stars: 3,
-        language: 'PHP',
-        languageColor: '#777',
-        updatedAt: '2026-10-01T00:00:00Z',
-        isPrivate: false,
-      },
-    });
+    const { body } = await save(token, { owner: 'org', name: 'site' });
 
     assert.equal(body.role, 'admin');
     assert.equal(body.repo.fullName, 'org/site');
+    assert.equal(body.repo.description, 'A site');
     assert.equal(body.repo.updatedAt, '2026-10-01T00:00:00.000Z');
-    assert.ok((await call('GET', '/api/repos', { token })).body.repos.some((r) => r.name === 'site'));
+    assert.ok((await savedRepos(token)).some((r) => r.name === 'site'));
   });
 
-  it('saves as a member when GitHub can not confirm admin', async () => {
-    githubResponses.push(new Response('', { status: 502 }));
+  it('stores what GitHub says, not what the request says', async () => {
+    const token = await session(100, 'ada');
+    githubResponses.push(onGitHub('READ', { isPrivate: true }));
 
-    const { body } = await call('POST', '/api/repos/save', {
-      token: await session(100, 'ada'),
-      body: { owner: 'org', name: 'other', githubId: 10 },
+    const { body } = await save(token, {
+      owner: 'ORG',
+      name: 'SITE',
+      githubId: 666,
+      description: 'Forged',
+      stars: 999999,
+      isPrivate: false,
+    });
+
+    assert.equal(body.repo.fullName, 'org/site');
+    assert.equal(body.repo.description, 'A site');
+    assert.equal(body.repo.stars, 3);
+    assert.equal(body.repo.isPrivate, true);
+    const [[row]] = await db.query("SELECT github_id FROM repositories WHERE name = 'site'");
+    assert.equal(Number(row.github_id), 9);
+  });
+
+  it('lets anyone who can see a repository save it, but not change it', async () => {
+    const before = { name: 'web', owner: { login: 'org' }, description: 'From GitHub' };
+    githubResponses.push(onGitHub('ADMIN', before));
+    await save(await session(100, 'ada'), { owner: 'org', name: 'web' });
+
+    githubResponses.push(onGitHub('READ', before));
+    const { body } = await save(await session(200, 'grace'), {
+      owner: 'org',
+      name: 'web',
+      description: 'Forged',
     });
 
     assert.equal(body.role, 'member');
+    assert.equal(body.repo.description, 'From GitHub');
+  });
+
+  it('refuses a repository GitHub says the user can not see', async () => {
+    const token = await session(200, 'grace');
+    githubResponses.push({ data: { repository: null }, errors: [{ type: 'NOT_FOUND' }] });
+
+    const { status } = await save(token, { owner: 'org', name: 'web' });
+
+    assert.equal(status, 403);
+    assert.deepEqual(await savedRepos(token), []);
+  });
+
+  it('creates nothing for a repository the user can not see', async () => {
+    githubResponses.push({ data: { repository: null }, errors: [{ type: 'NOT_FOUND' }] });
+
+    await save(await session(200, 'grace'), { owner: 'org', name: 'made-up' });
+
+    const [rows] = await db.query("SELECT id FROM repositories WHERE name = 'made-up'");
+    assert.deepEqual(rows, []);
+  });
+
+  it('saves nothing when GitHub can not be reached', async () => {
+    const token = await session(200, 'grace');
+    githubResponses.push(new Response('', { status: 502 }));
+
+    const { status } = await save(token, { owner: 'org', name: 'web' });
+
+    assert.equal(status, 502);
+    assert.deepEqual(await savedRepos(token), []);
+  });
+
+  it('does not join a custom repository with the same name', async () => {
+    const token = await session(200, 'grace');
+    githubResponses.push(onGitHub('READ', { name: 'tools', owner: { login: 'ada' } }));
+
+    const { status } = await save(token, { owner: 'ada', name: 'tools' });
+
+    assert.equal(status, 409);
+    assert.deepEqual(await savedRepos(token), []);
+    const [[row]] = await db.query("SELECT description FROM repositories WHERE name = 'tools'");
+    assert.equal(row.description, null);
+  });
+
+  it('needs an owner and a name', async () => {
+    const { status } = await save(await session(100, 'ada'), { owner: 'org' });
+
+    assert.equal(status, 400);
   });
 });
 
@@ -377,11 +445,25 @@ describe('metrics token', () => {
   });
 
   it('stays out of the response when a repository is saved again', async () => {
-    githubResponses.push(new Response('', { status: 502 }));
+    githubResponses.push({
+      data: {
+        repository: {
+          databaseId: 1,
+          name: 'web',
+          owner: { login: 'org' },
+          description: null,
+          stargazerCount: 0,
+          primaryLanguage: null,
+          updatedAt: '2026-10-01T00:00:00Z',
+          isPrivate: false,
+          viewerPermission: 'READ',
+        },
+      },
+    });
 
     const { body } = await call('POST', '/api/repos/save', {
       token: await session(200, 'grace'),
-      body: { owner: 'org', name: 'web', githubId: 1 },
+      body: { owner: 'org', name: 'web' },
     });
 
     assert.equal(body.role, 'member');

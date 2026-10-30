@@ -73,13 +73,6 @@ function GitHubRepoTab({ onClose, onRepoAdded }: TabProps) {
       await saveRepoMutation.mutateAsync({
         owner: repo.owner.login,
         name: repo.name,
-        githubId: repo.databaseId,
-        description: repo.description,
-        stars: repo.stargazerCount,
-        language: repo.primaryLanguage?.name ?? null,
-        languageColor: repo.primaryLanguage?.color ?? null,
-        updatedAt: repo.updatedAt,
-        isPrivate: repo.isPrivate
       });
 
       // Notify parent and close modal
@@ -133,7 +126,11 @@ function GitHubRepoTab({ onClose, onRepoAdded }: TabProps) {
               key={repo.databaseId}
               repo={repo}
               onAdd={handleAddRepo}
-              isAdding={saveRepoMutation.isPending && saveRepoMutation.variables?.githubId === repo.databaseId}
+              isAdding={
+                saveRepoMutation.isPending &&
+                saveRepoMutation.variables?.owner === repo.owner.login &&
+                saveRepoMutation.variables?.name === repo.name
+              }
             />
           ))}
         </div>

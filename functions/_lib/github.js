@@ -149,24 +149,30 @@ export async function searchRepositories(accessToken, searchQuery) {
 }
 
 /**
- * The user's permission level on a repository ('ADMIN', 'MAINTAIN', 'WRITE', 'TRIAGE'
- * or 'READ'), or null if GitHub says they can't see it. A failed request throws, so
- * that a GitHub outage isn't mistaken for the user having lost access.
+ * A repository, with the user's permission level on it as viewerPermission ('ADMIN',
+ * 'MAINTAIN', 'WRITE', 'TRIAGE' or 'READ'), or null if GitHub says they can't see it. A
+ * failed request throws, so that a GitHub outage isn't mistaken for the user having lost
+ * access.
  */
-export async function fetchRepositoryPermission(accessToken, owner, repo) {
+export async function fetchRepository(accessToken, owner, repo) {
   const { data, errors } = await graphql(
     accessToken,
     `query($owner: String!, $repo: String!) {
-      repository(owner: $owner, name: $repo) { viewerPermission }
+      repository(owner: $owner, name: $repo) { ${REPOSITORY_FIELDS} viewerPermission }
     }`,
     { owner, repo }
   );
 
   if (data?.repository) {
-    return data.repository.viewerPermission;
+    return data.repository;
   }
   if (errors?.some((error) => error.type === 'NOT_FOUND')) {
     return null;
   }
   throw new Error(`GitHub API error: ${errors?.[0]?.message ?? 'empty response'}`);
+}
+
+export async function fetchRepositoryPermission(accessToken, owner, repo) {
+  const repository = await fetchRepository(accessToken, owner, repo);
+  return repository && repository.viewerPermission;
 }
