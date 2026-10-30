@@ -2,11 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { initializeDatabase } from './db/database.js';
-import { startJobRunner } from './services/job-queue.js';
 import authRoutes from './routes/auth.js';
 import reposRoutes from './routes/repos.js';
-import issuesRoutes from './routes/issues.js';
-import prRoutes from './routes/pull-requests.js';
 import metricsRoutes from './routes/metrics.js';
 import logRoutes from './routes/log.js';
 import perfRoutes from './routes/perf.js';
@@ -18,9 +15,6 @@ dotenv.config();
 
 // Initialize database
 initializeDatabase();
-
-// Start the job runner (after database is initialized)
-startJobRunner();
 
 // Create Express app
 const app = express();
@@ -58,8 +52,6 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/auth', authRoutes);
 app.use('/api/repos', reposRoutes);
-app.use('/api/repos/:owner/:repo/issues', issuesRoutes);
-app.use('/api/repos/:owner/:repo/prs', prRoutes);
 app.use('/api/repos/:owner/:repo/metrics', metricsRoutes);
 app.use('/api/repos/:owner/:repo/perf', perfRoutes);
 app.use('/api/repos/:owner/:repo/collaborators', collaboratorsRoutes);

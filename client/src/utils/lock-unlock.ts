@@ -10,6 +10,6 @@ const { unlock } = __dangerousOptInToUnstableAPIsOnlyForCoreModules(
   "@wordpress/components"
 );
 
-const { Tabs, Badge } = unlock(componentsPrivateApis);
+const { Tabs } = unlock(componentsPrivateApis);
 
-export { Tabs, Badge };
+export { Tabs };

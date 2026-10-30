@@ -106,13 +106,14 @@ router.post('/', authenticateToken, requireRepositoryAdmin, async (req, res) => 
   }
 });
 
-// GET /api/repos/:owner/:repo/metrics/info - Get repo info for commit links
+// GET /api/repos/:owner/:repo/metrics/info - Get repo info for commit links and settings
 // NOTE: This route must be defined BEFORE /:id to avoid matching "info" as an id
 router.get('/info', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
   try {
     const repo = req.publicRepo;
     res.json({
       url: repo.url || null,
+      description: repo.description || null,
       isGithub: Boolean(repo.is_github),
     });
   } catch (error) {

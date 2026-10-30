@@ -2,7 +2,7 @@
   "name": "codevitals",
   "version": "1.0.0",
   "private": true,
-  "description": "GitHub repository audit tool for issues and PRs",
+  "description": "Performance metrics tracking for code repositories",
   "workspaces": [
     "client",
     "server"
@@ -15,9 +15,8 @@
   },
   "keywords": [
     "github",
-    "audit",
-    "issues",
-    "analytics"
+    "performance",
+    "metrics"
   ],
   "author": "",
   "license": "MIT"

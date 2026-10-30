@@ -71,7 +71,7 @@ function AdvancedForm({ owner, repo }: AdvancedFormProps) {
               </h3>
               <p style={{ margin: 0, color: '#666', fontSize: '0.875rem' }}>
                 Delete this repository from CodeVitals and remove all associated data including
-                cached issues, pull requests, analysis results, and settings.
+                its metrics, recorded values, and metrics token.
               </p>
             </div>
 
@@ -111,9 +111,9 @@ function AdvancedForm({ owner, repo }: AdvancedFormProps) {
               </p>
               <p>This will permanently delete:</p>
               <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
-                <li>All cached issues and pull requests</li>
-                <li>All analysis results (sentiment, staleness, etc.)</li>
-                <li>All scoring data and settings for this repository</li>
+                <li>All metrics configured for this repository</li>
+                <li>All recorded values for those metrics</li>
+                <li>The metrics token, so CI can no longer report here</li>
               </ul>
               <p style={{ marginBottom: 0, fontWeight: 600 }}>
                 This action cannot be undone.

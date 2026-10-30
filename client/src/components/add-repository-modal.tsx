@@ -1,6 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState } from 'react';
 import { Modal, SearchControl, Button, Notice, Card, CardBody, TextControl, TextareaControl, TabPanel } from '@wordpress/components';
-import { DataForm } from '@wordpress/dataviews';
 import { useDebounce } from '@wordpress/compose';
 import { useQuery } from '@tanstack/react-query';
 import { repoBrowseQueryOptions, repoSearchQueryOptions, useSaveRepoMutation, useCreateLocalRepoMutation } from '@/data/queries/repos';
@@ -149,12 +148,6 @@ type CustomRepoFormData = {
   description: string;
 };
 
-interface FieldEditProps {
-  data: CustomRepoFormData;
-  field: { id: string; label: string };
-  onChange: (updates: Partial<CustomRepoFormData>) => void;
-}
-
 function CustomRepoTab({ onClose, onRepoAdded }: TabProps) {
   const [formData, setFormData] = useState<CustomRepoFormData>({
     name: '',
@@ -164,9 +157,9 @@ function CustomRepoTab({ onClose, onRepoAdded }: TabProps) {
 
   const createLocalRepoMutation = useCreateLocalRepoMutation();
 
-  const handleChange = useCallback((edits: Partial<CustomRepoFormData>) => {
+  const handleChange = (edits: Partial<CustomRepoFormData>) => {
     setFormData(prev => ({ ...prev, ...edits }));
-  }, []);
+  };
 
   async function handleSubmit() {
     if (!formData.name.trim() || !formData.url.trim()) {
@@ -189,54 +182,6 @@ function CustomRepoTab({ onClose, onRepoAdded }: TabProps) {
     }
   }
 
-  const fields = useMemo(() => [
-    {
-      id: 'name',
-      type: 'text' as const,
-      label: 'Name',
-      Edit: ({ data, field, onChange }: FieldEditProps) => (
-        <TextControl
-          label={field.label}
-          value={data.name}
-          onChange={(value) => onChange({ name: value })}
-          placeholder="my-repository"
-          help="Display name for this repository"
-        />
-      ),
-    },
-    {
-      id: 'url',
-      type: 'text' as const,
-      label: 'URL',
-      Edit: ({ data, field, onChange }: FieldEditProps) => (
-        <TextControl
-          label={field.label}
-          value={data.url}
-          onChange={(value) => onChange({ url: value })}
-          placeholder="https://github.com/org/repo"
-          help="Base URL for linking to commits (e.g., https://github.com/org/repo)"
-        />
-      ),
-    },
-    {
-      id: 'description',
-      type: 'text' as const,
-      label: 'Description (optional)',
-      Edit: ({ data, field, onChange }: FieldEditProps) => (
-        <TextareaControl
-          label={field.label}
-          value={data.description}
-          onChange={(value) => onChange({ description: value })}
-          placeholder="A short description of this repository..."
-        />
-      ),
-    },
-  ], []);
-
-  const form = useMemo(() => ({
-    fields: ['name', 'url', 'description'],
-  }), []);
-
   return (
     <div style={{ paddingTop: '1.5rem', maxWidth: '500px' }}>
       {createLocalRepoMutation.isError && (
@@ -247,12 +192,28 @@ function CustomRepoTab({ onClose, onRepoAdded }: TabProps) {
         </div>
       )}
 
-      <DataForm
-        data={formData}
-        fields={fields}
-        form={form}
-        onChange={handleChange}
-      />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <TextControl
+          label="Name"
+          value={formData.name}
+          onChange={(value) => handleChange({ name: value })}
+          placeholder="my-repository"
+          help="Display name for this repository"
+        />
+        <TextControl
+          label="URL"
+          value={formData.url}
+          onChange={(value) => handleChange({ url: value })}
+          placeholder="https://github.com/org/repo"
+          help="Base URL for linking to commits (e.g., https://github.com/org/repo)"
+        />
+        <TextareaControl
+          label="Description (optional)"
+          value={formData.description}
+          onChange={(value) => handleChange({ description: value })}
+          placeholder="A short description of this repository..."
+        />
+      </div>
 
       <div style={{ marginTop: '1.5rem' }}>
         <Button

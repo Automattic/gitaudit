@@ -63,8 +63,7 @@ function Login() {
           CodeVitals
         </h1>
         <p style={{ marginBottom: '2rem', color: '#666' }}>
-          Audit GitHub repository issues to identify important bugs,
-          stale issues, duplicates, and triage needs.
+          Track your repositories' performance metrics over time.
         </p>
 
         {error && (

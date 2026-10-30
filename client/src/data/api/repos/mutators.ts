@@ -9,20 +9,6 @@ export const saveRepo = async (data: SaveRepoRequest): Promise<Repository> => {
 };
 
 /**
- * Delete a repository from user's list
- */
-export const deleteRepo = async (repoId: number): Promise<void> => {
-  return apiClient.delete<void>(`/api/repos/${repoId}`);
-};
-
-/**
- * Fetch repository data (issues and PRs) from GitHub
- */
-export const fetchRepoData = async (owner: string, repo: string): Promise<void> => {
-  return apiClient.post<void>(`/api/repos/${owner}/${repo}/fetch`);
-};
-
-/**
  * Create a local (non-GitHub) repository
  */
 export const createLocalRepo = async (data: CreateLocalRepoRequest): Promise<{ repo: Repository }> => {
