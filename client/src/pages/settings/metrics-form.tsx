@@ -223,6 +223,8 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
   function handleDismissFreshToken() {
     setFreshToken(null);
     setCopyFeedback(null);
+    // The mutation keeps its result until its observer lets go of it.
+    regenerateTokenMutation.reset();
   }
 
   async function handleTogglePublic() {
