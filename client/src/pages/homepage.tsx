@@ -125,9 +125,6 @@ function MetricPreview({ metric }: { metric: PublicRepoMetric }) {
 function PublicRepoCard({ repo }: { repo: PublicRepo }) {
   const navigate = useNavigate();
 
-  // Show first 3 visible metrics
-  const displayMetrics = repo.metrics.filter((m) => m.defaultVisible).slice(0, 3);
-
   return (
     <Card
       onClick={() => navigate(`/public/${repo.owner}/${repo.name}/metrics`)}
@@ -161,9 +158,9 @@ function PublicRepoCard({ repo }: { repo: PublicRepo }) {
         </div>
 
         {/* Metrics with sparklines */}
-        {displayMetrics.length > 0 ? (
+        {repo.metrics.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {displayMetrics.map((metric) => (
+            {repo.metrics.map((metric) => (
               <MetricPreview key={metric.id} metric={metric} />
             ))}
           </div>

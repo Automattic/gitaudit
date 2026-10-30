@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
-import { perfAverageQueryOptions } from '@/data/queries/perf';
+import { perfSummaryQueryOptions } from '@/data/queries/perf';
 import type { Metric } from '@/data/api/metrics/types';
 import { formatValueWithUnit } from '@/lib/format';
 
@@ -27,7 +27,10 @@ export interface MetricSummaryProps {
  * This is the content only - wrap it in your own card/container with desired styling.
  */
 export function MetricSummary({ metric, owner, repo }: MetricSummaryProps) {
-  const { data, isLoading } = useQuery(perfAverageQueryOptions(owner, repo, metric.id));
+  const { data, isLoading } = useQuery({
+    ...perfSummaryQueryOptions(owner, repo),
+    select: (summaries) => summaries[metric.id],
+  });
 
   // Calculate change percentage
   let change: number | null = null;

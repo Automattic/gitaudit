@@ -243,31 +243,43 @@ export const perfQueries = {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
   },
-
-  get averageByMetricAndBranch() {
-    return db.prepare(`
-      SELECT AVG(value) as average
-      FROM (
-        SELECT value FROM perf
-        WHERE branch = ? AND metric_id = ?
-        ORDER BY measured_at DESC
-        LIMIT ?
-      )
-    `);
-  },
-
-  get averageByMetricAndBranchWithOffset() {
-    return db.prepare(`
-      SELECT AVG(value) as average
-      FROM (
-        SELECT value FROM perf
-        WHERE branch = ? AND metric_id = ?
-        ORDER BY measured_at DESC
-        LIMIT ? OFFSET ?
-      )
-    `);
-  },
 };
+
+/**
+ * Read the latest values of several metrics in one query, rather than a query
+ * per metric, which adds up to hundreds on hosts where each one is a network call.
+ * Every metric gets its own index lookup, so this stays fast however large perf is.
+ *
+ * @param {number[]} metricIds
+ * @param {string} branch
+ * @param {number} limit - Values to read per metric
+ * @returns {Map<number, number[]>} Each metric's values, newest first
+ */
+export function findLatestValuesByMetric(metricIds, branch, limit) {
+  const latest = new Map(metricIds.map((id) => [id, []]));
+  if (metricIds.length === 0) return latest;
+
+  const sql = metricIds
+    .map((id) => `
+      SELECT metric_id, value, measured_at FROM (
+        SELECT metric_id, value, measured_at FROM perf
+        WHERE metric_id = ${Number(id)} AND branch = ?
+        ORDER BY measured_at DESC
+        LIMIT ${Number(limit)}
+      ) AS latest_${Number(id)}
+    `)
+    .join(' UNION ALL ');
+
+  const rows = db.prepare(sql).all(...metricIds.map(() => branch));
+
+  // UNION ALL doesn't promise to keep each subquery's order
+  rows.sort((a, b) => (a.measured_at < b.measured_at ? 1 : a.measured_at > b.measured_at ? -1 : 0));
+  for (const row of rows) {
+    latest.get(row.metric_id).push(row.value);
+  }
+
+  return latest;
+}
 
 // Helper function to run multiple operations in a transaction
 export function transaction(fn) {
