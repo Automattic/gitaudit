@@ -1,62 +1,57 @@
 import express from 'express';
-import { repoQueries, metricsQueries, perfQueries } from '../db/queries.js';
+import { repoQueries, metricsQueries, findLatestValuesByMetric } from '../db/queries.js';
+import { recentAverages, RECENT_VALUES } from '../utils/averages.js';
 
 const router = express.Router();
 
+// Metrics shown on each repo's homepage card
+const CARD_METRICS = 3;
+const SPARKLINE_POINTS = 20;
+
 // GET /api/public-repos
-// Returns all repositories with public metrics enabled, including visible metrics and sparkline data
+// Returns all repositories with public metrics enabled, including the metrics on their
+// homepage card and sparkline data
 router.get('/', async (req, res) => {
   try {
     // Get all repos with metrics_public = 1
-    const repos = repoQueries.findAllPublicMetricsRepos.all();
+    const repos = repoQueries.findAllPublicMetricsRepos.all().map((repo) => ({
+      ...repo,
+      metrics: metricsQueries.findByRepoId
+        .all(repo.id)
+        .filter((metric) => metric.default_visible)
+        .slice(0, CARD_METRICS),
+    }));
 
-    // For each repo, get all metrics with sparkline data
-    const reposWithMetrics = repos.map((repo) => {
-      const metrics = metricsQueries.findByRepoId.all(repo.id);
+    const latest = findLatestValuesByMetric(
+      repos.flatMap((repo) => repo.metrics.map((metric) => metric.id)),
+      'trunk',
+      RECENT_VALUES
+    );
 
-      const metricsWithSparkline = metrics.map((metric) => {
-        // Get last 20 perf values for sparkline (branch = trunk)
-        const perfData = perfQueries.findByMetricIdAndBranch.all(metric.id, 'trunk', 20);
-        // Reverse to get oldest first for sparkline
-        const sparklineData = perfData.map((p) => p.value).reverse();
-
-        // Calculate averages for change percentage
-        const currentAvg = perfQueries.averageByMetricAndBranch.get('trunk', metric.id, 20);
-        const previousAvg = perfQueries.averageByMetricAndBranchWithOffset.get(
-          'trunk',
-          metric.id,
-          20,
-          20
-        );
-
-        let changePercent = null;
-        if (currentAvg?.average && previousAvg?.average) {
-          changePercent = (currentAvg.average - previousAvg.average) / previousAvg.average;
-        }
+    const reposWithMetrics = repos.map((repo) => ({
+      id: repo.id,
+      owner: repo.owner,
+      name: repo.name,
+      fullName: `${repo.owner}/${repo.name}`,
+      description: repo.description,
+      language: repo.language,
+      languageColor: repo.language_color,
+      metrics: repo.metrics.map((metric) => {
+        const values = latest.get(metric.id);
+        const { average, previous } = recentAverages(values);
 
         return {
           id: metric.id,
           key: metric.key,
           name: metric.name,
           unit: metric.unit,
-          defaultVisible: Boolean(metric.default_visible),
-          sparklineData,
-          currentAverage: currentAvg?.average || null,
-          changePercent,
+          // Oldest first for the sparkline
+          sparklineData: values.slice(0, SPARKLINE_POINTS).reverse(),
+          currentAverage: average,
+          changePercent: average && previous ? (average - previous) / previous : null,
         };
-      });
-
-      return {
-        id: repo.id,
-        owner: repo.owner,
-        name: repo.name,
-        fullName: `${repo.owner}/${repo.name}`,
-        description: repo.description,
-        language: repo.language,
-        languageColor: repo.language_color,
-        metrics: metricsWithSparkline,
-      };
-    });
+      }),
+    }));
 
     res.json(reposWithMetrics);
   } catch (error) {

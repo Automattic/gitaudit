@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import type { PerfEvolutionResponse, MetricAverage } from './types';
+import type { PerfEvolutionResponse, MetricSummaries } from './types';
 
 export const fetchMetricEvolution = async (
   owner: string,
@@ -18,14 +18,11 @@ export const fetchMetricEvolution = async (
   );
 };
 
-export const fetchMetricAverage = async (
+export const fetchMetricSummaries = async (
   owner: string,
   repo: string,
-  metricId: number,
   branch: string = 'trunk'
-): Promise<MetricAverage> => {
+): Promise<MetricSummaries> => {
   const params = new URLSearchParams({ branch });
-  return apiClient.get<MetricAverage>(
-    `/api/repos/${owner}/${repo}/perf/average/${metricId}?${params}`
-  );
+  return apiClient.get<MetricSummaries>(`/api/repos/${owner}/${repo}/perf/summary?${params}`);
 };

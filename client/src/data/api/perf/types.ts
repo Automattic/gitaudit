@@ -26,3 +26,5 @@ export interface MetricAverage {
   average: number | null;
   previous: number | null;
 }
+
+export type MetricSummaries = Record<number, MetricAverage>;

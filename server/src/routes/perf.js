@@ -1,6 +1,7 @@
 import express from 'express';
 import { optionalAuth, requireRepositoryAccessOrPublic } from '../middleware/auth.js';
-import { perfQueries, metricsQueries } from '../db/queries.js';
+import { perfQueries, metricsQueries, findLatestValuesByMetric } from '../db/queries.js';
+import { recentAverages, RECENT_VALUES } from '../utils/averages.js';
 import { lttbDownsample } from '../utils/lttb.js';
 
 const router = express.Router({ mergeParams: true });
@@ -127,41 +128,20 @@ router.get('/evolution/:metricId', optionalAuth, requireRepositoryAccessOrPublic
   }
 });
 
-// GET /api/repos/:owner/:repo/perf/average/:metricId
-// Returns rolling averages
-router.get('/average/:metricId', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
-  const { metricId } = req.params;
+// GET /api/repos/:owner/:repo/perf/summary
+// Returns rolling averages for every metric, keyed by metric id. A dashboard needs
+// them all at once, and hosts can reject that many simultaneous requests.
+router.get('/summary', optionalAuth, requireRepositoryAccessOrPublic, async (req, res) => {
   const { branch = 'trunk' } = req.query;
 
   try {
-    const repo = req.publicRepo;
+    const metrics = metricsQueries.findByRepoId.all(req.publicRepo.id);
+    const latest = findLatestValuesByMetric(metrics.map((m) => m.id), branch, RECENT_VALUES);
 
-    if (!getAccessibleMetric(metricId, repo.id)) {
-      return res.status(404).json({ error: 'Metric not found' });
-    }
-
-    // Average of last 20 values
-    const currentAvg = perfQueries.averageByMetricAndBranch.get(
-      branch,
-      metricId,
-      20
-    );
-
-    // Average of previous 20 values (offset by 20)
-    const previousAvg = perfQueries.averageByMetricAndBranchWithOffset.get(
-      branch,
-      metricId,
-      20,
-      20
-    );
-
-    res.json({
-      average: currentAvg?.average || null,
-      previous: previousAvg?.average || null,
-    });
+    res.json(Object.fromEntries(metrics.map((m) => [m.id, recentAverages(latest.get(m.id))])));
   } catch (error) {
-    console.error('[API] Failed to fetch metric average:', error);
-    res.status(500).json({ error: 'Failed to fetch metric average' });
+    console.error('[API] Failed to fetch metric summary:', error);
+    res.status(500).json({ error: 'Failed to fetch metric summary' });
   }
 });
 

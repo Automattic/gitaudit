@@ -34,8 +34,8 @@ export const queryKeys = {
     repo: (owner: string, repo: string) => [...queryKeys.perf.all(), owner, repo] as const,
     evolution: (owner: string, repo: string, metricId: number, limit: number, branch: string) =>
       [...queryKeys.perf.repo(owner, repo), 'evolution', metricId, limit, branch] as const,
-    average: (owner: string, repo: string, metricId: number, branch: string) =>
-      [...queryKeys.perf.repo(owner, repo), 'average', metricId, branch] as const,
+    summary: (owner: string, repo: string, branch: string) =>
+      [...queryKeys.perf.repo(owner, repo), 'summary', branch] as const,
   },
 
   // Public repos keys (for homepage)
