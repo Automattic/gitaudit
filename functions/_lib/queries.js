@@ -254,6 +254,20 @@ export const findPublicRepos = (db) =>
      ORDER BY name ASC`
   );
 
+/** When each public repository last reported, read from the end of each metric's index. */
+export const findPublicRepoLastRuns = (db, branch) =>
+  all(
+    db,
+    `SELECT m.repo_id, MAX(
+       (SELECT MAX(p.measured_at) FROM perf p WHERE p.metric_id = m.id AND p.branch = ?)
+     ) AS measured_at
+     FROM metrics m
+     JOIN repositories r ON r.id = m.repo_id
+     WHERE r.metrics_public = 1
+     GROUP BY m.repo_id`,
+    branch
+  );
+
 // Performance data
 
 export const findPerfByHash = (db, hash, repoId) =>
@@ -261,16 +275,17 @@ export const findPerfByHash = (db, hash, repoId) =>
 
 /**
  * Every run of the commits starting with a prefix, which is how people quote a commit.
- * The index on hash serves this, as a LIKE that only has a wildcard at the end.
+ * The index on hash serves this, as a LIKE that only has a wildcard at the end. It names
+ * its own escape character, because how a backslash behaves depends on the SQL mode.
  */
 export const findPerfByHashPrefix = (db, prefix, repoId, limit) =>
   all(
     db,
     `SELECT hash, branch, metric_id, value, measured_at FROM perf
-     WHERE hash LIKE ? AND repo_id = ?
+     WHERE hash LIKE ? ESCAPE '!' AND repo_id = ?
      ORDER BY measured_at DESC, id DESC
      LIMIT ${Number(limit)}`,
-    `${prefix.replace(/[\\%_]/g, '\\$&')}%`,
+    `${prefix.replace(/[!%_]/g, '!$&')}%`,
     repoId
   );
 

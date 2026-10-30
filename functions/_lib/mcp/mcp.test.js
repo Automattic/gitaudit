@@ -195,6 +195,25 @@ describe('protocol', () => {
     assert.equal((await post(initialize, { ...headers, origin: 'https://evil.example' })).status, 403);
   });
 
+  it('runs nothing from a batch, however it was sent', async () => {
+    const query = mock.method(db, 'prepare');
+    const call = (id) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'list_projects', arguments: {} } });
+
+    const legacy = await post([call(1), call(2)], { 'mcp-protocol-version': LEGACY });
+    const modernBatch = await post([call(1)], { 'mcp-protocol-version': MODERN, 'mcp-method': 'tools/call' });
+
+    assert.equal(legacy.status, 400);
+    assert.equal(modernBatch.status, 400);
+    assert.equal((await legacy.json()).error.code, -32600);
+    assert.equal(query.mock.callCount(), 0);
+  });
+
+  it('rejects a request that is not JSON', async () => {
+    const response = await post('{"jsonrpc"');
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error.code, -32700);
+  });
+
   it('rejects a request too large to be a tool call', async () => {
     const response = await post(JSON.stringify({ padding: 'x'.repeat(70_000) }));
     assert.equal(response.status, 413);
@@ -303,6 +322,20 @@ describe('list_projects', () => {
     assert.equal((await callTool('list_projects')).projects[0].lastMeasuredAt, null);
   });
 
+  it('goes by the most recent of all its metrics, hidden ones included', async () => {
+    const recently = Date.now() - HOUR;
+    await addMetric(11, 1, 'hidden', { visible: 0 });
+    await addRuns(10, 1, [[hash('old'), 100, Date.now() - 300 * DAY]]);
+    await addRuns(11, 1, [[hash('new'), 100, recently]]);
+
+    assert.equal((await callTool('list_projects')).projects[0].lastMeasuredAt, new Date(recently).toISOString());
+  });
+
+  it('does not report a date it knows is wrong', async () => {
+    await addRuns(10, 1, [[hash('seconds'), 100, 1_700_000_000]]);
+    assert.equal((await callTool('list_projects')).projects[0].lastMeasuredAt, null);
+  });
+
   it('keeps long text out of a model\'s context', async () => {
     await db.query('UPDATE repositories SET description = ? WHERE id = 1', ['x'.repeat(5000)]);
     assert.equal((await callTool('list_projects')).projects[0].description.length, 300);
@@ -349,7 +382,18 @@ describe('list_metrics', () => {
 
   it('asks for the owner when a short name is ambiguous', async () => {
     await addRepo(3, 'other', 'web');
-    assert.match((await callTool('list_metrics', { project: 'web' })).error, /no public project/);
+    assert.equal(
+      (await callTool('list_metrics', { project: 'web' })).error,
+      '"web" could be org/web or other/web. Use owner/name.'
+    );
+  });
+
+  it('does not report a date it knows is wrong', async () => {
+    await addRuns(10, 1, [[hash('seconds'), 100, 1_700_000_000]]);
+    const [metric] = (await callTool('list_metrics', { project: 'org/web' })).metrics;
+
+    assert.equal(metric.lastMeasuredAt, null);
+    assert.equal(metric.daysSinceLastMeasured, null);
   });
 });
 
@@ -383,6 +427,28 @@ describe('get_metric_history', () => {
     assert.equal(points.length, 10);
     assert.equal(points.reduce((sum, point) => sum + point.commits, 0), 100);
     assert.deepEqual({ min: points[0].min, max: points[0].max }, { min: 1, max: 10 });
+  });
+
+  it('keeps every commit when they do not divide evenly into groups', async () => {
+    await addRuns(10, 1, series(repeat(100, 15)));
+
+    const { points } = await callTool('get_metric_history', { project: 'org/web', metric: 'lcp', maxPoints: 11 });
+
+    assert.equal(points.length, 11);
+    assert.equal(points.reduce((sum, point) => sum + point.commits, 0), 15);
+  });
+
+  it('includes the whole of a day given as the end of a period', async () => {
+    await addRuns(10, 1, [[hash('noon'), 1, Date.UTC(2026, 9, 15, 12)]]);
+
+    const { points } = await callTool('get_metric_history', {
+      project: 'org/web',
+      metric: 'lcp',
+      since: '2026-10-15',
+      until: '2026-10-15',
+    });
+
+    assert.equal(points.length, 1);
   });
 
   it('keeps to the period asked for', async () => {
@@ -463,6 +529,33 @@ describe('find_changes', () => {
 
     assert.equal(changes.length, 1);
     assert.notEqual(changes[0].revertedAt, null);
+  });
+
+  it('reports a change from before the period that was undone during it', async () => {
+    const step = (value, count, firstHour) =>
+      Array.from({ length: count }, (_, index) => [
+        hash(`h${firstHour + index}`),
+        value,
+        Date.now() - (firstHour - index) * 10 * HOUR,
+      ]);
+
+    await addRuns(10, 1, [...step(100, 30, 300), ...step(150, 30, 270), ...step(100, 30, 30)]);
+
+    const [change] = (await callTool('find_changes', { project: 'org/web', days: 30 })).changes;
+
+    assert.equal(change.kind, 'regression');
+    assert.ok(Date.parse(change.measuredAt) < Date.now() - 30 * DAY);
+    assert.ok(Date.parse(change.revertedAt) > Date.now() - 30 * DAY);
+  });
+
+  it('only claims the history that every metric reaches', async () => {
+    await addMetric(11, 1, 'stale');
+    await addRuns(10, 1, [[hash('recent'), 100, Date.now() - HOUR]]);
+    await addRuns(11, 1, [[hash('old'), 100, Date.now() - 60 * DAY]]);
+
+    const { analyzedFrom } = await callTool('find_changes', { project: 'org/web' });
+
+    assert.ok(Date.parse(analyzedFrom) > Date.now() - 2 * HOUR);
   });
 
   it('only reports changes in the period asked for', async () => {
@@ -551,6 +644,31 @@ describe('compare_commits', () => {
         ['bundle', 1, 1, 0, true],
       ]
     );
+  });
+
+  it('counts its baseline in commits, for projects that run each one several times', async () => {
+    const commits = Array.from({ length: 20 }, (_, index) => 100 + index);
+    const runs = commits.flatMap((value, index) =>
+      repeat(value, 3).map((run) => [hash(`multi${index}`), run, Date.now() - (40 - index) * HOUR])
+    );
+    await addMetric(12, 1, 'multi');
+    await addRuns(12, 1, [...runs, [hash('head'), 200, Date.now() - HOUR]]);
+
+    const { metrics } = await callTool('compare_commits', { project: 'org/web', commit: hash('head') });
+
+    // The median of the last 15 of these, which would be 117 if it read 15 runs instead
+    assert.equal(metrics.find(({ key }) => key === 'multi').before, 112);
+  });
+
+  it('reads every metric of a commit that ran many times', async () => {
+    for (let id = 100; id < 140; id++) {
+      await addMetric(id, 1, `m${id}`);
+      await addRuns(id, 1, repeat([hash('busy'), 100, Date.now() - HOUR], 20));
+    }
+
+    const { metrics } = await callTool('compare_commits', { project: 'org/web', commit: hash('busy') });
+
+    assert.equal(metrics.length, 40);
   });
 
   it('compares two commits directly', async () => {

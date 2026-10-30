@@ -5,7 +5,7 @@ import {
   findMetrics,
   findPerfBetween,
   findPerfByHashPrefix,
-  findPublicRepoMetrics,
+  findPublicRepoLastRuns,
   findPublicRepos,
 } from '../queries.js';
 import { detectSteps, median } from '../steps.js';
@@ -19,7 +19,6 @@ const BRANCH = 'trunk';
 // 1970. The values are real but their dates aren't, so they can't answer "since when".
 const FIRST_VALID_TIMESTAMP = Date.UTC(2000, 0, 1);
 
-const CARD_METRICS = 3;
 const HISTORY_DAYS = 90;
 const DEFAULT_HISTORY_POINTS = 100;
 const MAX_HISTORY_POINTS = 300;
@@ -33,8 +32,14 @@ const MAX_RUNS_PER_METRIC = 1200;
 // The largest metric has about 23,000 runs
 const MAX_HISTORY_RUNS = 25_000;
 
-const MAX_RUNS_PER_COMMIT = 500;
+// Enough for 50 runs each of the 40 metrics of the largest project
+const MAX_RUNS_PER_COMMIT = 2000;
+
 const BASELINE_COMMITS = 15;
+
+// Runs to read for the baseline, as some projects run each commit more than once
+const BASELINE_RUNS = BASELINE_COMMITS * 5;
+
 const MIN_COMMIT_PREFIX = 7;
 const SHORT_HASH = 12;
 
@@ -62,7 +67,10 @@ function display(value, unit) {
 }
 
 const percent = (value) => Number(value.toFixed(1));
-const date = (timestamp) => new Date(Number(timestamp)).toISOString();
+
+/** A timestamp for a model to read, or null for one that's known to be wrong. */
+const date = (timestamp) =>
+  Number(timestamp) >= FIRST_VALID_TIMESTAMP ? new Date(Number(timestamp)).toISOString() : null;
 
 function parseDate(value, name) {
   const timestamp = Date.parse(value);
@@ -70,6 +78,12 @@ function parseDate(value, name) {
     throw new ToolError(`${name} must be a date like 2026-10-01, not "${value}".`);
   }
   return timestamp;
+}
+
+/** The end of a period. A day on its own includes that whole day. */
+function parseEndDate(value, name) {
+  const timestamp = parseDate(value, name);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.trim()) ? timestamp + DAY - 1 : timestamp;
 }
 
 const dashboardUrl = (origin, repo) => `${origin}/public/${repo.owner}/${repo.name}/metrics`;
@@ -97,7 +111,11 @@ async function findProject(db, name) {
   const exact = repos.filter((repo) => `${repo.owner}/${repo.name}`.toLowerCase() === wanted);
   const matches = exact.length ? exact : repos.filter((repo) => repo.name.toLowerCase() === wanted);
 
-  if (matches.length !== 1) {
+  if (matches.length > 1) {
+    const names = matches.map((repo) => `${repo.owner}/${repo.name}`).join(' or ');
+    throw new ToolError(`"${name}" could be ${names}. Use owner/name.`);
+  }
+  if (matches.length === 0) {
     throw new ToolError(`There's no public project called "${name}". Call list_projects to see them.`);
   }
   return matches[0];
@@ -154,9 +172,9 @@ function downsample(commits, maxPoints, unit) {
     }));
   }
 
-  const size = commits.length / maxPoints;
+  const boundary = (index) => Math.floor((index * commits.length) / maxPoints);
   return Array.from({ length: maxPoints }, (_, index) =>
-    summarizeCommits(commits.slice(Math.floor(index * size), Math.floor((index + 1) * size)), unit)
+    summarizeCommits(commits.slice(boundary(index), boundary(index + 1)), unit)
   );
 }
 
@@ -213,29 +231,17 @@ export function registerTools(server, { db, origin }) {
       annotations: READ_ONLY,
     },
     respondingToErrors(async () => {
-      const [repos, metrics] = await Promise.all([findPublicRepos(db), findPublicRepoMetrics(db)]);
-
-      const cards = new Map(repos.map((repo) => [repo.id, []]));
-      for (const metric of metrics) {
-        const card = cards.get(metric.repo_id);
-        if (card.length < CARD_METRICS) card.push(metric);
-      }
-
-      const latest = await findLatestPerfByMetric(db, [...cards.values()].flat().map(({ id }) => id), BRANCH, 1);
+      const [repos, lastRuns] = await Promise.all([findPublicRepos(db), findPublicRepoLastRuns(db, BRANCH)]);
+      const lastMeasuredAt = new Map(lastRuns.map((run) => [run.repo_id, run.measured_at]));
 
       return {
-        projects: repos.map((repo) => {
-          const lastRuns = cards.get(repo.id).flatMap(({ id }) => latest.get(id));
-          const lastMeasuredAt = Math.max(0, ...lastRuns.map((run) => Number(run.measured_at)));
-
-          return {
-            project: `${repo.owner}/${repo.name}`,
-            description: text(repo.description, MAX_DESCRIPTION_LENGTH),
-            language: repo.language,
-            lastMeasuredAt: lastMeasuredAt ? date(lastMeasuredAt) : null,
-            dashboardUrl: dashboardUrl(origin, repo),
-          };
-        }),
+        projects: repos.map((repo) => ({
+          project: `${repo.owner}/${repo.name}`,
+          description: text(repo.description, MAX_DESCRIPTION_LENGTH),
+          language: repo.language,
+          lastMeasuredAt: date(lastMeasuredAt.get(repo.id)),
+          dashboardUrl: dashboardUrl(origin, repo),
+        })),
       };
     })
   );
@@ -261,7 +267,7 @@ export function registerTools(server, { db, origin }) {
         metrics: metrics.map((metric) => {
           const runs = latest.get(metric.id);
           const { average, previous } = recentAverages(runs.map((run) => Number(run.value)));
-          const lastMeasuredAt = runs[0] ? Number(runs[0].measured_at) : null;
+          const lastMeasuredAt = date(runs[0]?.measured_at);
 
           return {
             ...formatMetric(metric),
@@ -269,8 +275,10 @@ export function registerTools(server, { db, origin }) {
             recentAverage: display(average, metric.unit),
             previousAverage: display(previous, metric.unit),
             changePercent: average && previous ? percent(((average - previous) / previous) * 100) : null,
-            lastMeasuredAt: lastMeasuredAt ? date(lastMeasuredAt) : null,
-            daysSinceLastMeasured: lastMeasuredAt ? Math.floor((Date.now() - lastMeasuredAt) / DAY) : null,
+            lastMeasuredAt,
+            daysSinceLastMeasured: lastMeasuredAt
+              ? Math.floor((Date.now() - Date.parse(lastMeasuredAt)) / DAY)
+              : null,
           };
         }),
       };
@@ -300,19 +308,15 @@ export function registerTools(server, { db, origin }) {
       annotations: READ_ONLY,
     },
     respondingToErrors(async (args) => {
-      const until = args.until ? parseDate(args.until, 'until') : Date.now();
-      const since = args.since ? parseDate(args.since, 'since') : until - HISTORY_DAYS * DAY;
+      const until = args.until ? parseEndDate(args.until, 'until') : Date.now();
+      const since = Math.max(
+        args.since ? parseDate(args.since, 'since') : until - HISTORY_DAYS * DAY,
+        FIRST_VALID_TIMESTAMP
+      );
 
       const repo = await findProject(db, args.project);
       const metric = await findProjectMetric(db, repo, args.metric);
-      const runs = await findPerfBetween(
-        db,
-        metric.id,
-        BRANCH,
-        Math.max(since, FIRST_VALID_TIMESTAMP),
-        until,
-        MAX_HISTORY_RUNS
-      );
+      const runs = await findPerfBetween(db, metric.id, BRANCH, since, until, MAX_HISTORY_RUNS);
       const commits = groupByCommit(runs);
 
       return {
@@ -367,7 +371,7 @@ export function registerTools(server, { db, origin }) {
 
       const changes = metrics.flatMap((metric) =>
         detectSteps(groupByCommit(latest.get(metric.id)), Number(metric.min_regression_delta) || 0)
-          .filter((step) => step.measuredAt >= since)
+          .filter((step) => step.measuredAt >= since || step.revertedAt >= since)
           .map((step) => ({
             kind: step.kind,
             metric: formatMetric(metric),
@@ -382,7 +386,8 @@ export function registerTools(server, { db, origin }) {
           }))
       );
 
-      const analyzedFrom = Math.min(
+      // The latest of each metric's earliest run, as that's how far back all of them reach
+      const analyzedFrom = Math.max(
         ...[...latest.values()].flatMap((runs) => (runs.length ? [Number(runs.at(-1).measured_at)] : []))
       );
 
@@ -391,7 +396,7 @@ export function registerTools(server, { db, origin }) {
         days,
         metricsChecked: metrics.length,
         // A busy project's history may not reach back as far as was asked
-        analyzedFrom: Number.isFinite(analyzedFrom) ? date(analyzedFrom) : null,
+        analyzedFrom: date(analyzedFrom),
         changes: changes.sort((a, b) => b.measuredAt.localeCompare(a.measuredAt)),
         dashboardUrl: dashboardUrl(origin, repo),
       };
@@ -425,14 +430,16 @@ export function registerTools(server, { db, origin }) {
       const baseValues = base && valuesByMetric(base.runs);
       const measured = metrics.filter((metric) => headValues.has(metric.id));
 
-      const earlier = await findLatestPerfByMetric(db, measured.map(({ id }) => id), BRANCH, BASELINE_COMMITS, {
+      const earlier = await findLatestPerfByMetric(db, measured.map(({ id }) => id), BRANCH, BASELINE_RUNS, {
         since: FIRST_VALID_TIMESTAMP,
         // A commit can be reported more than once, and shouldn't count as its own baseline
         before: Math.min(...head.runs.map((run) => Number(run.measured_at))),
       });
 
       const comparison = measured.map((metric) => {
-        const recent = groupByCommit(earlier.get(metric.id)).map((run) => run.value);
+        const recent = groupByCommit(earlier.get(metric.id))
+          .slice(-BASELINE_COMMITS)
+          .map((run) => run.value);
         const after = median(headValues.get(metric.id));
         const compared = baseValues ? baseValues.get(metric.id) : recent;
         const before = compared?.length ? median(compared) : null;

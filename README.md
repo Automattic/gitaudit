@@ -216,7 +216,7 @@ These aren't in Spacefast's docs, so they're worth knowing when changing queries
 - About 8 simultaneous requests get 429s, so a page shouldn't send a request per metric.
 - Each query is a network call of about 55 ms, so reads that belong together are joined into one query.
 - Route files must export named HTTP methods. A bundled `export default` isn't detected, and neither are exports followed by a comment, which is why the build strips license comments.
-- All routes run as one worker, so a dependency in one route adds to the startup of all of them. The MCP SDK takes the worker from 157 KB to 868 KB, which added about 30 ms to warm requests and up to 700 ms to the first one after a deploy.
+- All routes run as one worker, so a dependency in one route adds to the startup of all of them. The MCP SDK takes the worker from 157 KB to about 880 KB, which added about 30 ms to warm requests and up to 700 ms to the first one after a deploy.
 - `functions/` can't serve paths in dot directories like `.well-known`. `_redirects` can, and the build uses it to answer the paths assistants check for a sign-in server, which would otherwise get the app's page and a 200.
 - On a private space, a machine token's `/*` only covers one path level, and a 404 rule also needs the token to cover its destination.
 

@@ -39,6 +39,7 @@ function isChange(valuesBefore, valuesAfter, minDelta) {
   const before = median(valuesBefore);
   const after = median(valuesAfter);
 
+  // A change from zero has no percentage, so it isn't reported
   if (before === 0 || Math.abs(after - before) < minDelta) return false;
   if (Math.abs((after - before) / before) < MIN_CHANGE) return false;
 
