@@ -20,7 +20,7 @@ export const metricsQueryOptions = (owner: string, repo: string) =>
   });
 
 /**
- * Query options for fetching metrics token
+ * Query options for fetching whether a metrics token has been generated.
  */
 export const metricsTokenQueryOptions = (owner: string, repo: string) =>
   queryOptions({
@@ -82,6 +82,9 @@ export const useRegenerateMetricsTokenMutation = (owner: string, repo: string) =
 
   return useMutation({
     mutationFn: () => regenerateMetricsToken(owner, repo),
+    // Discard the resolved plaintext token from MutationCache as soon as the
+    // component stops referencing it, instead of the 5-minute default.
+    gcTime: 0,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.metrics.token(owner, repo) });
     },
