@@ -1,6 +1,7 @@
 import { ApiError } from './types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Empty on Spacefast, where the API is on the same origin as the client
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
 /**
  * API Error class for structured error handling

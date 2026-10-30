@@ -152,6 +152,55 @@ The test data includes:
 
 Anything that calls GitHub, such as the GitHub tab of Add Repository, won't work as the test user because its token is fake.
 
+## Spacefast
+
+The app is moving from Railway to [Spacefast](https://spacefast.com/). `functions/` holds the same API rewritten as Spacefast Functions, next to the Express server in `server/`, which keeps serving production until the move is done.
+
+### Running the Functions app locally
+
+`sf dev` can't run workers, so `scripts/dev-functions.mjs` runs the app on port 3001 against a local MariaDB, the engine Spacefast uses. `scripts/local-db.mjs` stands in for `env.DB` and enforces the platform's limits, so a query that would fail there fails here first.
+
+```bash
+npm run db:start                # Start MariaDB 11.8 in Docker
+npm run test:functions          # Run the tests
+npm run dev:functions           # Run the app on http://localhost:3000
+```
+
+To load test data, seed SQLite as usual, then import it while `dev:functions` is running:
+
+```bash
+npm run seed:reset --workspace=server
+MIGRATION_KEY=local-dev-migration-key node scripts/import-to-spacefast.mjs server/codevitals.db http://localhost:3001
+```
+
+### Deploying
+
+```bash
+npm run build:spacefast
+npx spacefast publish dist-spacefast --space <space>
+```
+
+A space needs these variables, set with `sf env set <name> --secret --value-from-stdin`:
+
+| Variable | |
+| --- | --- |
+| `SESSION_SECRET` | Signs sessions. Keeping the value from Railway keeps people signed in. |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | The GitHub App. Add `https://<host>/auth/github/callback` to its callback URLs. |
+| `MIGRATION_KEY` | Turns on the `/api/admin` routes for importing data. Unset it afterwards. |
+
+### Importing data
+
+`scripts/import-to-spacefast.mjs` copies a SQLite database into a space through those admin routes. Rows keep their ids, so it's safe to run again, and it compares row counts when it finishes. Use `--new-only` for the final sync before switching DNS. While a space is private, set `SPACE_TOKEN` to a machine token from `sf share token create`.
+
+### Platform limits
+
+These aren't in Spacefast's docs, so they're worth knowing when changing queries:
+
+- A statement can have 256 bound parameters at most, and a database operation can be 64 KB at most. Rows go in as one JSON parameter through `JSON_TABLE` for that reason.
+- About 8 simultaneous requests get 429s, so a page shouldn't send a request per metric.
+- Each query is a network call of about 55 ms, so reads that belong together are joined into one query.
+- Route files must export named HTTP methods. A bundled `export default` isn't detected.
+
 ## Acknowledgments
 
 - Built with [@wordpress/components](https://github.com/WordPress/gutenberg/tree/trunk/packages/components)

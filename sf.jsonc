@@ -1,0 +1,9 @@
+{
+  "name": "codevitals",
+  "runtime": {
+    "kind": "functions",
+    "compatibilityDate": "2026-07-01"
+  },
+  // Client-side routes like /repos/:owner/:repo all load the app's one page.
+  "fallback": { "path": "index.html", "status": 200 }
+}
