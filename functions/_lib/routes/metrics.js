@@ -97,12 +97,13 @@ export function metricRoutes(router) {
     })
   );
 
-  // Get metrics token (admin only)
+  // Get metrics token status (admin only). Returns only whether a token exists: the
+  // plaintext is only ever returned once, by /token/regenerate
   router.get(`${BASE}/token`, authenticate, requireRepositoryAdmin, ({ repo }) =>
-    json({ token: repo.metrics_token || null })
+    json({ tokenSet: Boolean(repo.metrics_token) })
   );
 
-  // Generate or regenerate token
+  // Generate or regenerate token. This is the one time the plaintext is returned
   router.post(`${BASE}/token/regenerate`, authenticate, requireRepositoryAdmin, async ({ db, repo }) => {
     const token = generateToken();
     await updateMetricsToken(db, repo.id, token);
