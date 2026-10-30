@@ -21,13 +21,6 @@ export interface ReposResponse {
 export interface SaveRepoRequest {
   owner: string;
   name: string;
-  githubId: number;
-  description: string | null;
-  stars: number;
-  language: string | null;
-  languageColor: string | null;
-  updatedAt: string;
-  isPrivate: boolean;
 }
 
 export interface CreateLocalRepoRequest {
