@@ -1,5 +1,5 @@
 import { HttpError, json, readJson } from '../http.js';
-import { SCHEMA } from '../schema.js';
+import { PERF_RESERVED_ID, RESERVE_IDS, SCHEMA } from '../schema.js';
 
 // Columns of each imported table, in dependency order. Rows arrive as arrays in this order.
 const TABLES = {
@@ -82,7 +82,7 @@ function requireMigrationKey({ env, request }) {
 
 export function adminRoutes(router) {
   router.post('/api/admin/schema', requireMigrationKey, async ({ db }) => {
-    for (const statement of SCHEMA) {
+    for (const statement of [...SCHEMA, ...RESERVE_IDS]) {
       await db.prepare(statement).run();
     }
     return json({ tables: Object.keys(TABLES) });
@@ -105,7 +105,11 @@ export function adminRoutes(router) {
         return [table, Number(row.count)];
       })
     );
-    const { maxId } = await db.prepare('SELECT MAX(id) AS maxId FROM perf').first();
+    // Only ids copied from Railway, which is what a sync resumes from
+    const { maxId } = await db
+      .prepare('SELECT MAX(id) AS maxId FROM perf WHERE id < ?')
+      .bind(PERF_RESERVED_ID)
+      .first();
     return json({ ...Object.fromEntries(counts), perfMaxId: Number(maxId ?? 0) });
   });
 }

@@ -261,13 +261,14 @@ export const findPerfByHash = (db, hash, repoId) =>
 
 const PERF_COLUMNS = 'id, repo_id, branch, hash, metric_id, value, raw_value, measured_at';
 
+// Runs of the same commit share a timestamp, so id keeps their order from being arbitrary
 export const findPerf = (db, metricId, branch, limit) =>
   limit
     ? all(
         db,
         `SELECT ${PERF_COLUMNS} FROM perf
          WHERE metric_id = ? AND branch = ?
-         ORDER BY measured_at DESC
+         ORDER BY measured_at DESC, id DESC
          LIMIT ?`,
         metricId,
         branch,
@@ -277,7 +278,7 @@ export const findPerf = (db, metricId, branch, limit) =>
         db,
         `SELECT ${PERF_COLUMNS} FROM perf
          WHERE metric_id = ? AND branch = ?
-         ORDER BY measured_at DESC`,
+         ORDER BY measured_at DESC, id DESC`,
         metricId,
         branch
       );
@@ -319,10 +320,10 @@ export async function findLatestValuesByMetric(db, metricIds, branch, limit) {
   const sql = metricIds
     .map(
       (id) => `
-      SELECT metric_id, value, measured_at FROM (
-        SELECT metric_id, value, measured_at FROM perf
+      SELECT id, metric_id, value, measured_at FROM (
+        SELECT id, metric_id, value, measured_at FROM perf
         WHERE metric_id = ${Number(id)} AND branch = ?
-        ORDER BY measured_at DESC
+        ORDER BY measured_at DESC, id DESC
         LIMIT ${Number(limit)}
       ) AS latest_${Number(id)}`
     )
@@ -331,7 +332,7 @@ export async function findLatestValuesByMetric(db, metricIds, branch, limit) {
   const rows = await all(db, sql, ...metricIds.map(() => branch));
 
   // UNION ALL doesn't promise to keep each subquery's order
-  rows.sort((a, b) => Number(b.measured_at) - Number(a.measured_at));
+  rows.sort((a, b) => Number(b.measured_at) - Number(a.measured_at) || Number(b.id) - Number(a.id));
   for (const row of rows) {
     latest.get(Number(row.metric_id)).push(Number(row.value));
   }
