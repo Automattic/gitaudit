@@ -349,6 +349,58 @@ describe('/api/log', () => {
   });
 });
 
+describe('metrics token', () => {
+  const TOKEN_PATH = '/api/repos/org/web/metrics/token';
+
+  it('says whether a token exists without returning it', async () => {
+    const token = await session(100, 'ada');
+
+    assert.deepEqual((await call('GET', TOKEN_PATH, { token })).body, { tokenSet: true });
+
+    await db.query('UPDATE repositories SET metrics_token = NULL WHERE id = 1');
+    assert.deepEqual((await call('GET', TOKEN_PATH, { token })).body, { tokenSet: false });
+  });
+
+  it('returns a new token once, and it replaces the old one', async () => {
+    const token = await session(100, 'ada');
+    const log = (metricsToken) =>
+      call('POST', `/api/log?token=${metricsToken}`, {
+        body: { branch: 'trunk', metrics: {}, hash: 'a', timestamp: '2026-10-30T12:00:00Z' },
+      });
+
+    const regenerated = await call('POST', `${TOKEN_PATH}/regenerate`, { token });
+
+    assert.match(regenerated.body.token, /^[0-9a-f]{64}$/);
+    assert.equal((await log(regenerated.body.token)).status, 200);
+    assert.equal((await log('web-token')).status, 401);
+    assert.deepEqual((await call('GET', TOKEN_PATH, { token })).body, { tokenSet: true });
+  });
+
+  it('is limited to repository admins', async () => {
+    const token = await session(200, 'grace');
+    await db.query('INSERT INTO user_repositories (user_id, repo_id, date_added, role, last_synced) VALUES (2, 1, ?, ?, ?)', [
+      Date.now(),
+      'member',
+      Date.now(),
+    ]);
+
+    assert.equal((await call('GET', TOKEN_PATH, { token })).status, 403);
+    assert.equal((await call('POST', `${TOKEN_PATH}/regenerate`, { token })).status, 403);
+  });
+
+  it('stays out of the response when a repository is saved again', async () => {
+    githubResponses.push(new Response('', { status: 502 }));
+
+    const { body } = await call('POST', '/api/repos/save', {
+      token: await session(200, 'grace'),
+      body: { owner: 'org', name: 'web', githubId: 1 },
+    });
+
+    assert.equal(body.role, 'member');
+    assert.ok(!JSON.stringify(body).includes('web-token'));
+  });
+});
+
 describe('admin routes', () => {
   it('do not exist without a migration key', async () => {
     assert.equal((await call('POST', '/api/admin/schema')).status, 404);
