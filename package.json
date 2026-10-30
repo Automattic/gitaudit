@@ -14,9 +14,9 @@
     "install:all": "npm install && npm install --workspaces",
     "db:start": "docker run -d --rm --name codevitals-db -p 127.0.0.1:3307:3306 -e MARIADB_ROOT_PASSWORD=codevitals -e MARIADB_DATABASE=codevitals mariadb:11.8",
     "db:stop": "docker stop codevitals-db",
-    "dev:functions": "node scripts/dev-functions.mjs & VITE_API_URL= npm run client",
+    "dev:functions": "node scripts/dev-functions.mjs & VITE_API_URL= VITE_MCP_ENABLED=true npm run client",
     "test:functions": "node --test 'functions/**/*.test.js'",
-    "build:spacefast": "VITE_API_URL= npm run build --workspace=client && node scripts/build-spacefast.mjs"
+    "build:spacefast": "VITE_API_URL= VITE_MCP_ENABLED=true npm run build --workspace=client && node scripts/build-spacefast.mjs"
   },
   "keywords": [
     "github",
