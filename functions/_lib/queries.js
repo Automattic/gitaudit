@@ -248,7 +248,7 @@ export const findPublicRepoMetrics = (db) =>
 export const findPublicRepos = (db) =>
   all(
     db,
-    `SELECT id, owner, name, description, language, language_color
+    `SELECT id, owner, name, description, language, language_color, url, is_github
      FROM repositories
      WHERE metrics_public = 1
      ORDER BY name ASC`
@@ -258,6 +258,35 @@ export const findPublicRepos = (db) =>
 
 export const findPerfByHash = (db, hash, repoId) =>
   all(db, 'SELECT metric_id, value FROM perf WHERE hash = ? AND repo_id = ?', hash, repoId);
+
+/**
+ * Every run of the commits starting with a prefix, which is how people quote a commit.
+ * The index on hash serves this, as a LIKE that only has a wildcard at the end.
+ */
+export const findPerfByHashPrefix = (db, prefix, repoId, limit) =>
+  all(
+    db,
+    `SELECT hash, branch, metric_id, value, measured_at FROM perf
+     WHERE hash LIKE ? AND repo_id = ?
+     ORDER BY measured_at DESC, id DESC
+     LIMIT ${Number(limit)}`,
+    `${prefix.replace(/[\\%_]/g, '\\$&')}%`,
+    repoId
+  );
+
+/** A metric's runs within a period, newest first. */
+export const findPerfBetween = (db, metricId, branch, since, until, limit) =>
+  all(
+    db,
+    `SELECT hash, value, measured_at FROM perf
+     WHERE metric_id = ? AND branch = ? AND measured_at >= ? AND measured_at <= ?
+     ORDER BY measured_at DESC, id DESC
+     LIMIT ${Number(limit)}`,
+    metricId,
+    branch,
+    since,
+    until
+  );
 
 const PERF_COLUMNS = 'id, repo_id, branch, hash, metric_id, value, raw_value, measured_at';
 
@@ -307,22 +336,24 @@ export const insertPerf = (db, rows) =>
   );
 
 /**
- * Read the latest values of several metrics in one query, rather than a query per
- * metric, which adds up to hundreds of network calls on the homepage. Every metric
- * gets its own index lookup, so this stays fast however large perf is.
+ * Read the latest runs of several metrics in one query, rather than a query per metric,
+ * which adds up to hundreds of network calls on the homepage. Every metric gets its own
+ * index lookup, so this stays fast however large perf is.
  *
- * @returns {Promise<Map<number, number[]>>} Each metric's values, newest first
+ * @param {object} [range] - Only runs measured from `since`, and before `before`
+ * @returns {Promise<Map<number, Array>>} Each metric's runs, newest first
  */
-export async function findLatestValuesByMetric(db, metricIds, branch, limit) {
+export async function findLatestPerfByMetric(db, metricIds, branch, limit, { since = 0, before } = {}) {
   const latest = new Map(metricIds.map((id) => [id, []]));
   if (metricIds.length === 0) return latest;
 
+  const end = before === undefined ? '' : `AND measured_at < ${Number(before)}`;
   const sql = metricIds
     .map(
       (id) => `
-      SELECT id, metric_id, value, measured_at FROM (
-        SELECT id, metric_id, value, measured_at FROM perf
-        WHERE metric_id = ${Number(id)} AND branch = ?
+      SELECT id, hash, metric_id, value, measured_at FROM (
+        SELECT id, hash, metric_id, value, measured_at FROM perf
+        WHERE metric_id = ${Number(id)} AND branch = ? AND measured_at >= ${Number(since)} ${end}
         ORDER BY measured_at DESC, id DESC
         LIMIT ${Number(limit)}
       ) AS latest_${Number(id)}`
@@ -334,8 +365,14 @@ export async function findLatestValuesByMetric(db, metricIds, branch, limit) {
   // UNION ALL doesn't promise to keep each subquery's order
   rows.sort((a, b) => Number(b.measured_at) - Number(a.measured_at) || Number(b.id) - Number(a.id));
   for (const row of rows) {
-    latest.get(Number(row.metric_id)).push(Number(row.value));
+    latest.get(Number(row.metric_id)).push(row);
   }
 
   return latest;
+}
+
+/** @returns {Promise<Map<number, number[]>>} Each metric's values, newest first */
+export async function findLatestValuesByMetric(db, metricIds, branch, limit) {
+  const latest = await findLatestPerfByMetric(db, metricIds, branch, limit);
+  return new Map([...latest].map(([id, rows]) => [id, rows.map((row) => Number(row.value))]));
 }
