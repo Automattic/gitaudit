@@ -86,7 +86,7 @@ router.post('/save', authenticateToken, async (req, res) => {
     const lastSynced = new Date().toISOString();
 
     // Use transaction to save repo and link to user atomically
-    const repo = transaction(() => {
+    const { metrics_token: _metricsToken, ...repo } = transaction(() => {
       // First, insert or update the repository
       const savedRepo = repoQueries.saveRepo.get(
         owner,
