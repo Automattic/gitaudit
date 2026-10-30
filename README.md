@@ -14,7 +14,7 @@ CodeVitals tracks performance metrics for code repositories. Your CI reports a s
 ## Tech Stack
 
 - **Frontend**: React, TypeScript, Vite, @wordpress/components, Chart.js
-- **Backend**: Node.js, Express, SQLite (better-sqlite3)
+- **Backend**: [Spacefast](https://spacefast.com/) Functions, MariaDB
 - **Authentication**: GitHub App (OAuth flow)
 
 ## Quick Start (with Test Data)
@@ -30,11 +30,12 @@ npm run dev
 
 Open http://localhost:3000 to see the public dashboard for `WordPress/gutenberg`.
 
-The setup script also prints a sign-in link for a test user, which opens the signed-in pages without any GitHub credentials. Print it again at any time with `npm run seed --workspace=server`.
+The setup script also prints a sign-in link for a test user, which opens the signed-in pages without any GitHub credentials. Print it again at any time with `npm run seed`.
 
 ## Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 22+ and npm
+- Docker, for the local database
 - A GitHub App, if you want to sign in with GitHub rather than as the test user
 
 ## Configure a GitHub App (Optional)
@@ -53,7 +54,7 @@ The setup script also prints a sign-in link for a test user, which opens the sig
    - Account → Email addresses: Read
 4. Click "Create GitHub App"
 5. Generate a client secret
-6. Copy the **Client ID** (starts with `Iv1.`) and **Client Secret** to `server/.env`:
+6. Copy the **Client ID** (starts with `Iv1.`) and **Client Secret** to `.env`:
 
 ```bash
 GITHUB_CLIENT_ID=Iv1.your_client_id_here
@@ -62,15 +63,19 @@ GITHUB_CLIENT_SECRET=your_client_secret_here
 
 ## Running the Application
 
-Start both client and server in development mode:
+`sf dev` can't run workers, so `scripts/dev-functions.mjs` runs the app on port 3001 against a local MariaDB, the engine Spacefast uses. `scripts/local-db.mjs` stands in for `env.DB` and enforces the platform's limits, so a query that would fail there fails here first.
 
 ```bash
-npm run dev
+npm run db:start                # Start MariaDB 11.8 in Docker
+npm run seed                    # Create the tables and add test data
+npm run dev                     # Run the app
+npm run test:functions          # Run the tests
+npm run db:stop                 # Stop MariaDB, which also clears its data
 ```
 
 The application will be available at:
 - **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
+- **API**: http://localhost:3001
 
 ## Usage
 
@@ -103,7 +108,7 @@ This endpoint is used by CI in several projects outside this repository, so its 
 
 ### Asking an AI Assistant
 
-`/mcp` is a [Model Context Protocol](https://modelcontextprotocol.io/) server, so assistants can answer questions about the projects with public dashboards. It's read-only and needs no sign-in, and the `/connect` page shows how to add it to an assistant. It runs on Spacefast only, so it isn't on the Railway deployment.
+`/mcp` is a [Model Context Protocol](https://modelcontextprotocol.io/) server, so assistants can answer questions about the projects with public dashboards. It's read-only and needs no sign-in, and the `/connect` page shows how to add it to an assistant.
 
 | Tool | |
 | --- | --- |
@@ -120,7 +125,6 @@ This endpoint is used by CI in several projects outside this repository, so its 
 ```
 codevitals/
 ├── client/              # React frontend (TypeScript + Vite)
-│   ├── server.js        # Production server: serves the build and proxies /api/log
 │   └── src/
 │       ├── components/  # Reusable UI components
 │       ├── data/        # API clients and React Query hooks
@@ -128,22 +132,12 @@ codevitals/
 │       ├── pages/       # Application pages
 │       └── utils/       # Utility functions
 ├── functions/           # The API, MCP server and step detection, as Spacefast Functions
-├── server/              # Node.js backend (Express + SQLite)
-│   └── src/
-│       ├── db/          # Database setup and queries
-│       ├── middleware/  # Express middleware
-│       ├── routes/      # API routes
-│       ├── services/    # GitHub API
-│       └── utils/       # Utility functions
+├── scripts/             # Local development, seeding and the Spacefast build
 ├── package.json         # Root workspace configuration
 └── README.md
 ```
 
 ## Development
-
-### Database
-
-The backend uses SQLite with better-sqlite3 for data storage. The database file is created automatically on first run at the path specified in `DATABASE_PATH`.
 
 ### Test Data
 
@@ -151,13 +145,10 @@ Seed the database with sample data for local development:
 
 ```bash
 # Add test data (preserves existing data)
-npm run seed --workspace=server
+npm run seed
 
 # Reset and re-seed (clears all data first)
-npm run seed:reset --workspace=server
-
-# Preview without modifying database
-npm run seed:reset --workspace=server -- --dry-run
+npm run seed:reset
 ```
 
 The test data includes:
@@ -170,26 +161,9 @@ Anything that calls GitHub, such as the GitHub tab of Add Repository, won't work
 
 ## Spacefast
 
-The app is moving from Railway to [Spacefast](https://spacefast.com/). `functions/` holds the same API rewritten as Spacefast Functions, next to the Express server in `server/`, which keeps serving production until the move is done.
-
-### Running the Functions app locally
-
-`sf dev` can't run workers, so `scripts/dev-functions.mjs` runs the app on port 3001 against a local MariaDB, the engine Spacefast uses. `scripts/local-db.mjs` stands in for `env.DB` and enforces the platform's limits, so a query that would fail there fails here first.
-
-```bash
-npm run db:start                # Start MariaDB 11.8 in Docker
-npm run test:functions          # Run the tests
-npm run dev:functions           # Run the app on http://localhost:3000
-```
-
-To load test data, seed SQLite as usual, then import it while `dev:functions` is running:
-
-```bash
-npm run seed:reset --workspace=server
-MIGRATION_KEY=local-dev-migration-key node scripts/import-to-spacefast.mjs server/codevitals.db http://localhost:3001
-```
-
 ### Deploying
+
+Pushing to `main` deploys production, so merging a pull request is a deploy. To publish to another space:
 
 ```bash
 npm run build:spacefast
@@ -200,13 +174,9 @@ A space needs these variables, set with `sf env set <name> --secret --value-from
 
 | Variable | |
 | --- | --- |
-| `SESSION_SECRET` | Signs sessions. Keeping the value from Railway keeps people signed in. |
+| `SESSION_SECRET` | Signs sessions. Changing it signs everyone out. |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | The GitHub App. Add `https://<host>/auth/github/callback` to its callback URLs. |
-| `MIGRATION_KEY` | Turns on the `/api/admin` routes for importing data. Unset it afterwards. |
-
-### Importing data
-
-`scripts/import-to-spacefast.mjs` copies a SQLite database into a space through those admin routes. Rows keep their ids, so it's safe to run again, and it compares row counts when it finishes. Use `--new-only` for the final sync before switching DNS, and once more afterwards for anything that reached Railway while DNS moved. Rows made on a space start at a reserved id, so they can't collide with Railway's. While a space is private, set `SPACE_TOKEN` to a machine token from `sf share token create`.
+| `MIGRATION_KEY` | Turns on `POST /api/admin/schema`, which creates the tables on a new space when sent with the key in an `x-migration-key` header. Unset it afterwards. |
 
 ### Platform limits
 

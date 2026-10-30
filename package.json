@@ -2,21 +2,21 @@
   "name": "codevitals",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Performance metrics tracking for code repositories",
   "workspaces": [
-    "client",
-    "server"
+    "client"
   ],
   "scripts": {
     "client": "npm run start --workspace=client",
-    "server": "npm run start --workspace=server",
-    "dev": "npm run server & npm run client",
-    "install:all": "npm install && npm install --workspaces",
+    "dev": "npm run dev:functions",
     "db:start": "docker run -d --rm --name codevitals-db -p 127.0.0.1:3307:3306 -e MARIADB_ROOT_PASSWORD=codevitals -e MARIADB_DATABASE=codevitals mariadb:11.8",
     "db:stop": "docker stop codevitals-db",
-    "dev:functions": "node scripts/dev-functions.mjs & VITE_API_URL= VITE_MCP_ENABLED=true npm run client",
+    "dev:functions": "node scripts/dev-functions.mjs & npm run client",
+    "seed": "node scripts/seed.mjs",
+    "seed:reset": "node scripts/seed.mjs --reset",
     "test:functions": "node --test 'functions/**/*.test.js'",
-    "build:spacefast": "VITE_API_URL= VITE_MCP_ENABLED=true npm run build --workspace=client && node scripts/build-spacefast.mjs"
+    "build:spacefast": "npm run build --workspace=client && node scripts/build-spacefast.mjs"
   },
   "keywords": [
     "github",
@@ -27,6 +27,7 @@
   "license": "MIT",
   "devDependencies": {
     "@modelcontextprotocol/server": "^2.4.0",
+    "dotenv": "^16.4.7",
     "esbuild": "^0.25.12",
     "mysql2": "^3.16.1",
     "zod": "^4.6.7"

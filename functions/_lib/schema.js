@@ -1,5 +1,5 @@
-// utf8mb4_bin keeps comparisons case-sensitive, as they were on SQLite: metric keys
-// like "LCP" and "lcp" are different metrics. Timestamps are milliseconds since the
+// utf8mb4_bin keeps comparisons case-sensitive: metric keys like "LCP" and "lcp" are
+// different metrics. Timestamps are milliseconds since the
 // epoch, which leaves nothing to a database time zone or a driver's date format.
 const OPTIONS = 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin';
 
@@ -61,8 +61,8 @@ export const SCHEMA = [
     CONSTRAINT fk_metrics_repo FOREIGN KEY (repo_id) REFERENCES repositories (id) ON DELETE CASCADE
   ) ${OPTIONS}`,
 
-  // Two indexes cover every query, where the SQLite table has six: charts and
-  // averages read by metric, and normalizing a CI post reads by commit.
+  // Two indexes cover every query: charts and averages read by metric, and normalizing
+  // a CI post reads by commit.
   `CREATE TABLE IF NOT EXISTS perf (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     repo_id INT NOT NULL,
@@ -76,17 +76,4 @@ export const SCHEMA = [
     INDEX idx_perf_hash_repo (hash, repo_id),
     CONSTRAINT fk_perf_metric FOREIGN KEY (metric_id) REFERENCES metrics (id) ON DELETE CASCADE
   ) ${OPTIONS}`,
-];
-
-// Rows made on the space start here, well above any id on Railway. While DNS moves,
-// both are taking writes, and a later sync keeps Railway's ids, so without this the two
-// would collide and the sync would silently skip Railway's rows.
-export const PERF_RESERVED_ID = 1_000_000_000;
-const RESERVED_ID = 1_000_000;
-
-export const RESERVE_IDS = [
-  `ALTER TABLE perf AUTO_INCREMENT = ${PERF_RESERVED_ID}`,
-  `ALTER TABLE metrics AUTO_INCREMENT = ${RESERVED_ID}`,
-  `ALTER TABLE repositories AUTO_INCREMENT = ${RESERVED_ID}`,
-  `ALTER TABLE users AUTO_INCREMENT = ${RESERVED_ID}`,
 ];
