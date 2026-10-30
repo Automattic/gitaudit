@@ -1,0 +1,32 @@
+name: Functions Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Functions
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        # The version Spacefast runs
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: codevitals
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run test:functions

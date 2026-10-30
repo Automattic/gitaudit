@@ -23,9 +23,11 @@ import {
   useUpdateMetricsPublicStatusMutation,
 } from '@/data/queries/metrics';
 import { Metric } from '@/data/api/metrics/types';
-import { API_KEY_SENTINEL } from '@/data/api/settings/constants';
 import { getErrorMessage } from '@/utils/error-handling';
 import ConfirmationModal from '@/components/confirmation-modal';
+
+// Shown in place of the token once one exists. The plaintext is never sent on read.
+const TOKEN_MASK = '********';
 
 interface MetricsFormProps {
   owner: string;
@@ -38,6 +40,7 @@ interface MetricFormState {
   unit: string;
   priority: number;
   defaultVisible: boolean;
+  minRegressionDelta: number;
 }
 
 const emptyMetricForm: MetricFormState = {
@@ -46,6 +49,7 @@ const emptyMetricForm: MetricFormState = {
   unit: '',
   priority: 0,
   defaultVisible: true,
+  minRegressionDelta: 0,
 };
 
 function MetricsForm({ owner, repo }: MetricsFormProps) {
@@ -121,6 +125,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
       unit: metric.unit || '',
       priority: metric.priority,
       defaultVisible: metric.defaultVisible,
+      minRegressionDelta: metric.minRegressionDelta ?? 0,
     });
     setError(null);
   }
@@ -143,6 +148,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
           unit: formState.unit.trim() || undefined,
           priority: formState.priority,
           defaultVisible: formState.defaultVisible,
+          minRegressionDelta: formState.minRegressionDelta,
         });
         setSuccess('Metric created successfully');
       } else if (editingMetricId !== null) {
@@ -153,6 +159,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
             unit: formState.unit.trim() || undefined,
             priority: formState.priority,
             defaultVisible: formState.defaultVisible,
+            minRegressionDelta: formState.minRegressionDelta,
           },
         });
         setSuccess('Metric updated successfully');
@@ -341,6 +348,15 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                   max={1000}
                 />
 
+                <NumberControl
+                  label="Regression noise floor"
+                  help="Ignore changes smaller than this when flagging regressions and improvements. Compared against stored metric values (baseline-normalized for repos that submit base metrics), not the auto-scaled numbers shown on the chart. 0 disables the floor."
+                  value={formState.minRegressionDelta}
+                  onChange={(value) => setFormState(prev => ({ ...prev, minRegressionDelta: parseFloat(value || '0') || 0 }))}
+                  min={0}
+                  step="any"
+                />
+
                 <CheckboxControl
                   label="Visible by default"
                   checked={formState.defaultVisible}
@@ -373,6 +389,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                   <th style={{ padding: '0.75rem 0.5rem' }}>Name</th>
                   <th style={{ padding: '0.75rem 0.5rem' }}>Unit</th>
                   <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Priority</th>
+                  <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Noise floor</th>
                   <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Visible</th>
                   <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -388,6 +405,9 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                     <td style={{ padding: '0.75rem 0.5rem' }}>{metric.name}</td>
                     <td style={{ padding: '0.75rem 0.5rem', color: '#666' }}>{metric.unit || '—'}</td>
                     <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>{metric.priority}</td>
+                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: '#666' }}>
+                      {metric.minRegressionDelta || '—'}
+                    </td>
                     <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
                       {metric.defaultVisible ? 'Yes' : 'No'}
                     </td>
@@ -455,7 +475,7 @@ function MetricsForm({ owner, repo }: MetricsFormProps) {
                     flex: 1,
                   }}
                 >
-                  {API_KEY_SENTINEL}
+                  {TOKEN_MASK}
                 </div>
               ) : (
                 <span style={{ color: '#999' }}>Not generated</span>

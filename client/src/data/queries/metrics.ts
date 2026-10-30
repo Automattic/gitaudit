@@ -53,6 +53,9 @@ export const useUpdateMetricMutation = (owner: string, repo: string) => {
       updateMetric(owner, repo, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.metrics.list(owner, repo) });
+      // Regression flags in cached perf data are derived from metric settings
+      // (minRegressionDelta), so they go stale when a metric changes
+      queryClient.invalidateQueries({ queryKey: queryKeys.perf.repo(owner, repo) });
     },
   });
 };

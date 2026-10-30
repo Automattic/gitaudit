@@ -30,7 +30,7 @@ function Login() {
 
   const handleLogin = () => {
     // Redirect to GitHub OAuth, passing the intended destination
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
     const state = from !== '/repos' ? encodeURIComponent(from) : '';
     const stateParam = state ? `?state=${state}` : '';
     window.location.href = `${apiUrl}/auth/github${stateParam}`;
@@ -63,8 +63,7 @@ function Login() {
           CodeVitals
         </h1>
         <p style={{ marginBottom: '2rem', color: '#666' }}>
-          Audit GitHub repository issues to identify important bugs,
-          stale issues, duplicates, and triage needs.
+          Track your repositories' performance metrics over time.
         </p>
 
         {error && (

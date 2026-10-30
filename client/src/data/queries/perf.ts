@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
-import { fetchMetricEvolution, fetchMetricAverage } from '../api/perf';
+import { fetchMetricEvolution, fetchMetricSummaries } from '../api/perf';
 import { queryKeys } from './query-keys';
 
 export const perfEvolutionQueryOptions = (
@@ -15,14 +15,12 @@ export const perfEvolutionQueryOptions = (
     enabled: !!metricId,
   });
 
-export const perfAverageQueryOptions = (
-  owner: string,
-  repo: string,
-  metricId: number,
-  branch: string = 'trunk'
-) =>
+/**
+ * Averages for every metric in the repo. Each metric card reads its own entry,
+ * so a dashboard makes one request however many cards it shows.
+ */
+export const perfSummaryQueryOptions = (owner: string, repo: string, branch: string = 'trunk') =>
   queryOptions({
-    queryKey: queryKeys.perf.average(owner, repo, metricId, branch),
-    queryFn: () => fetchMetricAverage(owner, repo, metricId, branch),
-    enabled: !!metricId,
+    queryKey: queryKeys.perf.summary(owner, repo, branch),
+    queryFn: () => fetchMetricSummaries(owner, repo, branch),
   });

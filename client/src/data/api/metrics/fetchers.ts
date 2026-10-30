@@ -25,11 +25,12 @@ export interface MetricsPublicStatus {
 
 export interface RepoInfo {
   url: string | null;
+  description: string | null;
   isGithub: boolean;
 }
 
 /**
- * Fetch repo info for commit links (works for public access)
+ * Fetch repo info for commit links and settings (works for public access)
  */
 export const fetchRepoInfo = async (owner: string, repo: string): Promise<RepoInfo> => {
   return apiClient.get<RepoInfo>(`/api/repos/${owner}/${repo}/metrics/info`);

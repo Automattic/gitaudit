@@ -16,7 +16,7 @@ interface PageProps {
 
 function Page({ title, description, actions, children }: PageProps) {
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '1.5rem 2rem', maxWidth: '1264px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{
         display: 'flex',

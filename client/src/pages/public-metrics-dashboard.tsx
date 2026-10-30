@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MetricsDashboardContent } from '@/components/metrics-dashboard-content';
-import PublicHeader from '@/components/public-header';
+import SiteHeader, { SITE_HEADER_HEIGHT } from '@/components/site-header';
 import { repoInfoQueryOptions } from '@/data/queries/metrics';
 
 /**
@@ -17,8 +17,8 @@ function PublicMetricsDashboard() {
     repoInfo?.url || (repoInfo?.isGithub ? `https://github.com/${owner}/${repo}` : undefined);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f0f0f1' }}>
-      <PublicHeader />
+    <div style={{ minHeight: '100vh', backgroundColor: '#f6f7f7' }}>
+      <SiteHeader />
 
       {/* Sub-header with repo info */}
       <div
@@ -26,7 +26,7 @@ function PublicMetricsDashboard() {
           backgroundColor: '#fff',
           borderBottom: '1px solid #e0e0e0',
           padding: '1rem 2rem',
-          marginTop: '53px', // Account for fixed header
+          marginTop: SITE_HEADER_HEIGHT,
         }}
       >
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>

@@ -1,9 +1,8 @@
 import express from 'express';
 import { authenticateToken, requireRepositoryAdmin, requireRepositoryAccess, getUserRoleWithRefresh } from '../middleware/auth.js';
 import { searchGitHubRepositories, fetchUserRepositories, checkRepositoryAdminPermission } from '../services/github.js';
-import { repoQueries, issueQueries, analysisQueries, prQueries, dashboardQueries, transaction } from '../db/queries.js';
+import { repoQueries, transaction } from '../db/queries.js';
 import { toSqliteDateTime } from '../utils/dates.js';
-import { getCurrentJobForRepo, queueJob } from '../services/job-queue.js';
 
 const router = express.Router();
 
@@ -66,137 +65,6 @@ router.get('/search', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error searching repositories:', error);
     res.status(500).json({ error: 'Failed to search repositories' });
-  }
-});
-
-// Unified fetch endpoint - schedules both issue and PR fetching
-router.post('/:owner/:repo/fetch', authenticateToken, async (req, res) => {
-  const { owner, repo: repoName } = req.params;
-
-  try {
-    // Check if repository is saved by this user
-    const savedRepo = repoQueries.checkIfSaved.get(req.user.id, owner, repoName);
-
-    if (!savedRepo) {
-      return res.status(403).json({
-        error: 'Repository not saved. Please add this repository to your list first.'
-      });
-    }
-
-    // Get repository record (must exist since it's saved)
-    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
-
-    if (!repo) {
-      return res.status(404).json({ error: 'Repository not found' });
-    }
-
-    // Non-GitHub repos don't have data to fetch from GitHub
-    if (!repo.is_github) {
-      return res.status(400).json({
-        error: 'Cannot fetch data for non-GitHub repositories'
-      });
-    }
-
-    // Queue both issue-fetch and pr-fetch jobs
-    queueJob({
-      type: 'issue-fetch',
-      repoId: repo.id,
-      userId: req.user.id,
-      args: {},
-      priority: 50,
-    });
-
-    queueJob({
-      type: 'pr-fetch',
-      repoId: repo.id,
-      userId: req.user.id,
-      args: {},
-      priority: 50,
-    });
-
-    res.json({
-      message: 'Data fetch queued (issues and PRs)',
-      repoId: repo.id,
-    });
-  } catch (error) {
-    console.error('Error queueing data fetch:', error);
-    res.status(500).json({ error: 'Failed to queue data fetch' });
-  }
-});
-
-// Get repository status (for polling background jobs)
-router.get('/:owner/:repo/status', authenticateToken, requireRepositoryAccess, async (req, res) => {
-  const { owner, repo: repoName } = req.params;
-
-  try {
-    const repo = repoQueries.findByOwnerAndName.get(owner, repoName);
-
-    if (!repo) {
-      return res.json({
-        hasCachedData: false,
-        hasCachedPRs: false,
-        status: 'not_started',
-        currentJob: null,
-        isGithub: true, // default to true for unknown repos
-        sentiment: { totalIssues: 0, analyzedIssues: 0, progress: 0 },
-        // Dashboard fields with defaults
-        openIssueCount: 0,
-        closedIssueCount: 0,
-        openPRCount: 0,
-        mergedPRCount: 0,
-        highPriorityCount: 0,
-        recentActivity: null,
-        stars: 0,
-        language: null,
-        languageColor: null,
-      });
-    }
-
-    const isGithub = Boolean(repo.is_github ?? true);
-    const issueCount = issueQueries.countByRepo.get(repo.id);
-    const prCount = prQueries.countByRepo.get(repo.id);
-    const analyzedIssues = analysisQueries.countByRepoAndType.get(repo.id, 'sentiment');
-    const currentJob = getCurrentJobForRepo(repo.id);
-
-    // Dashboard-specific counts
-    const openIssueCount = issueQueries.countOpenByRepo.get(repo.id);
-    const closedIssueCount = issueQueries.countClosedByRepo.get(repo.id);
-    const openPRCount = prQueries.countOpenByRepo.get(repo.id);
-    const mergedPRCount = prQueries.countMergedByRepo.get(repo.id);
-    const highPriorityCount = dashboardQueries.countHighPriorityIssues.get(repo.id);
-    const recentActivity = dashboardQueries.getMostRecentActivity.get(repo.id, repo.id);
-
-    res.json({
-      hasCachedData: issueCount.count > 0,
-      hasCachedPRs: prCount.count > 0,
-      status: repo.status,
-      lastFetched: repo.last_fetched,
-      lastPRFetched: repo.last_pr_fetched,
-      issueCount: issueCount.count,
-      prCount: prCount.count,
-      currentJob: currentJob,
-      isGithub,
-      url: repo.url || null,
-      description: repo.description || null,
-      sentiment: {
-        totalIssues: issueCount.count,
-        analyzedIssues: analyzedIssues.count,
-        progress: issueCount.count > 0 ? (analyzedIssues.count / issueCount.count) * 100 : 0
-      },
-      // Dashboard-specific fields
-      openIssueCount: openIssueCount.count,
-      closedIssueCount: closedIssueCount.count,
-      openPRCount: openPRCount.count,
-      mergedPRCount: mergedPRCount.count,
-      highPriorityCount: highPriorityCount.count,
-      recentActivity: recentActivity?.most_recent || null,
-      stars: repo.stars || 0,
-      language: repo.language || null,
-      languageColor: repo.language_color || null,
-    });
-  } catch (error) {
-    console.error('Error getting repository status:', error);
-    res.status(500).json({ error: 'Failed to get repository status' });
   }
 });
 
@@ -353,17 +221,6 @@ router.patch('/:owner/:repo', authenticateToken, requireRepositoryAdmin, async (
   }
 });
 
-// Remove a saved repository
-router.delete('/:id', authenticateToken, async (req, res) => {
-  try {
-    repoQueries.deleteByUserAndId.run(req.params.id, req.user.id);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting repository:', error);
-    res.status(500).json({ error: 'Failed to delete repository' });
-  }
-});
-
 // Check user's permission level for a repository
 // Returns the cached role from user_repositories table
 router.get('/:owner/:repo/permission', authenticateToken, requireRepositoryAccess, async (req, res) => {
@@ -406,7 +263,7 @@ router.get('/:owner/:repo/permission', authenticateToken, requireRepositoryAcces
 });
 
 // Full repository deletion (admin only)
-// Deletes the repository and all associated data (issues, PRs, settings, etc.)
+// Deletes the repository and all associated data (metrics, data points, collaborators)
 router.delete('/:owner/:repo/full', authenticateToken, requireRepositoryAdmin, async (req, res) => {
   const { owner, repo: repoName } = req.params;
 

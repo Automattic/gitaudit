@@ -1,10 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Card, CardBody, Notice, Spinner } from '@wordpress/components';
-import { useAuth } from '../context/auth-context';
-import PublicHeader from '../components/public-header';
+import { Card, CardBody, Notice, Spinner } from '@wordpress/components';
+import Page from '../components/page';
+import SiteHeader, { SITE_HEADER_HEIGHT } from '../components/site-header';
 import { publicReposQueryOptions } from '../data/queries/public-repos';
 import type { PublicRepo, PublicRepoMetric } from '../data/api/public-repos/types';
+import { formatValueWithUnit } from '../lib/format';
 
 /**
  * Mini sparkline component using SVG
@@ -81,7 +82,7 @@ function MetricPreview({ metric }: { metric: PublicRepoMetric }) {
             fontFamily: 'var(--font-mono)',
           }}
         >
-          {metric.currentAverage?.toFixed(1) ?? '-'}
+          {metric.currentAverage != null ? formatValueWithUnit(metric.currentAverage, metric.unit) : '-'}
           {metric.unit && (
             <span style={{ fontSize: '0.7rem', color: '#50575e' }}> {metric.unit}</span>
           )}
@@ -124,9 +125,6 @@ function MetricPreview({ metric }: { metric: PublicRepoMetric }) {
 function PublicRepoCard({ repo }: { repo: PublicRepo }) {
   const navigate = useNavigate();
 
-  // Show first 3 visible metrics
-  const displayMetrics = repo.metrics.filter((m) => m.defaultVisible).slice(0, 3);
-
   return (
     <Card
       onClick={() => navigate(`/public/${repo.owner}/${repo.name}/metrics`)}
@@ -160,9 +158,9 @@ function PublicRepoCard({ repo }: { repo: PublicRepo }) {
         </div>
 
         {/* Metrics with sparklines */}
-        {displayMetrics.length > 0 ? (
+        {repo.metrics.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {displayMetrics.map((metric) => (
+            {repo.metrics.map((metric) => (
               <MetricPreview key={metric.id} metric={metric} />
             ))}
           </div>
@@ -199,105 +197,13 @@ function PublicRepoCard({ repo }: { repo: PublicRepo }) {
 }
 
 /**
- * Hero section
+ * Grid of public dashboards
  */
-function HeroSection() {
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-
-  return (
-    <section
-      style={{
-        padding: '8rem 2rem 4rem',
-        textAlign: 'center',
-        backgroundColor: '#f6f7f7',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '800px',
-          margin: '0 auto',
-        }}
-      >
-      <h1
-        style={{
-          fontSize: '2.75rem',
-          fontWeight: 700,
-          fontFamily: 'var(--font-mono)',
-          color: 'var(--wp-admin-theme-color)',
-          marginBottom: '1.5rem',
-          letterSpacing: '-1px',
-        }}
-      >
-        CodeVitals
-      </h1>
-
-      <p
-        style={{
-          fontSize: '1.15rem',
-          color: '#50575e',
-          lineHeight: 1.6,
-          marginBottom: '2rem',
-        }}
-      >
-        The diagnostic tool for your repositories. Surface critical bugs, triage stale issues,
-        prioritize feature requests, monitor community health, and track performance metrics —
-        all scored and ranked so you know what needs attention.
-      </p>
-
-      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-        {isAuthenticated ? (
-          <Button variant="primary" onClick={() => navigate('/repos')}>
-            Go to Repos
-          </Button>
-        ) : (
-          <Button variant="primary" onClick={() => navigate('/login')}>
-            Sign in with GitHub
-          </Button>
-        )}
-        <Button
-          variant="secondary"
-          onClick={() => {
-            document.getElementById('public-dashboards')?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        >
-          Explore Public Dashboards
-        </Button>
-      </div>
-      </div>
-    </section>
-  );
-}
-
-/**
- * Public dashboards section
- */
-function PublicDashboardsSection() {
+function PublicDashboards() {
   const { data: repos, isLoading, error } = useQuery(publicReposQueryOptions());
 
   return (
-    <section
-      id="public-dashboards"
-      style={{
-        padding: '4rem 2rem',
-        maxWidth: '1200px',
-        margin: '0 auto',
-      }}
-    >
-      <h2
-        style={{
-          textAlign: 'center',
-          marginBottom: '0.75rem',
-          fontSize: '1.5rem',
-          fontWeight: 600,
-        }}
-      >
-        Public Performance Dashboards
-      </h2>
-      <p style={{ textAlign: 'center', color: '#50575e', marginBottom: '2.5rem' }}>
-        Explore performance metrics from open source projects
-      </p>
-
+    <>
       {isLoading && (
         <div style={{ textAlign: 'center', padding: '2rem' }}>
           <Spinner />
@@ -318,7 +224,7 @@ function PublicDashboardsSection() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))',
             gap: '1.25rem',
           }}
         >
@@ -327,7 +233,7 @@ function PublicDashboardsSection() {
           ))}
         </div>
       )}
-    </section>
+    </>
   );
 }
 
@@ -341,7 +247,6 @@ function FooterSection() {
         padding: '2rem',
         textAlign: 'center',
         borderTop: '1px solid #e0e0e0',
-        backgroundColor: '#f6f7f7',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
@@ -369,10 +274,24 @@ function FooterSection() {
  */
 function Homepage() {
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#fff' }}>
-      <PublicHeader />
-      <HeroSection />
-      <PublicDashboardsSection />
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#f6f7f7',
+        paddingTop: SITE_HEADER_HEIGHT,
+      }}
+    >
+      <SiteHeader />
+      <main style={{ flex: 1 }}>
+        <Page
+          title="Performance dashboards"
+          description="Open source projects tracking their performance, commit by commit."
+        >
+          <PublicDashboards />
+        </Page>
+      </main>
       <FooterSection />
     </div>
   );
