@@ -11,18 +11,12 @@
     "seed:reset": "node src/scripts/seed-test-data.js --reset"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.53",
-    "@ai-sdk/openai": "^2.0.76",
     "@octokit/graphql": "^8.1.1",
-    "ai": "^5.0.106",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.16.1",
-    "string-similarity": "^4.0.4",
-    "zod": "^4.1.13"
+    "jsonwebtoken": "^9.0.2"
   },
   "keywords": [],
   "author": "",

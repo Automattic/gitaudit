@@ -20,15 +20,13 @@ export interface MetricSummaryProps {
   metric: Metric;
   owner: string;
   repo: string;
-  /** Size variant for different contexts */
-  size?: 'default' | 'compact';
 }
 
 /**
  * Metric summary content showing name, average value, and change percentage.
  * This is the content only - wrap it in your own card/container with desired styling.
  */
-export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricSummaryProps) {
+export function MetricSummary({ metric, owner, repo }: MetricSummaryProps) {
   const { data, isLoading } = useQuery(perfAverageQueryOptions(owner, repo, metric.id));
 
   // Calculate change percentage
@@ -44,30 +42,12 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
     }
   }
 
-  // Size-based styling
-  const styles = {
-    default: {
-      valueFontSize: '1.5rem',
-      labelFontSize: '0.875rem',
-      unitFontSize: '0.75rem',
-      badgePadding: '0.25rem 0.5rem',
-      badgeFontSize: '0.75rem',
-    },
-    compact: {
-      valueFontSize: '1.25rem',
-      labelFontSize: '0.8125rem',
-      unitFontSize: '0.75rem',
-      badgePadding: '0.125rem 0.375rem',
-      badgeFontSize: '0.6875rem',
-    },
-  }[size];
-
   if (isLoading) {
     return (
       <>
         <div
           style={{
-            fontSize: styles.labelFontSize,
+            fontSize: '0.875rem',
             fontWeight: 500,
             color: '#1e1e1e',
             marginBottom: '0.5rem',
@@ -86,7 +66,7 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
     <>
       <div
         style={{
-          fontSize: styles.labelFontSize,
+          fontSize: '0.875rem',
           fontWeight: 500,
           color: '#1e1e1e',
           marginBottom: '0.5rem',
@@ -106,7 +86,7 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
         {data?.average !== null && data?.average !== undefined && (
           <div
             style={{
-              fontSize: styles.valueFontSize,
+              fontSize: '1.5rem',
               fontWeight: 600,
               color: COLORS.primary,
               fontFamily: 'monospace',
@@ -117,7 +97,7 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
             {metric.unit && (
               <span
                 style={{
-                  fontSize: styles.unitFontSize,
+                  fontSize: '0.75rem',
                   marginLeft: '0.25rem',
                   color: COLORS.neutral,
                 }}
@@ -133,9 +113,9 @@ export function MetricSummary({ metric, owner, repo, size = 'default' }: MetricS
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              padding: styles.badgePadding,
+              padding: '0.25rem 0.5rem',
               borderRadius: '4px',
-              fontSize: styles.badgeFontSize,
+              fontSize: '0.75rem',
               fontWeight: 500,
               backgroundColor:
                 sentiment === 'positive'

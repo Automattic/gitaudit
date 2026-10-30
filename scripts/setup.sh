@@ -16,7 +16,7 @@ if [ ! -f server/.env ]; then
     echo ""
     echo "[1/4] Creating server/.env..."
     cat > server/.env << EOF
-# GitHub OAuth (required for GitHub sync, optional for test data)
+# GitHub OAuth (required for GitHub sign-in, optional for test data)
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 
@@ -62,16 +62,14 @@ echo "=============================================="
 echo "Setup Complete!"
 echo "=============================================="
 echo ""
-echo "Test data has been loaded for WordPress/gutenberg with:"
-echo "  - 20 issues (bugs, stale issues, feature requests)"
-echo "  - 12 pull requests (various states)"
-echo "  - 7 performance metrics with 30 days of data"
+echo "Test data has been loaded for two repositories, each with 9 metrics"
+echo "and 60 days of history: WordPress/gutenberg and testdev/internal-tools."
 echo ""
 echo "To start the app:"
 echo "  npm run dev"
 echo ""
-echo "Then open http://localhost:3000 and add WordPress/gutenberg"
-echo "to your repositories to see the pre-loaded test data."
+echo "Then open http://localhost:3000, or use the sign-in link printed above"
+echo "to get to the signed-in pages as the test user."
 echo ""
-echo "(Optional) To sync real GitHub data, add OAuth credentials to server/.env"
+echo "(Optional) To sign in with GitHub, add OAuth credentials to server/.env"
 echo ""

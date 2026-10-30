@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Page from '@/components/page';
 import { MetricsDashboardContent } from '@/components/metrics-dashboard-content';
-import { repoStatusQueryOptions } from '@/data/queries/repos';
+import { repoInfoQueryOptions } from '@/data/queries/metrics';
 
 /**
  * Authenticated metrics dashboard page (within RepositoryLayout)
@@ -10,11 +10,11 @@ import { repoStatusQueryOptions } from '@/data/queries/repos';
 function MetricsDashboard() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
 
-  const { data: repoStatus } = useQuery(repoStatusQueryOptions(owner!, repo!));
+  const { data: repoInfo } = useQuery(repoInfoQueryOptions(owner!, repo!));
 
   // Get repo URL for commit links
   const repoUrl =
-    repoStatus?.url || (repoStatus?.isGithub ? `https://github.com/${owner}/${repo}` : undefined);
+    repoInfo?.url || (repoInfo?.isGithub ? `https://github.com/${owner}/${repo}` : undefined);
 
   return (
     <Page title="Performance Metrics" description="Track performance trends over time">

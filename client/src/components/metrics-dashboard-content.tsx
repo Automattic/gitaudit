@@ -349,7 +349,7 @@ function MetricCard({
         minWidth: '150px',
       }}
     >
-      <MetricSummary metric={metric} owner={owner} repo={repo} size="default" />
+      <MetricSummary metric={metric} owner={owner} repo={repo} />
     </div>
   );
 }

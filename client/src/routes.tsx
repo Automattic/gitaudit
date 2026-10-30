@@ -1,16 +1,10 @@
-import { Navigate, redirect, type LoaderFunctionArgs } from 'react-router-dom';
+import { Navigate, redirect, useParams, type LoaderFunctionArgs } from 'react-router-dom';
 import { queryClient } from './data/queries/query-client';
 import { repoPermissionQueryOptions } from './data/queries/repos';
 import Homepage from './pages/homepage';
 import Login from './pages/login';
 import AuthCallback from './pages/auth-callback';
 import RepoSelector from './pages/repo-selector';
-import Dashboard from './pages/dashboard';
-import Bugs from './pages/bugs';
-import Stale from './pages/stale';
-import StalePRs from './pages/stale-prs';
-import Community from './pages/community';
-import Features from './pages/features';
 import Settings from './pages/settings';
 import MetricsDashboard from './pages/metrics-dashboard';
 import PublicMetricsDashboard from './pages/public-metrics-dashboard';
@@ -48,6 +42,11 @@ export async function repositoryLayoutLoader({ params, request }: LoaderFunction
   return null;
 }
 
+function RedirectToMetrics() {
+  const { owner, repo } = useParams<{ owner: string; repo: string }>();
+  return <Navigate to={`/repos/${owner}/${repo}/metrics`} replace />;
+}
+
 export const routes = [
   {
     path: '/login',
@@ -73,72 +72,7 @@ export const routes = [
     children: [
       {
         index: true,
-        element: <Dashboard />,
-      },
-      {
-        path: 'bugs',
-        children: [
-          {
-            index: true,
-            element: <Navigate to="all" replace />,
-          },
-          {
-            path: ':tabId',
-            element: <Bugs />,
-          },
-        ],
-      },
-      {
-        path: 'stale',
-        children: [
-          {
-            index: true,
-            element: <Navigate to="all" replace />,
-          },
-          {
-            path: ':tabId',
-            element: <Stale />,
-          },
-        ],
-      },
-      {
-        path: 'community',
-        children: [
-          {
-            index: true,
-            element: <Navigate to="all" replace />,
-          },
-          {
-            path: ':tabId',
-            element: <Community />,
-          },
-        ],
-      },
-      {
-        path: 'features',
-        children: [
-          {
-            index: true,
-            element: <Navigate to="all" replace />,
-          },
-          {
-            path: ':tabId',
-            element: <Features />,
-          },
-        ],
-      },
-      {
-        path: 'stale-prs',
-        children: [
-          {
-            index: true,
-            element: <Navigate to="all" replace />,
-          },
-          {
-            path: ':tabId',
-            element: <StalePRs />,
-          },
-        ],
+        element: <RedirectToMetrics />,
       },
       {
         path: 'metrics',
@@ -149,13 +83,18 @@ export const routes = [
         children: [
           {
             index: true,
-            element: <Navigate to="general" replace />,
+            element: <Navigate to="metrics" replace />,
           },
           {
             path: ':section',
             element: <Settings />,
           },
         ],
+      },
+      {
+        // Links to the removed issue and PR reports
+        path: '*',
+        element: <RedirectToMetrics />,
       },
     ],
   },

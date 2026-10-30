@@ -45,7 +45,6 @@ function RepoSelector() {
   }
 
   function handleSelectRepo(repo: Repository) {
-    // Navigate to dashboard for all repos (dashboard handles GitHub vs non-GitHub)
     navigate(`/repos/${repo.owner}/${repo.name}`);
   }
 
@@ -61,7 +60,7 @@ function RepoSelector() {
   return (
     <Page
         title="My Repositories"
-        description="Choose a repository to audit its issues"
+        description="Choose a repository to view its metrics"
         actions={
           <Button variant="primary" onClick={() => setIsModalOpen(true)}>
             Add Repository

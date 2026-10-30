@@ -1,11 +1,8 @@
 import { useParams, Outlet } from "react-router-dom";
-import { __experimentalHStack as HStack } from "@wordpress/components";
 import { useQuery } from "@tanstack/react-query";
-import { repoPermissionQueryOptions, repoStatusQueryOptions } from "../data/queries/repos";
-import Logo from "./shared/logo";
-import UserMenu from "./shared/user-menu";
-import RefreshButton from "./shared/refresh-button";
-import SidebarNavLink from "./shared/sidebar-nav-link";
+import { repoPermissionQueryOptions } from "../data/queries/repos";
+import SiteHeader, { SITE_HEADER_HEIGHT } from "../components/site-header";
+import HeaderNavLink from "./shared/header-nav-link";
 
 function RepositoryLayout() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
@@ -15,111 +12,57 @@ function RepositoryLayout() {
     repoPermissionQueryOptions(owner!, repo!)
   );
 
-  // Get repo status to determine if it's a GitHub repo
-  const { data: statusData } = useQuery({
-    ...repoStatusQueryOptions(owner!, repo!),
-    refetchInterval: false, // Don't poll for layout purposes
-  });
-
-  const isGithub = statusData?.isGithub ?? true; // Default to true for backward compat
   const isAdmin = permissionData?.isAdmin ?? false;
 
-  // For non-GitHub repos, show settings if user is the owner (permission check handles this)
-  const showSettings = isGithub ? isAdmin : permissionData?.isAdmin ?? false;
-
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
-      {/* Sidebar */}
-      <aside
+    <div style={{ minHeight: "100vh", backgroundColor: "#f6f7f7", paddingTop: SITE_HEADER_HEIGHT }}>
+      <SiteHeader />
+
+      {/* Sub-header with the repo and its pages */}
+      <div
         style={{
-          width: "260px",
-          backgroundColor: "white",
-          borderRight: "1px solid rgba(0, 0, 0, 0.1)",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "auto",
+          backgroundColor: "#fff",
+          borderBottom: "1px solid #e0e0e0",
+          padding: "0.75rem 2rem",
         }}
       >
-        {/* Logo */}
-        <Logo />
-
-        {/* Active Repo Section */}
         <div
           style={{
-            padding: "0.5rem 1.5rem",
+            maxWidth: "1200px",
+            margin: "0 auto",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.5rem 1.5rem",
           }}
         >
-          <HStack justify="space-between" alignment="center" spacing={2}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div
-                style={{
-                  fontWeight: 600,
-                  color: "#1e1e1e",
-                  fontSize: "0.9rem",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-                title={`${owner}/${repo}`}
-              >
-                {owner}/{repo}
-              </div>
-            </div>
+          <span
+            style={{
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: "#1e1e1e",
+              minWidth: 0,
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={`${owner}/${repo}`}
+          >
+            {owner}/{repo}
+          </span>
 
-            {isGithub && <RefreshButton owner={owner!} repo={repo!} />}
-          </HStack>
-        </div>
-
-        {/* Navigation Menu */}
-        <nav style={{ paddingTop: "2rem", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div>
-            <SidebarNavLink to={`/repos/${owner}/${repo}`} end>
-              Dashboard
-            </SidebarNavLink>
-            {isGithub && (
-              <>
-                <SidebarNavLink to={`/repos/${owner}/${repo}/bugs`}>
-                  Important Bugs
-                </SidebarNavLink>
-                <SidebarNavLink to={`/repos/${owner}/${repo}/stale`}>
-                  Stale Issues
-                </SidebarNavLink>
-                <SidebarNavLink to={`/repos/${owner}/${repo}/features`}>
-                  Feature Requests
-                </SidebarNavLink>
-                <SidebarNavLink to={`/repos/${owner}/${repo}/community`}>
-                  Community Health
-                </SidebarNavLink>
-                <SidebarNavLink to={`/repos/${owner}/${repo}/stale-prs`}>
-                  Stale PRs
-                </SidebarNavLink>
-              </>
+          <nav style={{ display: "flex", gap: "1rem" }}>
+            <HeaderNavLink to={`/repos/${owner}/${repo}/metrics`}>Metrics</HeaderNavLink>
+            {isAdmin && (
+              <HeaderNavLink to={`/repos/${owner}/${repo}/settings`}>Settings</HeaderNavLink>
             )}
-            <SidebarNavLink to={`/repos/${owner}/${repo}/metrics`}>
-              Metrics
-            </SidebarNavLink>
-          </div>
-          {showSettings && (
-            <div>
-              <SidebarNavLink to={`/repos/${owner}/${repo}/settings`}>
-                Settings
-              </SidebarNavLink>
-            </div>
-          )}
-        </nav>
+          </nav>
+        </div>
+      </div>
 
-        {/* User Menu */}
-        <UserMenu />
-      </aside>
-
-      {/* Main Content */}
-      <main
-        style={{
-          flex: 1,
-          backgroundColor: "#f6f7f7",
-          overflow: "auto",
-        }}
-      >
+      <main>
         <Outlet />
       </main>
     </div>

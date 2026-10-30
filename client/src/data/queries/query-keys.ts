@@ -15,49 +15,7 @@ export const queryKeys = {
     browse: (limit?: number) => [...queryKeys.repos.all(), 'browse', { limit }] as const,
     search: (query: string) => [...queryKeys.repos.all(), 'search', query] as const,
     detail: (owner: string, repo: string) => [...queryKeys.repos.all(), owner, repo] as const,
-    status: (owner: string, repo: string) => [...queryKeys.repos.detail(owner, repo), 'status'] as const,
     permission: (owner: string, repo: string) => [...queryKeys.repos.detail(owner, repo), 'permission'] as const,
-  },
-
-  // Issues keys
-  issues: {
-    all: () => ['issues'] as const,
-    repo: (owner: string, repo: string) => [...queryKeys.issues.all(), owner, repo] as const,
-    list: (
-      owner: string,
-      repo: string,
-      params: {
-        page: number;
-        per_page: number;
-        scoreType: string;
-        issueType?: string;
-        level?: string;
-        search?: string;
-      }
-    ) => [...queryKeys.issues.repo(owner, repo), 'list', params] as const,
-  },
-
-  // PRs keys
-  prs: {
-    all: () => ['prs'] as const,
-    repo: (owner: string, repo: string) => [...queryKeys.prs.all(), owner, repo] as const,
-    list: (
-      owner: string,
-      repo: string,
-      params: {
-        page: number;
-        per_page: number;
-        scoreType?: string;
-        level?: string;
-        search?: string;
-      }
-    ) => [...queryKeys.prs.repo(owner, repo), 'list', params] as const,
-  },
-
-  // Settings keys
-  settings: {
-    all: () => ['settings'] as const,
-    repo: (owner: string, repo: string) => [...queryKeys.settings.all(), owner, repo] as const,
   },
 
   // Metrics keys (for performance tracking)
