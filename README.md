@@ -190,7 +190,7 @@ A space needs these variables, set with `sf env set <name> --secret --value-from
 
 ### Importing data
 
-`scripts/import-to-spacefast.mjs` copies a SQLite database into a space through those admin routes. Rows keep their ids, so it's safe to run again, and it compares row counts when it finishes. Use `--new-only` for the final sync before switching DNS. While a space is private, set `SPACE_TOKEN` to a machine token from `sf share token create`.
+`scripts/import-to-spacefast.mjs` copies a SQLite database into a space through those admin routes. Rows keep their ids, so it's safe to run again, and it compares row counts when it finishes. Use `--new-only` for the final sync before switching DNS, and once more afterwards for anything that reached Railway while DNS moved. Rows made on a space start at a reserved id, so they can't collide with Railway's. While a space is private, set `SPACE_TOKEN` to a machine token from `sf share token create`.
 
 ### Platform limits
 

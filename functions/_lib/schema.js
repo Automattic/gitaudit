@@ -77,3 +77,16 @@ export const SCHEMA = [
     CONSTRAINT fk_perf_metric FOREIGN KEY (metric_id) REFERENCES metrics (id) ON DELETE CASCADE
   ) ${OPTIONS}`,
 ];
+
+// Rows made on the space start here, well above any id on Railway. While DNS moves,
+// both are taking writes, and a later sync keeps Railway's ids, so without this the two
+// would collide and the sync would silently skip Railway's rows.
+export const PERF_RESERVED_ID = 1_000_000_000;
+const RESERVED_ID = 1_000_000;
+
+export const RESERVE_IDS = [
+  `ALTER TABLE perf AUTO_INCREMENT = ${PERF_RESERVED_ID}`,
+  `ALTER TABLE metrics AUTO_INCREMENT = ${RESERVED_ID}`,
+  `ALTER TABLE repositories AUTO_INCREMENT = ${RESERVED_ID}`,
+  `ALTER TABLE users AUTO_INCREMENT = ${RESERVED_ID}`,
+];

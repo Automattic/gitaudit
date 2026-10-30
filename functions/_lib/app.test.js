@@ -45,6 +45,7 @@ const session = (githubId, username) => signToken({ githubId, username }, SECRET
 
 async function seed() {
   const now = Date.now();
+  await db.query('DELETE FROM perf');
   await db.query('DELETE FROM repositories');
   await db.query('DELETE FROM users');
   await db.query(
@@ -323,12 +324,24 @@ describe('/api/log', () => {
     assert.deepEqual({ ...row }, { value: 200, raw_value: 100 });
   });
 
-  it('keeps stored values exact', async () => {
+  it('keeps stored values accurate', async () => {
     await addMetrics(1);
-    await post({ metrics: { m0: 0.1 + 0.2 }, hash: 'exact' });
+    await post({ metrics: { m0: 181.91799926757812 }, hash: 'accurate' });
 
-    const [[row]] = await db.query("SELECT value FROM perf WHERE hash = 'exact'");
-    assert.equal(row.value, 0.1 + 0.2);
+    // JSON_TABLE can round the last bit of a double, which is far below what charts show
+    const [[row]] = await db.query("SELECT value FROM perf WHERE hash = 'accurate'");
+    assert.ok(Math.abs(row.value - 181.91799926757812) < 1e-9);
+  });
+
+  it('keeps runs that share a timestamp in the order they arrived', async () => {
+    await addMetrics(1);
+    await post({ metrics: { m0: 1 }, hash: 'first' });
+    await post({ metrics: { m0: 2 }, hash: 'second' });
+
+    const [[metric]] = await db.query("SELECT id FROM metrics WHERE `key` = 'm0'");
+    const { body } = await call('GET', `/api/repos/org/web/perf/evolution/${metric.id}?limit=10`);
+
+    assert.deepEqual(body.data.map((point) => point.hash), ['first', 'second']);
   });
 
   it('rejects an unknown token', async () => {
@@ -340,6 +353,45 @@ describe('admin routes', () => {
   it('do not exist without a migration key', async () => {
     assert.equal((await call('POST', '/api/admin/schema')).status, 404);
     assert.equal((await call('GET', '/api/admin/status')).status, 404);
+  });
+});
+
+describe('syncing while both hosts take writes', () => {
+  const migrationEnv = () => ({ ...env, MIGRATION_KEY: 'key' });
+
+  async function admin(method, path, body) {
+    const response = await handler(
+      new Request(`http://codevitals.test${path}`, {
+        method,
+        headers: { 'x-migration-key': 'key' },
+        body: body && JSON.stringify(body),
+      }),
+      { env: migrationEnv() }
+    );
+    return response.json();
+  }
+
+  it('keeps rows from Railway that arrive after the space went live', async () => {
+    await db.query("INSERT INTO metrics (id, repo_id, `key`, name, created_at) VALUES (5, 1, 'm0', 'M', 0)");
+    await admin('POST', '/api/admin/schema');
+    await admin('POST', '/api/admin/import/perf', {
+      rows: [[100, 1, 'trunk', 'before', 5, 1, 1, 1000]],
+    });
+
+    // CI reaches the space first, then a row posted to Railway in the meantime is synced
+    await call('POST', '/api/log?token=web-token', {
+      body: { metrics: { m0: 2 }, hash: 'on-space', branch: 'trunk', timestamp: '2026-10-30T12:00:00Z' },
+    });
+    const { perfMaxId } = await admin('GET', '/api/admin/status');
+    await admin('POST', '/api/admin/import/perf', {
+      rows: [[101, 1, 'trunk', 'on-railway', 5, 3, 3, 2000]],
+    });
+
+    assert.equal(perfMaxId, 100);
+
+    const [rows] = await db.query('SELECT id, hash FROM perf ORDER BY id');
+    assert.deepEqual(rows.map((row) => row.hash), ['before', 'on-railway', 'on-space']);
+    assert.ok(rows[2].id >= 1_000_000_000);
   });
 });
 
