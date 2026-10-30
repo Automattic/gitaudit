@@ -41,7 +41,7 @@ label,
 }
 
 @media (max-width: 480px) {
-  .site-header__username {
+  .site-header__wide-only {
     display: none;
   }
 }

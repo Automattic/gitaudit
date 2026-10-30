@@ -56,9 +56,11 @@ function SiteHeader() {
 
         {isAuthenticated ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <HeaderNavLink to="/repos">Repositories</HeaderNavLink>
+            <HeaderNavLink to="/repos">
+              <span className="site-header__wide-only">My </span>Repositories
+            </HeaderNavLink>
             <span
-              className="site-header__username"
+              className="site-header__wide-only"
               style={{ fontSize: '0.875rem', color: '#666', fontWeight: 500 }}
             >
               @{user?.username}
