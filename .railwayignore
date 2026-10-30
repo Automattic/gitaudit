@@ -1,8 +1,0 @@
-node_modules/
-.git/
-*.log
-.env
-.DS_Store
-client/dist/
-server/codevitals.db
-*.db

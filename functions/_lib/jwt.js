@@ -1,5 +1,4 @@
-// Session tokens, in the same HS256 format as jsonwebtoken, so sessions survive the
-// move from the Express server. A worker has WebCrypto rather than node:crypto.
+// Session tokens, signed with HS256. A worker has WebCrypto rather than node:crypto.
 const encoder = new TextEncoder();
 
 const toBase64Url = (bytes) =>

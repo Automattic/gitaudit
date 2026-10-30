@@ -2,7 +2,6 @@
 // limits, with GitHub stubbed. Start the database with `npm run db:start` first.
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it, mock } from 'node:test';
-import jsonwebtoken from 'jsonwebtoken';
 import { createLocalDb } from '../../scripts/local-db.mjs';
 import handler from './app.js';
 import { signToken, verifyToken } from './jwt.js';
@@ -87,21 +86,10 @@ beforeEach(async () => {
 });
 
 describe('sessions', () => {
-  it('accepts tokens issued by the Express server', async () => {
-    const legacy = jsonwebtoken.sign({ githubId: 100, username: 'ada' }, SECRET, { expiresIn: '30d' });
-    assert.equal((await verifyToken(legacy, SECRET)).username, 'ada');
-    assert.equal((await call('GET', '/auth/verify', { token: legacy })).body.user.username, 'ada');
-  });
-
-  it('issues tokens jsonwebtoken can read', async () => {
-    const token = await session(100, 'ada');
-    assert.equal(jsonwebtoken.verify(token, SECRET).githubId, 100);
-  });
-
   it('rejects tampered and expired tokens', async () => {
     const [header, payload] = (await session(100, 'ada')).split('.');
-    const forged = jsonwebtoken.sign({ githubId: 200 }, 'other-secret');
-    const expired = jsonwebtoken.sign({ githubId: 100 }, SECRET, { expiresIn: -10 });
+    const forged = await signToken({ githubId: 200 }, 'other-secret', 60);
+    const expired = await signToken({ githubId: 100 }, SECRET, -10);
 
     assert.equal((await call('GET', '/auth/verify', { token: forged })).status, 403);
     assert.equal((await call('GET', '/auth/verify', { token: expired })).status, 403);
@@ -404,46 +392,18 @@ describe('metrics token', () => {
 describe('admin routes', () => {
   it('do not exist without a migration key', async () => {
     assert.equal((await call('POST', '/api/admin/schema')).status, 404);
-    assert.equal((await call('GET', '/api/admin/status')).status, 404);
   });
-});
 
-describe('syncing while both hosts take writes', () => {
-  const migrationEnv = () => ({ ...env, MIGRATION_KEY: 'key' });
-
-  async function admin(method, path, body) {
+  it('create the tables with the key', async () => {
     const response = await handler(
-      new Request(`http://codevitals.test${path}`, {
-        method,
+      new Request('http://codevitals.test/api/admin/schema', {
+        method: 'POST',
         headers: { 'x-migration-key': 'key' },
-        body: body && JSON.stringify(body),
       }),
-      { env: migrationEnv() }
+      { env: { ...env, MIGRATION_KEY: 'key' } }
     );
-    return response.json();
-  }
 
-  it('keeps rows from Railway that arrive after the space went live', async () => {
-    await db.query("INSERT INTO metrics (id, repo_id, `key`, name, created_at) VALUES (5, 1, 'm0', 'M', 0)");
-    await admin('POST', '/api/admin/schema');
-    await admin('POST', '/api/admin/import/perf', {
-      rows: [[100, 1, 'trunk', 'before', 5, 1, 1, 1000]],
-    });
-
-    // CI reaches the space first, then a row posted to Railway in the meantime is synced
-    await call('POST', '/api/log?token=web-token', {
-      body: { metrics: { m0: 2 }, hash: 'on-space', branch: 'trunk', timestamp: '2026-10-30T12:00:00Z' },
-    });
-    const { perfMaxId } = await admin('GET', '/api/admin/status');
-    await admin('POST', '/api/admin/import/perf', {
-      rows: [[101, 1, 'trunk', 'on-railway', 5, 3, 3, 2000]],
-    });
-
-    assert.equal(perfMaxId, 100);
-
-    const [rows] = await db.query('SELECT id, hash FROM perf ORDER BY id');
-    assert.deepEqual(rows.map((row) => row.hash), ['before', 'on-railway', 'on-space']);
-    assert.ok(rows[2].id >= 1_000_000_000);
+    assert.equal(response.status, 200);
   });
 });
 

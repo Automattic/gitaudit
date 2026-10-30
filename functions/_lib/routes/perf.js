@@ -1,6 +1,6 @@
-import { recentAverages, RECENT_VALUES } from '../../../server/src/utils/averages.js';
-import { lttbDownsample } from '../../../server/src/utils/lttb.js';
-import { detectRegressions } from '../../../server/src/utils/regressions.js';
+import { recentAverages, RECENT_VALUES } from '../averages.js';
+import { lttbDownsample } from '../lttb.js';
+import { detectRegressions } from '../regressions.js';
 import { optionalAuth, requireRepositoryAccessOrPublic } from '../auth.js';
 import { HttpError, json } from '../http.js';
 import { findLatestValuesByMetric, findMetric, findMetrics, findPerf } from '../queries.js';

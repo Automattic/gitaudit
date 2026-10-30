@@ -4,7 +4,6 @@ import { Button } from '@wordpress/components';
 import { MetricsDashboardContent } from '@/components/metrics-dashboard-content';
 import SiteHeader, { SITE_HEADER_HEIGHT } from '@/components/site-header';
 import { repoInfoQueryOptions } from '@/data/queries/metrics';
-import { isMcpEnabled } from '@/lib/mcp';
 
 /**
  * Public metrics dashboard page (no authentication required)
@@ -48,17 +47,15 @@ function PublicMetricsDashboard() {
             >
               Performance Metrics
             </span>
-            {isMcpEnabled && (
-              <div style={{ marginLeft: 'auto' }}>
-                <Button
-                  variant="secondary"
-                  size="compact"
-                  onClick={() => navigate(`/connect?project=${owner}/${repo}`)}
-                >
-                  Ask an AI assistant
-                </Button>
-              </div>
-            )}
+            <div style={{ marginLeft: 'auto' }}>
+              <Button
+                variant="secondary"
+                size="compact"
+                onClick={() => navigate(`/connect?project=${owner}/${repo}`)}
+              >
+                Ask an AI assistant
+              </Button>
+            </div>
           </div>
         </div>
       </div>

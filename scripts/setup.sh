@@ -11,11 +11,11 @@ echo "=============================================="
 # Generate session secret
 SESSION_SECRET=$(openssl rand -hex 32)
 
-# Server .env
-if [ ! -f server/.env ]; then
+# .env
+if [ ! -f .env ]; then
     echo ""
-    echo "[1/4] Creating server/.env..."
-    cat > server/.env << EOF
+    echo "[1/4] Creating .env..."
+    cat > .env << EOF
 # GitHub OAuth (required for GitHub sign-in, optional for test data)
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
@@ -23,39 +23,33 @@ GITHUB_CLIENT_SECRET=
 # Session secret (auto-generated)
 SESSION_SECRET=$SESSION_SECRET
 
-# Server config
-PORT=3001
+# Where sign-in returns to
 CLIENT_URL=http://localhost:3000
-
-# Database path (local development)
-DATABASE_PATH=./codevitals.db
 EOF
-    echo "  Created server/.env"
+    echo "  Created .env"
 else
-    echo "[1/4] server/.env already exists, skipping"
-fi
-
-# Client .env
-if [ ! -f client/.env ]; then
-    echo ""
-    echo "[2/4] Creating client/.env..."
-    cat > client/.env << EOF
-VITE_API_URL=http://localhost:3001
-EOF
-    echo "  Created client/.env"
-else
-    echo "[2/4] client/.env already exists, skipping"
+    echo "[1/4] .env already exists, skipping"
 fi
 
 # Install dependencies
 echo ""
-echo "[3/4] Installing dependencies..."
+echo "[2/4] Installing dependencies..."
 npm install
+
+# Start the database
+echo ""
+echo "[3/4] Starting MariaDB..."
+if [ -z "$(docker ps -q --filter name=codevitals-db)" ]; then
+    npm run db:start
+fi
+until docker exec codevitals-db healthcheck.sh --connect --innodb_initialized > /dev/null 2>&1; do
+    sleep 1
+done
 
 # Seed database with test data
 echo ""
 echo "[4/4] Seeding database with test data..."
-npm run seed:reset --workspace=server
+npm run seed:reset
 
 echo ""
 echo "=============================================="
@@ -71,5 +65,5 @@ echo ""
 echo "Then open http://localhost:3000, or use the sign-in link printed above"
 echo "to get to the signed-in pages as the test user."
 echo ""
-echo "(Optional) To sign in with GitHub, add OAuth credentials to server/.env"
+echo "(Optional) To sign in with GitHub, add OAuth credentials to .env"
 echo ""

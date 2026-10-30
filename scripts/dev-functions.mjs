@@ -8,13 +8,12 @@ import handler from '../functions/_lib/app.js';
 import * as mcp from '../functions/mcp.js';
 import { createLocalDb } from './local-db.mjs';
 
-dotenv.config({ path: new URL('../server/.env', import.meta.url).pathname });
+dotenv.config({ path: new URL('../.env', import.meta.url).pathname });
 
 const port = 3001;
 const env = {
   ...process.env,
   DB: createLocalDb(process.env.LOCAL_DB_URL ?? 'mysql://root:codevitals@127.0.0.1:3307/codevitals'),
-  MIGRATION_KEY: process.env.MIGRATION_KEY ?? 'local-dev-migration-key',
 };
 
 createServer(async (incoming, outgoing) => {

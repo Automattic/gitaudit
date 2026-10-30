@@ -1,4 +1,4 @@
-import { recentAverages, RECENT_VALUES } from '../../../server/src/utils/averages.js';
+import { recentAverages, RECENT_VALUES } from '../averages.js';
 import { json } from '../http.js';
 import { findLatestValuesByMetric, findPublicRepoMetrics, findPublicRepos } from '../queries.js';
 

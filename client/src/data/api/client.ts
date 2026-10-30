@@ -1,8 +1,5 @@
 import { ApiError } from './types';
 
-// Empty on Spacefast, where the API is on the same origin as the client
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
-
 /**
  * API Error class for structured error handling
  */
@@ -33,7 +30,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(endpoint, {
     ...options,
     headers,
   });

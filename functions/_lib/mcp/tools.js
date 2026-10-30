@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { recentAverages, RECENT_VALUES } from '../../../server/src/utils/averages.js';
+import { recentAverages, RECENT_VALUES } from '../averages.js';
 import {
   findLatestPerfByMetric,
   findMetrics,

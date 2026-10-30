@@ -11,7 +11,6 @@ import PublicMetricsDashboard from './pages/public-metrics-dashboard';
 import Connect from './pages/connect';
 import RepositoryLayout from './layouts/repository-layout';
 import AppLayout from './layouts/app-layout';
-import { isMcpEnabled } from './lib/mcp';
 
 // Helper to check authentication and redirect if needed
 function checkAuth(request: Request) {
@@ -104,7 +103,10 @@ export const routes = [
     path: '/public/:owner/:repo/metrics',
     element: <PublicMetricsDashboard />,
   },
-  ...(isMcpEnabled ? [{ path: '/connect', element: <Connect /> }] : []),
+  {
+    path: '/connect',
+    element: <Connect />,
+  },
   {
     path: '/',
     element: <Homepage />,
