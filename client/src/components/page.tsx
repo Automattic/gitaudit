@@ -20,21 +20,19 @@ function Page({ title, description, actions, children }: PageProps) {
       {/* Header */}
       <div style={{
         display: 'flex',
+        flexWrap: 'wrap',
+        gap: '0.75rem 1rem',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: '1.5rem'
       }}>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: '1 1 260px' }}>
           <h2 style={{ marginBottom: description ? '0.5rem' : 0 }}>{title}</h2>
           {description && (
             <p style={{ color: '#666', margin: 0, fontSize: '0.9rem' }}>{description}</p>
           )}
         </div>
-        {actions && (
-          <div style={{ marginLeft: '1rem' }}>
-            {actions}
-          </div>
-        )}
+        {actions && <div>{actions}</div>}
       </div>
 
       {/* Content */}

@@ -8,6 +8,7 @@ CodeVitals tracks performance metrics for code repositories. Your CI reports a s
 - **Regression detection**: Flags changes above 10%, with an optional per-metric noise floor
 - **Baseline normalization**: Compares runs fairly across machines by reporting a base commit alongside each result
 - **Public dashboards**: Share a repository's metrics without requiring sign-in
+- **MCP server**: Ask an AI assistant about any project with a public dashboard
 - **GitHub and custom repositories**: Track a GitHub repository, or any other repository by URL
 
 ## Tech Stack
@@ -100,6 +101,20 @@ Only keys that match a metric defined for the repository are stored. Report size
 
 This endpoint is used by CI in several projects outside this repository, so its URL and request format need to stay stable.
 
+### Asking an AI Assistant
+
+`/mcp` is a [Model Context Protocol](https://modelcontextprotocol.io/) server, so assistants can answer questions about the projects with public dashboards. It's read-only and needs no sign-in, and the `/connect` page shows how to add it to an assistant. It runs on Spacefast only, so it isn't on the Railway deployment.
+
+| Tool | |
+| --- | --- |
+| `list_projects` | The public projects, and when each last reported |
+| `list_metrics` | What a project measures, with recent levels and how they moved |
+| `get_metric_history` | A metric over a period, one value per commit |
+| `find_changes` | Lasting changes, and the commit each started at |
+| `compare_commits` | Every metric at a commit, against the commits before it or another commit |
+
+`find_changes` doesn't use the regression flags on the charts, which compare each point with the one before it, so most of them are noise that the next commit undoes. `functions/_lib/steps.js` looks for lasting changes instead, comparing the 15 commits either side of each commit. It was tuned by shuffling each metric's public history, which removes real changes and keeps the noise, so whatever it finds there is a false positive: about one across all 133 metrics, against 25 changes in the real data.
+
 ## Project Structure
 
 ```
@@ -112,6 +127,7 @@ codevitals/
 │       ├── layouts/     # Page layouts
 │       ├── pages/       # Application pages
 │       └── utils/       # Utility functions
+├── functions/           # The API, MCP server and step detection, as Spacefast Functions
 ├── server/              # Node.js backend (Express + SQLite)
 │   └── src/
 │       ├── db/          # Database setup and queries
@@ -199,7 +215,10 @@ These aren't in Spacefast's docs, so they're worth knowing when changing queries
 - A statement can have 256 bound parameters at most, and a database operation can be 64 KB at most. Rows go in as one JSON parameter through `JSON_TABLE` for that reason.
 - About 8 simultaneous requests get 429s, so a page shouldn't send a request per metric.
 - Each query is a network call of about 55 ms, so reads that belong together are joined into one query.
-- Route files must export named HTTP methods. A bundled `export default` isn't detected.
+- Route files must export named HTTP methods. A bundled `export default` isn't detected, and neither are exports followed by a comment, which is why the build strips license comments.
+- All routes run as one worker, so a dependency in one route adds to the startup of all of them. The MCP SDK takes the worker from 157 KB to about 880 KB, which added about 30 ms to warm requests and up to 700 ms to the first one after a deploy.
+- `functions/` can't serve paths in dot directories like `.well-known`. `_redirects` can, and the build uses it to answer the paths assistants check for a sign-in server, which would otherwise get the app's page and a 200.
+- On a private space, a machine token's `/*` only covers one path level, and a 404 rule also needs the token to cover its destination.
 
 ## Acknowledgments
 

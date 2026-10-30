@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardBody, Notice, Spinner } from '@wordpress/components';
+import { Button, Card, CardBody, Notice, Spinner } from '@wordpress/components';
 import Page from '../components/page';
 import SiteHeader, { SITE_HEADER_HEIGHT } from '../components/site-header';
 import { publicReposQueryOptions } from '../data/queries/public-repos';
 import type { PublicRepo, PublicRepoMetric } from '../data/api/public-repos/types';
 import { formatValueWithUnit } from '../lib/format';
+import { isMcpEnabled } from '../lib/mcp';
 
 /**
  * Mini sparkline component using SVG
@@ -273,6 +274,8 @@ function FooterSection() {
  * Homepage component
  */
 function Homepage() {
+  const navigate = useNavigate();
+
   return (
     <div
       style={{
@@ -288,6 +291,13 @@ function Homepage() {
         <Page
           title="Performance dashboards"
           description="Open source projects tracking their performance, commit by commit."
+          actions={
+            isMcpEnabled && (
+              <Button variant="secondary" size="compact" onClick={() => navigate('/connect')}>
+                Ask an AI assistant
+              </Button>
+            )
+          }
         >
           <PublicDashboards />
         </Page>

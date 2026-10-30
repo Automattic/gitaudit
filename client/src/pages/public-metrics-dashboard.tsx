@@ -1,14 +1,17 @@
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Button } from '@wordpress/components';
 import { MetricsDashboardContent } from '@/components/metrics-dashboard-content';
 import SiteHeader, { SITE_HEADER_HEIGHT } from '@/components/site-header';
 import { repoInfoQueryOptions } from '@/data/queries/metrics';
+import { isMcpEnabled } from '@/lib/mcp';
 
 /**
  * Public metrics dashboard page (no authentication required)
  */
 function PublicMetricsDashboard() {
   const { owner, repo } = useParams<{ owner: string; repo: string }>();
+  const navigate = useNavigate();
 
   const { data: repoInfo } = useQuery(repoInfoQueryOptions(owner!, repo!));
 
@@ -30,7 +33,7 @@ function PublicMetricsDashboard() {
         }}
       >
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '1.25rem', fontWeight: 600, color: '#1e1e1e' }}>
               {owner}/{repo}
             </span>
@@ -45,6 +48,17 @@ function PublicMetricsDashboard() {
             >
               Performance Metrics
             </span>
+            {isMcpEnabled && (
+              <div style={{ marginLeft: 'auto' }}>
+                <Button
+                  variant="secondary"
+                  size="compact"
+                  onClick={() => navigate(`/connect?project=${owner}/${repo}`)}
+                >
+                  Ask an AI assistant
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

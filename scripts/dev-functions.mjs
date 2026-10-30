@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import dotenv from 'dotenv';
 import handler from '../functions/_lib/app.js';
+import * as mcp from '../functions/mcp.js';
 import { createLocalDb } from './local-db.mjs';
 
 dotenv.config({ path: new URL('../server/.env', import.meta.url).pathname });
@@ -25,7 +26,11 @@ createServer(async (incoming, outgoing) => {
     duplex: hasBody ? 'half' : undefined,
   });
 
-  const response = await handler(request, { env, params: {} });
+  // On Spacefast the file router picks the route, and answers 405 for the rest
+  const isMcp = new URL(request.url).pathname === '/mcp';
+  const route = isMcp ? mcp[request.method] ?? (() => new Response(null, { status: 405 })) : handler;
+
+  const response = await route(request, { env, params: {} });
   outgoing.writeHead(response.status, Object.fromEntries(response.headers));
   outgoing.end(Buffer.from(await response.arrayBuffer()));
 }).listen(port, () => console.log(`Functions running on http://localhost:${port}`));
