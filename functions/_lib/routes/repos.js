@@ -5,11 +5,7 @@ import {
   requireRepositoryAdmin,
   resolveRole,
 } from '../auth.js';
-import {
-  fetchRepositoryPermission,
-  fetchUserRepositories,
-  searchRepositories,
-} from '../github.js';
+import { fetchRepository, fetchUserRepositories, searchRepositories } from '../github.js';
 import { HttpError, json, readJson } from '../http.js';
 import {
   createLocalRepo,
@@ -60,34 +56,49 @@ export function repoRoutes(router) {
     return json({ repos: await searchRepositories(await githubToken(context), q) });
   });
 
-  // Save a repository to user's list
+  // Save a repository to user's list. Everything stored comes from GitHub, so a request
+  // can only name a repository the user can see, and can't change what's known about it.
   router.post('/api/repos/save', authenticate, async (context) => {
     const { db, request, user } = context;
-    const { owner, name, githubId, description, stars, language, languageColor, updatedAt, isPrivate } =
-      await readJson(request);
+    const { owner, name } = await readJson(request);
 
-    if (!owner || !name || !githubId) {
-      throw new HttpError(400, 'Missing required fields: owner, name, githubId');
+    if (!owner || !name) {
+      throw new HttpError(400, 'Missing required fields: owner, name');
     }
 
-    // Check GitHub permission to determine role, denying admin if GitHub can't say
-    const permission = await fetchRepositoryPermission(await githubToken(context), owner, name).catch(
-      () => null
-    );
-    const role = permission === 'ADMIN' ? 'admin' : 'member';
+    const accessToken = await githubToken(context);
+    const github = await fetchRepository(accessToken, owner, name).catch((error) => {
+      console.error(`[Repos] Failed to read ${owner}/${name} from GitHub:`, error.message);
+      throw new HttpError(502, 'Could not reach GitHub. Please try again.');
+    });
+
+    if (!github) {
+      throw new HttpError(403, 'Access denied', {
+        message: 'You do not have access to this repository',
+      });
+    }
+
+    // A custom repository can share a GitHub repository's name, and roles on it are never
+    // checked with GitHub, so saving the GitHub one must not join it
+    const existing = await findRepo(db, github.owner.login, github.name);
+    if (existing && !Number(existing.is_github)) {
+      throw new HttpError(409, 'A custom repository already uses this name');
+    }
+
+    const role = github.viewerPermission === 'ADMIN' ? 'admin' : 'member';
 
     const repo = await saveGithubRepo(
       db,
       {
-        owner,
-        name,
-        githubId,
-        description: description || null,
-        stars: stars || 0,
-        language: language || null,
-        languageColor: languageColor || null,
-        updatedAt: updatedAt ? Date.parse(updatedAt) : null,
-        isPrivate: isPrivate ? 1 : 0,
+        owner: github.owner.login,
+        name: github.name,
+        githubId: github.databaseId,
+        description: github.description,
+        stars: github.stargazerCount,
+        language: github.primaryLanguage?.name ?? null,
+        languageColor: github.primaryLanguage?.color ?? null,
+        updatedAt: Date.parse(github.updatedAt),
+        isPrivate: github.isPrivate ? 1 : 0,
       },
       user.id,
       role,
